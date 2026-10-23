@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -11,8 +11,17 @@ const USERS_TABLE         = 'aura-users';
 const DAILY_BUDGETS_TABLE = 'aura-daily-budgets';
 const BUCKET_NAME         = 'aura-app-media-570934198135';
 
-const DAILY_BUDGET_REGULAR = 500;
-const DAILY_BUDGET_PREMIUM = 2000;
+// Keep RULES, AURA_VERSION and AD_COOLDOWN_MS in sync with aura-aura, which enforces them
+const RULES = {
+  regular: { loginBonus: 200, freeGive: 50,  giveCap: 500,  takeCap: 250  },
+  premium: { loginBonus: 800, freeGive: 200, giveCap: 2000, takeCap: 1000 },
+};
+const AURA_VERSION   = 2;
+const AD_COOLDOWN_MS = 60 * 60 * 1000;
+const AURA_FIELDS = [
+  'auraBalance', 'auraEarned', 'auraSpendable', 'lifetimeEarned', 'lifetimeReceived',
+  'lifetimeGiven', 'lifetimeTaken', 'lifetimeLost',
+];
 
 // Usernames are reserved with items keyed `USERNAME#<name>` in the users table.
 // They carry ownerId but no `username` attribute, so username scans never match them.
@@ -32,6 +41,8 @@ const PRIVATE_FIELDS = [
   'notificationPrefs', 'commentVisibilityDefault',
   'usernameChangeCount', 'usernameChangedAt', 'usernameReserved',
   'usernamePlaceholder', 'usernameConflict',
+  'auraEarned', 'auraSpendable', 'lifetimeEarned', 'lifetimeReceived',
+  'lifetimeGiven', 'lifetimeTaken', 'lifetimeLost', 'lastAdAt', 'auraVersion',
 ];
 
 function response(statusCode, body) {
@@ -51,8 +62,27 @@ function today() {
 }
 
 function stripPrivate(user) {
+  // Balances from before the earned/spendable split are reset on first use, so show them as 0 until then
+  if (user.auraVersion !== AURA_VERSION) user.auraBalance = 0;
   for (const field of PRIVATE_FIELDS) delete user[field];
   return user;
+}
+
+// Same reset as aura-aura's getAuraAccount
+async function migrateAura(user) {
+  if (user.auraVersion === AURA_VERSION) return user;
+  try {
+    await db.send(new UpdateCommand({
+      TableName:        USERS_TABLE,
+      Key:              { userId: user.userId },
+      UpdateExpression: `SET ${AURA_FIELDS.map(f => `${f} = :zero`).join(', ')}, auraVersion = :v`,
+      ConditionExpression:       'attribute_not_exists(auraVersion)',
+      ExpressionAttributeValues: { ':zero': 0, ':v': AURA_VERSION },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+  }
+  return getUser(user.userId, true);
 }
 
 function reservationKey(username) {
@@ -277,9 +307,8 @@ async function createUser(userId, email, requestedUsername, fallbackOnConflict =
     accountType:    'regular',
     isPremium:      false,
     isCreator:      false,
-    auraBalance:    0,
-    auraEarned:     0,
-    auraSpendable:  0,
+    ...Object.fromEntries(AURA_FIELDS.map(f => [f, 0])),
+    auraVersion:    AURA_VERSION,
     followerCount:  0,
     followingCount: 0,
     totalPostViews: 0,
@@ -321,31 +350,24 @@ async function createUser(userId, email, requestedUsername, fallbackOnConflict =
   return { user };
 }
 
-async function getDailyBudget(userId, isPremium) {
-  const key = `${userId}#${today()}`;
-
+// Today's allowances for the wallet. Read-only: aura-aura writes the daily record.
+async function getToday(user) {
   const result = await db.send(new GetCommand({
     TableName: DAILY_BUDGETS_TABLE,
-    Key: { budgetKey: key },
+    Key: { budgetKey: `${user.userId}#${today()}` },
   }));
+  const day   = result.Item ?? {};
+  const rules = user.isPremium ? RULES.premium : RULES.regular;
+  const nextAdAt = user.lastAdAt ? new Date(Date.parse(user.lastAdAt) + AD_COOLDOWN_MS) : null;
 
-  if (result.Item) return result.Item;
-
-  const budget = {
-    budgetKey:   key,
-    userId,
-    date:        today(),
-    budgetTotal: isPremium ? DAILY_BUDGET_PREMIUM : DAILY_BUDGET_REGULAR,
-    budgetUsed:  0,
-    adWatchedAt: null,
+  return {
+    date:       today(),
+    bonus:      { amount: rules.loginBonus, claimed: !!day.bonusClaimed },
+    freeGive:   { used: day.freeGiveUsed   ?? 0, limit: rules.freeGive },
+    walletGive: { used: day.walletGiveUsed ?? 0, limit: rules.giveCap },
+    take:       { used: day.takeUsed       ?? 0, limit: rules.takeCap },
+    nextAdAt:   nextAdAt && nextAdAt > new Date() ? nextAdAt.toISOString() : null,
   };
-
-  await db.send(new PutCommand({
-    TableName: DAILY_BUDGETS_TABLE,
-    Item: budget,
-  }));
-
-  return budget;
 }
 
 async function updateProfile(userId, body) {
@@ -492,10 +514,11 @@ export const handler = async (event) => {
         user = created.user;
       } else {
         user = await ensureReservation(user);
+        user = await migrateAura(user);
       }
 
-      const budget = await getDailyBudget(userId, user.isPremium);
-      return response(200, { ...user, budget, usernameStatus: usernameStatus(user) });
+      const todayStatus = await getToday(user);
+      return response(200, { ...user, today: todayStatus, usernameStatus: usernameStatus(user) });
     }
 
     // GET /users/{username} — get public profile

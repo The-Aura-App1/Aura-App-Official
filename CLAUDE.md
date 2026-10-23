@@ -38,11 +38,14 @@
 - Usernames are stored lowercase. Posts denormalize authorUsername, authorDisplay and authorPicKey. Changing a profile calls POST /posts/fix-author to backfill them.
 - Several handlers use ScanCommand. Replace them with GSIs before launch.
 - Never enforce limits only on the frontend. Lambdas must enforce all aura limits.
+- Balances: `auraEarned` (cashable) and `auraSpendable` on the user record; `auraBalance` is kept equal to their sum for display. Lifetime counters: `lifetimeEarned`, `lifetimeReceived`, `lifetimeGiven`, `lifetimeTaken`, `lifetimeLost`. Records without `auraVersion: 2` predate the split and are reset to 0 on first use.
+- aura-aura is the only writer of balances. It logs every change to aura-transactions with its earned/spendable split. Daily usage lives in aura-daily-budgets under `<userId>#<UTC date>`; per-source and per-post counters use other keys in the same table.
+- The daily limits (`RULES`) are defined in both aura-aura (enforces) and aura-users (reports `today` on GET /users/me). Change both together.
 
 ## Economy (final)
 
 - Daily free aura: regular 250, premium 1,000 (login bonus plus free give quota).
-- 10,000 aura starts at $1. Only the dollar value of 10,000 aura floats with the treasury. The rate shifts gradually and never drops below the starting value.
+- 10,000 aura starts at $1. Only the dollar value of 10,000 aura floats with the treasury. The rate shifts gradually.
 - Treasury is seeded with $100. After that, 50% of net profit goes into the treasury and 50% to the owner.
 - Cashout: $20 minimum, verified creator account only ($20/year), 18+ only. Creator receives 75%, platform keeps 25%.
 - Earned aura (cashable) comes only from others giving to your posts or Moments. Login bonus, free quota, aura taken from others, game winnings and power-up aura are spendable and never cashable.

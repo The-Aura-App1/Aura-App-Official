@@ -1,21 +1,30 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
 const POSTS_TABLE          = 'aura-posts';
+const COMMENTS_TABLE       = 'aura-comments';
 const USERS_TABLE          = 'aura-users';
 const TRANSACTIONS_TABLE   = 'aura-transactions';
 const DAILY_BUDGETS_TABLE  = 'aura-daily-budgets';
 
-const LIMITS = {
-  regular: { give: 5,  take: 3  },
-  premium: { give: 15, take: 8  },
+// Keep RULES and AURA_VERSION in sync with aura-users, which reports today's limits
+const RULES = {
+  regular: { loginBonus: 200, freeGive: 50,  giveCap: 500,  takeCap: 250  },
+  premium: { loginBonus: 800, freeGive: 200, giveCap: 2000, takeCap: 1000 },
 };
+const AURA_VERSION = 2;
 
-const DAILY_BUDGET = {
-  regular: 100,
-  premium: 400,
+const MAX_TAKE_PER_TARGET    = 50;
+const MAX_EARNED_PER_SOURCE  = 500;   // per giver, per recipient, per day
+const NEW_ACCOUNT_DAYS       = 7;     // gifts from younger accounts are spendable
+const AD_REWARD              = 25;
+const AD_COOLDOWN_MS         = 60 * 60 * 1000;
+
+const TARGETS = {
+  posts:    { table: POSTS_TABLE,    key: 'postId',    type: 'post'    },
+  comments: { table: COMMENTS_TABLE, key: 'commentId', type: 'comment' },
 };
 
 function response(statusCode, body) {
@@ -38,214 +47,350 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// ─── Get or create daily budget ───────────────────────────────
-async function getDailyBudget(userId, isPremium) {
-  const key = `${userId}#${today()}`;
+function rulesFor(user) {
+  return user.isPremium ? RULES.premium : RULES.regular;
+}
+
+// ─── Balances ─────────────────────────────────────────────────
+// Accounts from before the earned/spendable split are reset to 0 on first use.
+// auraBalance is kept equal to auraEarned + auraSpendable for display.
+async function getAuraAccount(userId) {
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:        USERS_TABLE,
+      Key:              { userId },
+      UpdateExpression: `SET auraBalance = :zero, auraEarned = :zero, auraSpendable = :zero,
+                             lifetimeEarned = :zero, lifetimeReceived = :zero, lifetimeGiven = :zero,
+                             lifetimeTaken = :zero, lifetimeLost = :zero, auraVersion = :v`,
+      ConditionExpression:       'attribute_exists(userId) AND attribute_not_exists(auraVersion)',
+      ExpressionAttributeValues: { ':zero': 0, ':v': AURA_VERSION },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+  }
 
   const result = await dynamo.send(new GetCommand({
-    TableName: DAILY_BUDGETS_TABLE,
-    Key: { budgetKey: key },
-  }));
-
-  if (result.Item) return result.Item;
-
-  const budget = {
-    budgetKey:   key,
-    userId,
-    date:        today(),
-    budgetTotal: isPremium ? DAILY_BUDGET.premium : DAILY_BUDGET.regular,
-    budgetUsed:  0,
-    adWatchedAt: null,
-  };
-
-  await dynamo.send(new PutCommand({
-    TableName: DAILY_BUDGETS_TABLE,
-    Item: budget,
-  }));
-
-  return budget;
-}
-
-// ─── Give or take aura ────────────────────────────────────────
-async function transactAura(fromUserId, postId, amount, type) {
-  // 1. Get the giver
-  const giverResult = await dynamo.send(new GetCommand({
-    TableName: USERS_TABLE,
-    Key: { userId: fromUserId },
-  }));
-  if (!giverResult.Item) return response(404, { error: 'User not found.' });
-
-  const giver = giverResult.Item;
-  if (giver.isBanned) return response(403, { error: 'Account banned.' });
-
-  // 2. Get the post
-  const postResult = await dynamo.send(new GetCommand({
-    TableName: POSTS_TABLE,
-    Key: { postId },
-  }));
-  if (!postResult.Item) return response(404, { error: 'Post not found.' });
-  if (postResult.Item.status !== 'active') return response(404, { error: 'Post not found.' });
-
-  const post = postResult.Item;
-
-  // 3. Prevent self-aura
-  if (post.authorId === fromUserId) {
-    return response(403, { error: 'You cannot give or take aura on your own post.' });
-  }
-
-  // 4. Check limits
-  const isPremium = giver.isPremium;
-  const limits    = isPremium ? LIMITS.premium : LIMITS.regular;
-  const absAmount = Math.abs(amount);
-
-  if (type === 'give' && absAmount > limits.give) {
-    return response(400, { error: `Maximum ${limits.give} aura per give action.` });
-  }
-  if (type === 'take' && absAmount > limits.take) {
-    return response(400, { error: `Maximum ${limits.take} aura per take action.` });
-  }
-
-  // 5. Check daily budget
-  const budget = await getDailyBudget(fromUserId, isPremium);
-  const budgetRemaining = budget.budgetTotal - budget.budgetUsed;
-
-  if (budgetRemaining < absAmount) {
-    return response(400, {
-      error: `Not enough daily aura budget. You have ${budgetRemaining} remaining.`,
-      budgetRemaining,
-    });
-  }
-
-  // 6. Calculate aura changes
-  const scoreDelta  = type === 'give' ? absAmount : -absAmount;
-  const authorDelta = type === 'give' ? absAmount : -absAmount;
-
-  // 7. Atomic transaction — all or nothing
-  const transactionId = generateId();
-  const now           = new Date().toISOString();
-  const budgetKey     = `${fromUserId}#${today()}`;
-
-  await dynamo.send(new TransactWriteCommand({
-    TransactItems: [
-      // Deduct from giver's daily budget
-      {
-        Update: {
-          TableName:                 DAILY_BUDGETS_TABLE,
-          Key:                       { budgetKey },
-          UpdateExpression:          'ADD budgetUsed :amount',
-          ConditionExpression:       'budgetUsed + :amount <= budgetTotal',
-          ExpressionAttributeValues: { ':amount': absAmount },
-        },
-      },
-      // Update post aura score
-      {
-        Update: {
-          TableName:        POSTS_TABLE,
-          Key:              { postId },
-          UpdateExpression: type === 'give'
-            ? 'ADD auraScore :delta, auraReceived :abs'
-            : 'ADD auraScore :delta, auraTaken :abs',
-          ExpressionAttributeValues: {
-            ':delta': scoreDelta,
-            ':abs':   absAmount,
-          },
-        },
-      },
-      // Update author's aura balance
-      {
-        Update: {
-          TableName:                 USERS_TABLE,
-          Key:                       { userId: post.authorId },
-          UpdateExpression:          'ADD auraBalance :delta',
-          ConditionExpression:       type === 'take'
-            ? 'auraBalance >= :abs'
-            : 'attribute_exists(userId)',
-          ExpressionAttributeValues: {
-            ':delta': authorDelta,
-            ':abs':   absAmount,
-          },
-        },
-      },
-      // Write transaction record
-      {
-        Put: {
-          TableName: TRANSACTIONS_TABLE,
-          Item: {
-            transactionId,
-            fromUserId,
-            toUserId:  post.authorId,
-            postId,
-            amount:    scoreDelta,
-            type,
-            createdAt: now,
-            status:    'settled',
-          },
-        },
-      },
-    ],
-  }));
-
-  return response(200, {
-    message:    `${type === 'give' ? 'Gave' : 'Took'} ${absAmount} aura.`,
-    scoreDelta,
-    transactionId,
-    budgetRemaining: budgetRemaining - absAmount,
-  });
-}
-
-// ─── Watch ad for aura ────────────────────────────────────────
-async function watchAd(userId) {
-  const userResult = await dynamo.send(new GetCommand({
     TableName: USERS_TABLE,
     Key: { userId },
   }));
-  if (!userResult.Item) return response(404, { error: 'User not found.' });
+  return result.Item ?? null;
+}
 
-  const isPremium = userResult.Item.isPremium;
-  const budgetKey = `${userId}#${today()}`;
-  const budget    = await getDailyBudget(userId, isPremium);
+// ─── Daily usage ──────────────────────────────────────────────
+// One record per user per UTC day. Missing counters start at 0, which also
+// upgrades records written before the split.
+async function getDay(userId) {
+  const result = await dynamo.send(new UpdateCommand({
+    TableName:        DAILY_BUDGETS_TABLE,
+    Key:              { budgetKey: `${userId}#${today()}` },
+    UpdateExpression: `SET userId = :u, #date = :d,
+                           freeGiveUsed   = if_not_exists(freeGiveUsed, :zero),
+                           walletGiveUsed = if_not_exists(walletGiveUsed, :zero),
+                           takeUsed       = if_not_exists(takeUsed, :zero),
+                           bonusClaimed   = if_not_exists(bonusClaimed, :f)`,
+    ExpressionAttributeNames:  { '#date': 'date' },
+    ExpressionAttributeValues: { ':u': userId, ':d': today(), ':zero': 0, ':f': false },
+    ReturnValues: 'ALL_NEW',
+  }));
+  return result.Attributes;
+}
 
-  // Check hourly cooldown
-  if (budget.adWatchedAt) {
-    const lastWatch = new Date(budget.adWatchedAt);
-    const hourAgo   = new Date(Date.now() - 60 * 60 * 1000);
-    if (lastWatch > hourAgo) {
-      const minutesLeft = Math.ceil((lastWatch - hourAgo) / 60000);
-      return response(429, {
-        error: `Ad cooldown active. Try again in ${minutesLeft} minutes.`,
-        minutesLeft,
+async function getCounter(budgetKey, field) {
+  const result = await dynamo.send(new GetCommand({
+    TableName: DAILY_BUDGETS_TABLE,
+    Key: { budgetKey },
+  }));
+  return result.Item?.[field] ?? 0;
+}
+
+// Adds :amount to a counter in the budgets table, failing if it would pass max
+function counterUpdate(budgetKey, field, amount, max) {
+  return {
+    Update: {
+      TableName:                 DAILY_BUDGETS_TABLE,
+      Key:                       { budgetKey },
+      UpdateExpression:          'ADD #f :amount',
+      ConditionExpression:       'attribute_not_exists(#f) OR #f <= :limit',
+      ExpressionAttributeNames:  { '#f': field },
+      ExpressionAttributeValues: { ':amount': amount, ':limit': max - amount },
+    },
+  };
+}
+
+function balanceUpdate(userId, adds, extraCondition = null, extraValues = {}) {
+  const fields = Object.entries(adds);
+  return {
+    Update: {
+      TableName:        USERS_TABLE,
+      Key:              { userId },
+      UpdateExpression: `ADD ${fields.map(([f]) => `${f} :${f}`).join(', ')}`,
+      ConditionExpression: ['auraVersion = :v', extraCondition].filter(Boolean).join(' AND '),
+      ExpressionAttributeValues: {
+        ':v': AURA_VERSION,
+        ...Object.fromEntries(fields.map(([f, v]) => [`:${f}`, v])),
+        ...extraValues,
+      },
+    },
+  };
+}
+
+function transactionRecord(fields) {
+  return {
+    Put: {
+      TableName: TRANSACTIONS_TABLE,
+      Item: { transactionId: generateId(), createdAt: new Date().toISOString(), status: 'settled', ...fields },
+    },
+  };
+}
+
+// Runs the writes all-or-nothing. messages[i] explains a failed condition on items[i].
+async function commit(items, messages) {
+  try {
+    await dynamo.send(new TransactWriteCommand({ TransactItems: items }));
+    return null;
+  } catch (err) {
+    if (err.name !== 'TransactionCanceledException') throw err;
+    const failed = (err.CancellationReasons ?? []).findIndex(r => r?.Code === 'ConditionalCheckFailed');
+    return response(409, { error: messages[failed] ?? 'Something changed while saving. Please try again.' });
+  }
+}
+
+// ─── Targets ──────────────────────────────────────────────────
+async function getTarget(collection, targetId) {
+  const target = TARGETS[collection];
+  const result = await dynamo.send(new GetCommand({
+    TableName: target.table,
+    Key: { [target.key]: targetId },
+  }));
+  if (!result.Item || result.Item.status !== 'active') return null;
+  return { ...target, id: targetId, item: result.Item };
+}
+
+function targetUpdate(target, scoreDelta, counterField, amount) {
+  return {
+    Update: {
+      TableName:                 target.table,
+      Key:                       { [target.key]: target.id },
+      UpdateExpression:          `ADD auraScore :delta, ${counterField} :abs`,
+      ConditionExpression:       '#status = :active',
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':delta': scoreDelta, ':abs': amount, ':active': 'active' },
+    },
+  };
+}
+
+function targetFields(target) {
+  return {
+    targetType: target.type,
+    targetId:   target.id,
+    postId:     target.type === 'post' ? target.id : target.item.postId,
+  };
+}
+
+// ─── Give ─────────────────────────────────────────────────────
+// Free gives are used first, then spendable aura from the wallet. The recipient
+// gets earned aura, except gifts from new accounts and anything past the
+// per-source daily cap, which arrive as spendable.
+async function giveAura(giver, target, amount) {
+  const rules = rulesFor(giver);
+  if (amount > rules.freeGive + rules.giveCap) {
+    return response(400, { error: `You can give at most ${rules.freeGive + rules.giveCap} aura a day.` });
+  }
+
+  const day        = await getDay(giver.userId);
+  const freeLeft   = Math.max(0, rules.freeGive - day.freeGiveUsed);
+  const fromFree   = Math.min(amount, freeLeft);
+  const fromWallet = amount - fromFree;
+
+  if (fromWallet > 0) {
+    const walletLeft = Math.max(0, rules.giveCap - day.walletGiveUsed);
+    if (fromWallet > walletLeft) {
+      return response(400, { error: `You can give ${freeLeft + walletLeft} more aura today.` });
+    }
+    if ((giver.auraSpendable ?? 0) < fromWallet) {
+      return response(400, {
+        error: freeLeft > 0
+          ? `You have ${freeLeft} free aura left today and ${Math.max(0, giver.auraSpendable ?? 0)} spendable aura.`
+          : `Not enough spendable aura. You have ${Math.max(0, giver.auraSpendable ?? 0)}.`,
       });
     }
   }
 
-  const adReward = 5;
-  const now      = new Date().toISOString();
+  const authorId = target.item.authorId;
+  const author   = await getAuraAccount(authorId);
+  if (!author) return response(404, { error: 'Author not found.' });
 
-  // Award aura + update cooldown
-  await dynamo.send(new TransactWriteCommand({
-    TransactItems: [
-      {
-        Update: {
-          TableName:                 USERS_TABLE,
-          Key:                       { userId },
-          UpdateExpression:          'ADD auraBalance :reward',
-          ExpressionAttributeValues: { ':reward': adReward },
+  const sourceKey  = `${giver.userId}#to#${authorId}#${today()}`;
+  const accountAge = giver.createdAt ? Date.now() - Date.parse(giver.createdAt) : 0;
+  let earned = 0;
+  if (accountAge >= NEW_ACCOUNT_DAYS * 24 * 60 * 60 * 1000) {
+    const alreadyEarned = await getCounter(sourceKey, 'earnedGiven');
+    earned = Math.min(amount, Math.max(0, MAX_EARNED_PER_SOURCE - alreadyEarned));
+  }
+  const spendable = amount - earned;
+
+  const items = [
+    {
+      Update: {
+        TableName:                 DAILY_BUDGETS_TABLE,
+        Key:                       { budgetKey: `${giver.userId}#${today()}` },
+        UpdateExpression:          'ADD freeGiveUsed :free, walletGiveUsed :wallet',
+        ConditionExpression:       'freeGiveUsed <= :freeLimit AND walletGiveUsed <= :walletLimit',
+        ExpressionAttributeValues: {
+          ':free': fromFree, ':wallet': fromWallet,
+          ':freeLimit': rules.freeGive - fromFree, ':walletLimit': rules.giveCap - fromWallet,
         },
       },
-      {
-        Update: {
-          TableName:                 DAILY_BUDGETS_TABLE,
-          Key:                       { budgetKey },
-          UpdateExpression:          'SET adWatchedAt = :now',
-          ExpressionAttributeValues: { ':now': now },
-        },
-      },
-    ],
+    },
+    fromWallet > 0
+      ? balanceUpdate(giver.userId, { auraSpendable: -fromWallet, auraBalance: -fromWallet, lifetimeGiven: amount },
+          'auraSpendable >= :needed', { ':needed': fromWallet })
+      : balanceUpdate(giver.userId, { lifetimeGiven: amount }),
+    balanceUpdate(authorId, {
+      auraEarned: earned, auraSpendable: spendable, auraBalance: amount,
+      lifetimeEarned: earned, lifetimeReceived: amount,
+    }),
+    targetUpdate(target, amount, 'auraReceived', amount),
+  ];
+  const messages = [
+    'Daily give limit reached.',
+    'Not enough spendable aura.',
+    'Author not found.',
+    'That post or comment is no longer available.',
+  ];
+
+  if (earned > 0) {
+    items.push(counterUpdate(sourceKey, 'earnedGiven', earned, MAX_EARNED_PER_SOURCE));
+    messages.push('Something changed while saving. Please try again.');
+  }
+
+  items.push(transactionRecord({
+    type: 'give', fromUserId: giver.userId, toUserId: authorId, ...targetFields(target),
+    amount, fromFree, fromWallet, earnedAmount: earned, spendableAmount: spendable,
   }));
 
+  const error = await commit(items, messages);
+  if (error) return error;
+
   return response(200, {
-    message:   `You earned ${adReward} aura for watching an ad.`,
-    auraEarned: adReward,
+    message:   `Gave ${amount} aura.`,
+    scoreDelta: amount,
+    fromFree,
+    fromWallet,
+  });
+}
+
+// ─── Take ─────────────────────────────────────────────────────
+// Moves aura from the author's spendable balance (which may go negative) to the
+// taker's spendable balance. Limited per day and per post or comment.
+async function takeAura(taker, target, amount) {
+  const rules = rulesFor(taker);
+  if (amount > MAX_TAKE_PER_TARGET) {
+    return response(400, { error: `You can take at most ${MAX_TAKE_PER_TARGET} aura from one ${target.type}.` });
+  }
+
+  const day      = await getDay(taker.userId);
+  const takeLeft = Math.max(0, rules.takeCap - day.takeUsed);
+  if (amount > takeLeft) {
+    return response(400, { error: `You can take ${takeLeft} more aura today.` });
+  }
+
+  const perTargetKey = `${taker.userId}#take#${target.type}#${target.id}`;
+  const takenHere    = await getCounter(perTargetKey, 'taken');
+  if (takenHere + amount > MAX_TAKE_PER_TARGET) {
+    return response(400, {
+      error: `You can take ${Math.max(0, MAX_TAKE_PER_TARGET - takenHere)} more aura from this ${target.type}.`,
+    });
+  }
+
+  const authorId = target.item.authorId;
+  const author   = await getAuraAccount(authorId);
+  if (!author) return response(404, { error: 'Author not found.' });
+
+  const items = [
+    counterUpdate(`${taker.userId}#${today()}`, 'takeUsed', amount, rules.takeCap),
+    counterUpdate(perTargetKey, 'taken', amount, MAX_TAKE_PER_TARGET),
+    balanceUpdate(authorId, { auraSpendable: -amount, auraBalance: -amount, lifetimeLost: amount }),
+    balanceUpdate(taker.userId, { auraSpendable: amount, auraBalance: amount, lifetimeTaken: amount }),
+    targetUpdate(target, -amount, 'auraTaken', amount),
+    transactionRecord({
+      type: 'take', fromUserId: authorId, toUserId: taker.userId, takenBy: taker.userId,
+      ...targetFields(target), amount: -amount,
+    }),
+  ];
+  const messages = [
+    'Daily take limit reached.',
+    `Take limit for this ${target.type} reached.`,
+    'Author not found.',
+    'Something changed while saving. Please try again.',
+    'That post or comment is no longer available.',
+  ];
+
+  const error = await commit(items, messages);
+  if (error) return error;
+
+  return response(200, {
+    message:   `Took ${amount} aura.`,
+    scoreDelta: -amount,
+  });
+}
+
+// ─── Daily login bonus ────────────────────────────────────────
+async function claimDailyBonus(user) {
+  const { loginBonus } = rulesFor(user);
+  const day = await getDay(user.userId);
+  if (day.bonusClaimed) return response(409, { error: 'You already claimed today\'s bonus.' });
+
+  const error = await commit([
+    {
+      Update: {
+        TableName:                 DAILY_BUDGETS_TABLE,
+        Key:                       { budgetKey: `${user.userId}#${today()}` },
+        UpdateExpression:          'SET bonusClaimed = :t',
+        ConditionExpression:       'bonusClaimed = :f',
+        ExpressionAttributeValues: { ':t': true, ':f': false },
+      },
+    },
+    balanceUpdate(user.userId, { auraSpendable: loginBonus, auraBalance: loginBonus }),
+    transactionRecord({ type: 'bonus', toUserId: user.userId, amount: loginBonus }),
+  ], [
+    'You already claimed today\'s bonus.',
+  ]);
+  if (error) return error;
+
+  return response(200, { message: `Claimed ${loginBonus} aura.`, amount: loginBonus });
+}
+
+// ─── Watch ad for aura ────────────────────────────────────────
+// The cooldown lives on the user record so it doesn't reset at midnight.
+async function watchAd(user) {
+  const cutoff = new Date(Date.now() - AD_COOLDOWN_MS).toISOString();
+  if (user.lastAdAt && user.lastAdAt > cutoff) {
+    const minutesLeft = Math.ceil((Date.parse(user.lastAdAt) + AD_COOLDOWN_MS - Date.now()) / 60000);
+    return response(429, { error: `Ad cooldown active. Try again in ${minutesLeft} minutes.`, minutesLeft });
+  }
+
+  const now = new Date().toISOString();
+  const error = await commit([
+    {
+      Update: {
+        TableName:                 USERS_TABLE,
+        Key:                       { userId: user.userId },
+        UpdateExpression:          'SET lastAdAt = :now ADD auraSpendable :reward, auraBalance :reward',
+        ConditionExpression:       'auraVersion = :v AND (attribute_not_exists(lastAdAt) OR lastAdAt <= :cutoff)',
+        ExpressionAttributeValues: { ':now': now, ':reward': AD_REWARD, ':v': AURA_VERSION, ':cutoff': cutoff },
+      },
+    },
+    transactionRecord({ type: 'ad', toUserId: user.userId, amount: AD_REWARD }),
+  ], [
+    'Ad cooldown active. Try again later.',
+  ]);
+  if (error) return error;
+
+  return response(200, {
+    message:    `You earned ${AD_REWARD} aura for watching an ad.`,
+    amount:     AD_REWARD,
+    nextAdAt:   new Date(Date.parse(now) + AD_COOLDOWN_MS).toISOString(),
   });
 }
 
@@ -261,32 +406,43 @@ export const handler = async (event) => {
     const body     = JSON.parse(event.body ?? '{}');
     const segments = path.split('/').filter(Boolean);
 
-    // POST /posts/{id}/aura/give
-    if (method === 'POST' && segments[0] === 'posts' && segments[2] === 'aura' && segments[3] === 'give') {
-      const postId = segments[1];
-      const amount = Math.min(Math.abs(body.amount ?? 1), 15);
-      return await transactAura(userId, postId, amount, 'give');
+    const user = await getAuraAccount(userId);
+    if (!user) return response(404, { error: 'User not found.' });
+    if (user.isBanned) return response(403, { error: 'Account banned.' });
+
+    // POST /posts/{id}/aura/{give|take} and POST /comments/{id}/aura/{give|take}
+    if (method === 'POST' && TARGETS[segments[0]] && segments[2] === 'aura'
+        && (segments[3] === 'give' || segments[3] === 'take') && segments.length === 4) {
+      const amount = body.amount === undefined ? 1 : body.amount;
+      if (!Number.isInteger(amount) || amount < 1) {
+        return response(400, { error: 'Amount must be a whole number of at least 1.' });
+      }
+
+      const target = await getTarget(segments[0], segments[1]);
+      if (!target) return response(404, { error: 'Post or comment not found.' });
+      if (target.item.authorId === userId) {
+        return response(403, { error: 'You cannot give or take aura on your own content.' });
+      }
+
+      return segments[3] === 'give'
+        ? await giveAura(user, target, amount)
+        : await takeAura(user, target, amount);
     }
 
-    // POST /posts/{id}/aura/take
-    if (method === 'POST' && segments[0] === 'posts' && segments[2] === 'aura' && segments[3] === 'take') {
-      const postId = segments[1];
-      const amount = Math.min(Math.abs(body.amount ?? 1), 8);
-      return await transactAura(userId, postId, amount, 'take');
+    // POST /aura/daily-bonus
+    if (method === 'POST' && path === '/aura/daily-bonus') {
+      return await claimDailyBonus(user);
     }
 
     // POST /ads/watch
     if (method === 'POST' && path === '/ads/watch') {
-      return await watchAd(userId);
+      return await watchAd(user);
     }
 
     return response(404, { error: 'Route not found.' });
 
   } catch (err) {
     console.error(err);
-    if (err.name === 'TransactionCanceledException') {
-      return response(400, { error: 'Transaction failed — budget exceeded or balance too low.' });
-    }
     return response(500, { error: 'Internal server error.' });
   }
 };
