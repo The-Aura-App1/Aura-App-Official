@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import PostCard from '../components/post/PostCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatAura, timeAgo } from '../utils/format';
+import { formatAura, timeAgo, usernameStatusText } from '../utils/format';
 import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
 import { updateUserAttributes } from 'aws-amplify/auth';
 
@@ -45,7 +45,8 @@ const SUGGESTED_TAGS = [
 
 export default function Profile() {
   const { username }   = useParams();
-  const { user, displayName, isPremium, isCreator, refreshUser } = useAuth();
+  const { user, displayName, isPremium, isCreator, refreshUser, dbProfile } = useAuth();
+  const usernameStatus = dbProfile?.usernameStatus;
   const navigate       = useNavigate();
 
   const [profile, setProfile]     = useState(null);
@@ -353,15 +354,23 @@ export default function Profile() {
 
         {/* ── Username ── */}
         {editing ? (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[var(--text-muted)] text-sm">@</span>
-            <input
-              value={editUsername}
-              onChange={e => setEditUsername(e.target.value)}
-              placeholder="username"
-              maxLength={30}
-              className="input text-sm py-1.5"
-            />
+          <div className="mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--text-muted)] text-sm">@</span>
+              <input
+                value={editUsername}
+                onChange={e => setEditUsername(e.target.value)}
+                placeholder="username"
+                maxLength={30}
+                disabled={usernameStatus?.canChange === false}
+                className="input text-sm py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+            </div>
+            {usernameStatus && (
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {usernameStatusText(usernameStatus)}
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-[var(--text-muted)] mb-2">@{profile.username}</p>

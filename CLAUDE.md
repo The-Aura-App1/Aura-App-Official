@@ -34,6 +34,7 @@
 
 - Each Lambda has a response() helper, a handler that parses method/path/segments, and one function per route. Define every function once, above the handler.
 - New API routes need a route in API Gateway with the cognito-auth authorizer where required. That is done manually in the console, not by deploy.ps1.
+- Usernames are unique, enforced by reservation items in aura-users keyed `userId = USERNAME#<name>` (attributes: ownerId, createdAt; no `username` attribute). Any code that scans aura-users must skip keys starting with `USERNAME#`.
 - Usernames are stored lowercase. Posts denormalize authorUsername, authorDisplay and authorPicKey. Changing a profile calls POST /posts/fix-author to backfill them.
 - Several handlers use ScanCommand. Replace them with GSIs before launch.
 - Never enforce limits only on the frontend. Lambdas must enforce all aura limits.
@@ -52,7 +53,7 @@
 ## Product decisions
 
 - Settings: Account, Privacy (including private accounts with follow requests), Notifications, Analytics (mostly behind creator paywall), Danger zone. Creator and payouts live in the Aura Wallet page. A separate Subscriptions page is on hold.
-- Username changes: regular users get 1 change per 30 days and then locked. Premium gets 1 per day.
+- Username changes: regular users get 1 lifetime change, then the username is locked unless they buy premium. Premium gets 1 change per 24 hours. Moving off a placeholder, invalid or duplicate username is free. aura-users enforces this and returns `usernameStatus` on GET /users/me.
 - Premium: ad-free (users can turn ads back on), customizable posts (about 120 fonts, colors, backgrounds), higher limits.
 - Ads: non-personalized, 1 per 10 posts in feed, labeled "Sponsored", native card style, no autoplay.
 - Group games (no house, no rake, player vs player): Connect 4, Poker, Crazy 8s, Go Fish, Dice Duel, Flip a Coin. Skill games first. Stake cap applies.

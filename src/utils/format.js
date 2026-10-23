@@ -20,3 +20,13 @@ export function timeAgo(isoString) {
   if (days  < 7)  return `${days}d`;
   return `${weeks}w`;
 }
+
+// status comes from the usernameStatus field on GET /users/me
+export function usernameStatusText(status) {
+  if (!status) return '';
+  if (status.free)         return 'You can pick your username once without using up your change.';
+  if (status.locked)       return 'Your username is locked. Premium members can change it once a day.';
+  if (status.nextChangeAt) return `Next change available ${new Date(status.nextChangeAt).toLocaleString()}.`;
+  if (status.changesLeft)  return `${status.changesLeft} change left. After that it is locked.`;
+  return 'You can change your username once a day.';
+}
