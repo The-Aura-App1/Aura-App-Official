@@ -13,3 +13,57 @@
   `aura-users`, `aura-posts`, `aura-aura`, `aura-groups`, `aura-comments`, `aura-notifications`.
 - Deploy one function with `.\deploy.ps1 -Name <name>`. The script only accepts the six names above. It builds the zip in a temp folder, deploys it, and prints the function's `LastModified` so you can confirm the deploy.
 - `*.zip` files are gitignored. Never commit deployment packages.
+
+## Rollback
+
+- Deploys overwrite the live function. AWS keeps no undo, so commit before every deploy and deploy only committed code.
+- To roll back one function: find the last good commit with `git log --oneline -- backend/lambdas/<name>/index.mjs`, restore the file with `git checkout <commit> -- backend/lambdas/<name>/index.mjs`, run `.\deploy.ps1 -Name <name>`, confirm LastModified changed and the app works, then commit.
+- git revert or git reset alone does not change the live function. Always redeploy afterward.
+
+## Stack
+
+- Web: React 18 (Create React App) + Tailwind 3 + AWS Amplify auth. Mobile (React Native + Expo) comes before launch.
+- Backend: AWS Lambda (Node ESM, index.mjs) + API Gateway HTTP API + DynamoDB + S3 + Cognito. Region us-east-1.
+- Cognito user pool: us-east-1_fiuEOr0XM. App client: 1b2uhsh7qdlmgbjj5vh09p64ds.
+- API: https://7uob369et4.execute-api.us-east-1.amazonaws.com
+- Media bucket: aura-app-media-570934198135
+- Tables: aura-users, aura-posts, aura-transactions, aura-daily-budgets, aura-groups, aura-group-members, aura-comments, aura-likes, aura-notifications, aura-shares
+- User is on Windows PowerShell. Use PowerShell syntax, not bash.
+
+## Code conventions
+
+- Each Lambda has a response() helper, a handler that parses method/path/segments, and one function per route. Define every function once, above the handler.
+- New API routes need a route in API Gateway with the cognito-auth authorizer where required. That is done manually in the console, not by deploy.ps1.
+- Usernames are stored lowercase. Posts denormalize authorUsername, authorDisplay and authorPicKey. Changing a profile calls POST /posts/fix-author to backfill them.
+- Several handlers use ScanCommand. Replace them with GSIs before launch.
+- Never enforce limits only on the frontend. Lambdas must enforce all aura limits.
+
+## Economy (final)
+
+- Daily free aura: regular 250, premium 1,000 (login bonus plus free give quota).
+- 10,000 aura starts at $1. Only the dollar value of 10,000 aura floats with the treasury. The rate shifts gradually and never drops below the starting value.
+- Treasury is seeded with $100. After that, 50% of net profit goes into the treasury and 50% to the owner.
+- Cashout: $20 minimum, verified creator account only ($20/year), 18+ only. Creator receives 75%, platform keeps 25%.
+- Earned aura (cashable) comes only from others giving to your posts or Moments. Login bonus, free quota, aura taken from others, game winnings and power-up aura are spendable and never cashable.
+- Anti-exploit: max 500 earned aura/day from any one account. Gifts from accounts under 7 days old count as spendable. 30-day account age and 50 unique aura sources are required before the first cashout. Flag same-device or same-IP giving.
+- Carried over from earlier, not re-confirmed: give cap 500/day regular and 2,000/day premium, take cap 250/day regular and 1,000/day premium, max 50 taken per post.
+- Aura is never sold for money. Real money buys only subscriptions (premium $4.99/month) and cosmetics.
+
+## Product decisions
+
+- Settings: Account, Privacy (including private accounts with follow requests), Notifications, Analytics (mostly behind creator paywall), Danger zone. Creator and payouts live in the Aura Wallet page. A separate Subscriptions page is on hold.
+- Username changes: regular users get 1 change per 30 days and then locked. Premium gets 1 per day.
+- Premium: ad-free (users can turn ads back on), customizable posts (about 120 fonts, colors, backgrounds), higher limits.
+- Ads: non-personalized, 1 per 10 posts in feed, labeled "Sponsored", native card style, no autoplay.
+- Group games (no house, no rake, player vs player): Connect 4, Poker, Crazy 8s, Go Fish, Dice Duel, Flip a Coin. Skill games first. Stake cap applies.
+- Moments: group-only dual-camera photos/video, 24-hour expiry unless saved, aura on them counts as earned.
+- Profile: 3 pins max, 10 tags max, badges, global aura rank (hideable).
+
+## Build order
+
+1. Settings page (next), Aura Wallet page, follow system
+2. Post customization, groups UI, games, power-ups, Moments, search, leaderboard
+3. Aura split (earned/spendable), caps, treasury and rate, Stripe, cashout flow, badges and rank
+4. Security pass: WAF, rate limits, cooldowns, input sanitization, signed S3 URLs, CORS, pen testing
+5. React Native app and store submission
+6. Chat (post-launch). Remind the user later about aura-reactive post glow.
