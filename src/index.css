@@ -1,13 +1,75 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary:    #f8f7ff;
+  --bg-secondary:  #ffffff;
+  --bg-elevated:   #ede9fe;
+  --bg-card:       #ffffff;
+  --border:        #ddd6fe;
+  --text-primary:  #1a0a2e;
+  --text-secondary:#5b359e;
+  --text-muted:    #6b7280;
+  --accent:        #7c3aed;
+  --accent-hover:  #6d28d9;
+  --accent-subtle: #ede9fe;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.dark {
+  --bg-primary:    #0d0618;
+  --bg-secondary:  #1a0a2e;
+  --bg-elevated:   #220d3a;
+  --bg-card:       #1a0a2e;
+  --border:        #2d1b4e;
+  --text-primary:  #f8f7ff;
+  --text-secondary:#a78bfa;
+  --text-muted:    #6b7280;
+  --accent:        #7c3aed;
+  --accent-hover:  #8b5cf6;
+  --accent-subtle: #2d1b4e;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-aura-500 hover:bg-aura-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aura-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border border-[var(--border)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aura-500;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium text-sm text-[var(--text-secondary)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200;
+  }
+  .card {
+    @apply bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 shadow-sm transition-all duration-200;
+  }
+  .card-hover {
+    @apply card hover:border-aura-500/50 hover:shadow-aura-sm cursor-pointer;
+  }
+  .input {
+    @apply w-full px-4 py-3 rounded-xl text-sm bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-aura-500 focus:border-transparent transition-all duration-200;
+  }
+  .aura-badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-aura-500/10 text-aura-400 border border-aura-500/20;
+  }
+  .divider { @apply border-t border-[var(--border)] my-4; }
+  .page-container { @apply max-w-screen-xl mx-auto px-4 sm:px-6; }
+}
+
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }

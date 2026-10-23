@@ -1,0 +1,220 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Heart, MessageCircle, Share2, MoreHorizontal,
+  ChevronLeft, ChevronRight, Sparkles
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { api }     from '../../api';
+import AuraModal   from './AuraModal';
+import PostMedia   from './PostMedia';
+import { formatAura, timeAgo } from '../../utils/format';
+
+export default function PostCard({ post, onUpdate }) {
+  const { user }  = useAuth();
+  const isOwner   = user?.userId === post.authorId;
+
+  const [showAuraModal, setShowAuraModal] = useState(false);
+  const [auraType, setAuraType]           = useState('give');
+  const [auraScore, setAuraScore]         = useState(post.auraScore ?? 0);
+  const [liked, setLiked]                 = useState(false);
+  const [liking, setLiking]               = useState(false);
+
+  async function handleLike() {
+    if (liking) return;
+    setLiking(true);
+    try {
+      if (liked) {
+        await api.unlikePost(post.postId);
+        setLiked(false);
+      } else {
+        await api.likePost(post.postId);
+        setLiked(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLiking(false);
+    }
+  }
+
+  function openAura(type) {
+    setAuraType(type);
+    setShowAuraModal(true);
+  }
+
+  function handleAuraSuccess(delta) {
+    setAuraScore(prev => prev + delta);
+    setShowAuraModal(false);
+  }
+
+  return (
+    <>
+      <article className="card p-0 overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-4 py-3">
+          <Link
+            to={`/profile/${post.authorUsername}`}
+            className="flex items-center gap-3"
+          >
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-full bg-aura-500/20 border border-aura-500/30
+                overflow-hidden flex-shrink-0">
+                {post.authorPicKey ? (
+                  <img
+                    src={`https://aura-app-media-570934198135.s3.amazonaws.com/${post.authorPicKey}`}
+                    alt={post.authorDisplay}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-aura-400 text-sm font-bold">
+                      {post.authorDisplay?.[0]?.toUpperCase() ?? '?'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]
+                            hover:text-aura-400 transition-colors">
+                {post.authorDisplay}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {timeAgo(post.createdAt)}
+              </p>
+            </div>
+          </Link>
+
+          <button className="p-2 rounded-lg text-[var(--text-muted)]
+                             hover:bg-[var(--accent-subtle)]
+                             hover:text-[var(--accent)]
+                             transition-all duration-200">
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+
+        {/* ── Media ── */}
+        {post.type !== 'text' && (
+          <PostMedia post={post} />
+        )}
+
+        {/* ── Text post content ── */}
+        {post.type === 'text' && post.caption && (
+          <div className="px-4 py-3">
+            <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">
+              {post.caption}
+            </p>
+          </div>
+        )}
+
+        {/* ── Action bar ── */}
+        <div className="px-4 py-2 flex items-center justify-between">
+
+          {/* Left — Aura buttons */}
+          <div className="flex items-center gap-2">
+            {/* Give Aura */}
+            <button
+              onClick={() => openAura('give')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                         bg-aura-500/10 hover:bg-aura-500/20
+                         border border-aura-500/20 hover:border-aura-500/40
+                         text-aura-400 text-xs font-semibold
+                         transition-all duration-200"
+            >
+              <Sparkles size={13} />
+              Give
+            </button>
+
+            {/* Aura score */}
+            <span className={`text-sm font-bold tabular-nums
+              ${auraScore > 0 ? 'text-aura-400' :
+                auraScore < 0 ? 'text-red-400' :
+                'text-[var(--text-muted)]'}`}>
+              {formatAura(auraScore)}
+            </span>
+
+            {/* Take Aura */}
+            <button
+              onClick={() => openAura('take')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                         bg-red-500/10 hover:bg-red-500/20
+                         border border-red-500/20 hover:border-red-500/40
+                         text-red-400 text-xs font-semibold
+                         transition-all duration-200"
+            >
+              Take
+            </button>
+          </div>
+
+          {/* Right — Like, Comment, Share */}
+          <div className="flex items-center gap-1">
+            {/* Like */}
+            <button
+              onClick={handleLike}
+              disabled={liking}
+              className={`p-2 rounded-lg transition-all duration-200
+                ${liked
+                  ? 'text-red-400'
+                  : 'text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10'
+                }`}
+            >
+              <Heart size={20} fill={liked ? 'currentColor' : 'none'} />
+            </button>
+
+            {/* Comment */}
+            <Link
+              to={`/post/${post.postId}`}
+              className="p-2 rounded-lg text-[var(--text-muted)]
+                         hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
+                         transition-all duration-200"
+            >
+              <MessageCircle size={20} />
+            </Link>
+
+            {/* Share */}
+            <button
+              className="p-2 rounded-lg text-[var(--text-muted)]
+                         hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
+                         transition-all duration-200"
+            >
+              <Share2 size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Caption (for image/video posts) ── */}
+        {post.type !== 'text' && post.caption && (
+          <div className="px-4 pb-2">
+            <p className="text-sm text-[var(--text-primary)]">
+              <span className="font-semibold mr-1">{post.authorUsername}</span>
+              {post.caption}
+            </p>
+          </div>
+        )}
+
+        {/* ── Comment count ── */}
+        {post.commentCount > 0 && (
+          <Link
+            to={`/post/${post.postId}`}
+            className="block px-4 pb-3 text-xs text-[var(--text-muted)]
+                       hover:text-[var(--accent)] transition-colors"
+          >
+            View all {post.commentCount} comments
+          </Link>
+        )}
+
+      </article>
+
+      {/* ── Aura Modal ── */}
+      {showAuraModal && (
+        <AuraModal
+          post={post}
+          type={auraType}
+          onSuccess={handleAuraSuccess}
+          onClose={() => setShowAuraModal(false)}
+        />
+      )}
+    </>
+  );
+}
