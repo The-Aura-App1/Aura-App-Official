@@ -23,7 +23,8 @@ async function request(method, path, body = null, requiresAuth = true) {
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Request failed');
+  // API Gateway's own errors (missing route, failed auth) use `message`, not `error`
+  if (!res.ok) throw new Error(data.error ?? data.message ?? 'Request failed');
   return data;
 }
 
