@@ -1,42 +1,16 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { api } from '../../api';
 import PostCard from '../post/PostCard';
 import LoadingSpinner from '../common/LoadingSpinner';
+import useInfiniteList from '../../hooks/useInfiniteList';
 
-// The owner's Liked tab. Loads the next page when the bottom comes into view.
+// The owner's Liked tab, loading more as you scroll
 export default function LikedPosts() {
-  const [posts, setPosts]           = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [done, setDone]             = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const sentinelRef = useRef(null);
-
-  const loadMore = useCallback(async () => {
-    if (loading || done) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await api.getLikedPosts(nextCursor);
-      setPosts(prev => [...prev, ...(data.posts ?? [])]);
-      setNextCursor(data.nextCursor);
-      if (!data.nextCursor) setDone(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, done, nextCursor]);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || error) return;
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) loadMore();
-    }, { rootMargin: '400px' });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadMore, error]);
+  const fetchPage = useCallback(async cursor => {
+    const data = await api.getLikedPosts(cursor);
+    return { items: data.posts ?? [], nextCursor: data.nextCursor };
+  }, []);
+  const { items: posts, loading, error, done, loadMore, sentinelRef } = useInfiniteList(fetchPage);
 
   return (
     <div className="flex flex-col gap-4">

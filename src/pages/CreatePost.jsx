@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Image, Video, Type, X, Upload, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
 
 const MAX_IMAGES = 10;
@@ -9,6 +9,18 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
 
 export default function CreatePost() {
   const navigate = useNavigate();
+  // ?group=<id> posts into that group instead of the main feed
+  const [searchParams] = useSearchParams();
+  const groupId  = searchParams.get('group');
+  const doneUrl  = groupId ? `/groups/${groupId}` : '/';
+  const [groupName, setGroupName] = useState('');
+
+  useEffect(() => {
+    if (!groupId) return;
+    api.getGroup(groupId)
+      .then(group => setGroupName(group.name))
+      .catch(() => setGroupName(''));
+  }, [groupId]);
 
   const [postType, setPostType]     = useState('text');
   const [caption, setCaption]       = useState('');
@@ -109,9 +121,10 @@ export default function CreatePost() {
         caption:   caption.trim(),
         mediaKeys,
         tags:      [],
+        ...(groupId && { groupId }),
       });
 
-      navigate('/');
+      navigate(doneUrl);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,9 +138,17 @@ export default function CreatePost() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-[var(--text-primary)]">New Post</h1>
+        <div>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">New Post</h1>
+          {groupId && (
+            <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
+              <Users size={14} /> Posting to {groupName || 'group'}
+            </p>
+          )}
+        </div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(doneUrl)}
+          aria-label="Cancel"
           className="p-2 rounded-lg text-[var(--text-muted)]
                      hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]
                      transition-all duration-200"

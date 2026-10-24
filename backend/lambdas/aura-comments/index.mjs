@@ -9,6 +9,8 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east
 const COMMENTS_TABLE = 'aura-comments';
 const POSTS_TABLE    = 'aura-posts';
 const USERS_TABLE    = 'aura-users';
+const GROUPS_TABLE   = 'aura-groups';
+const MEMBERS_TABLE  = 'aura-group-members';
 
 // Instagram-style limit for global posts
 // Reddit-style limit for group posts
@@ -29,6 +31,19 @@ function response(statusCode, body) {
 
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// Same rules as aura-posts: open groups are readable by anyone logged in
+// (except banned users), other groups by members only; only members comment
+async function groupAccess(groupId, viewerId) {
+  const groupResult = await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId } }));
+  const group = groupResult.Item?.status === 'active' ? groupResult.Item : null;
+  if (!group) return { canSee: false, isMember: false };
+  const member = viewerId
+    ? (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId, userId: viewerId } }))).Item
+    : null;
+  const isMember = member?.status === 'active';
+  return { isMember, canSee: isMember || (group.joinType === 'open' && member?.status !== 'banned') };
 }
 
 // ─── Create comment ───────────────────────────────────────────
@@ -52,6 +67,12 @@ async function createComment(userId, postId, body) {
   const post     = postResult.Item;
   const isGroup  = !!post.groupId;
   const charLimit = isGroup ? CHAR_LIMIT_GROUP : CHAR_LIMIT_GLOBAL;
+
+  if (isGroup) {
+    const access = await groupAccess(post.groupId, userId);
+    if (!access.canSee) return response(404, { error: 'Post not found.' });
+    if (!access.isMember) return response(403, { error: 'Only group members can comment here.' });
+  }
 
   if (text.length > charLimit) {
     return response(400, {
@@ -134,7 +155,14 @@ async function createComment(userId, postId, body) {
 }
 
 // ─── Get comments for a post ──────────────────────────────────
-async function getComments(postId, limit = 50) {
+async function getComments(postId, viewerId, limit = 50) {
+  const postResult = await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } }));
+  const post = postResult.Item;
+  if (!post || post.status !== 'active') return response(404, { error: 'Post not found.' });
+  if (post.groupId && !(await groupAccess(post.groupId, viewerId)).canSee) {
+    return response(404, { error: 'Post not found.' });
+  }
+
   // Scan every page: a single page stops at 1 MB, before the filter is applied
   const items = [];
   let ExclusiveStartKey;
@@ -253,7 +281,7 @@ export const handler = async (event) => {
     // GET /posts/{id}/comments
     if (method === 'GET' && segments[0] === 'posts' && segments[2] === 'comments') {
       const limit = parseInt(event.queryStringParameters?.limit ?? '50');
-      return await getComments(segments[1], limit);
+      return await getComments(segments[1], userId, limit);
     }
 
     // POST /posts/{id}/comments

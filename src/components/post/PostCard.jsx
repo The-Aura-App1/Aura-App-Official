@@ -10,9 +10,25 @@ import AuraModal   from './AuraModal';
 import PostMedia   from './PostMedia';
 import { formatAura, timeAgo } from '../../utils/format';
 
-export default function PostCard({ post, onUpdate }) {
+// onRemove, when given, adds "Remove post" to the ⋯ menu (used in groups)
+export default function PostCard({ post, onUpdate, onRemove }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
+  const [menuOpen, setMenuOpen]           = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving]           = useState(false);
+
+  async function handleRemove() {
+    if (!confirmRemove) { setConfirmRemove(true); return; }
+    setRemoving(true);
+    try {
+      await onRemove(post);
+    } finally {
+      setRemoving(false);
+      setMenuOpen(false);
+      setConfirmRemove(false);
+    }
+  }
 
   const [showAuraModal, setShowAuraModal] = useState(false);
   const [auraType, setAuraType]           = useState('give');
@@ -88,12 +104,30 @@ export default function PostCard({ post, onUpdate }) {
             </div>
           </Link>
 
-          <button className="p-2 rounded-lg text-[var(--text-muted)]
-                             hover:bg-[var(--accent-subtle)]
-                             hover:text-[var(--accent)]
-                             transition-all duration-200">
-            <MoreHorizontal size={18} />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => { setMenuOpen(o => !o); setConfirmRemove(false); }}
+              aria-label="More options"
+              aria-expanded={menuOpen}
+              className="p-2 rounded-lg text-[var(--text-muted)]
+                         hover:bg-[var(--accent-subtle)]
+                         hover:text-[var(--accent)]
+                         transition-all duration-200">
+              <MoreHorizontal size={18} />
+            </button>
+            {menuOpen && onRemove && (
+              <div className="absolute right-0 top-full mt-1 z-20 min-w-[11rem] rounded-xl
+                              bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-1">
+                <button
+                  onClick={handleRemove}
+                  disabled={removing}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400
+                             hover:bg-red-400/10 disabled:opacity-50">
+                  {removing ? 'Removing...' : confirmRemove ? 'Tap again to remove' : 'Remove post'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Media ── */}

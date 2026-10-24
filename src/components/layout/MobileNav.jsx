@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, PlusSquare, Wallet, Settings } from 'lucide-react';
+import { Home, PlusSquare, Wallet, Settings, Users } from 'lucide-react';
 
 const NAV = [
   { to: '/',         icon: Home,       label: 'Feed'     },
+  { to: '/groups',   icon: Users,      label: 'Groups'   },
   { to: '/create',   icon: PlusSquare, label: 'Post'     },
   { to: '/wallet',   icon: Wallet,     label: 'Wallet'   },
   { to: '/settings', icon: Settings,   label: 'Settings' },

@@ -13,6 +13,9 @@ const POSTS_TABLE    = 'aura-posts';
 const USERS_TABLE    = 'aura-users';
 const LIKES_TABLE    = 'aura-likes';
 const COMMENTS_TABLE = 'aura-comments';
+const GROUPS_TABLE   = 'aura-groups';
+const MEMBERS_TABLE  = 'aura-group-members';
+const GROUP_PAGE_SIZE = 20;
 const BUCKET_NAME    = 'aura-app-media-570934198135';
 
 const MAX_IMAGES_PER_POST = 10;
@@ -61,8 +64,48 @@ async function getUploadUrls(userId, files) {
   return urls;
 }
 
+// ─── Group access ─────────────────────────────────────────────
+// Open groups are readable by anyone logged in (except banned users); request
+// and invite groups only by members. Only members post and interact.
+async function groupAccess(groupId, viewerId) {
+  const groupResult = await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId } }));
+  const group = groupResult.Item?.status === 'active' ? groupResult.Item : null;
+  if (!group) return { group: null, canSee: false, isMember: false, canModerate: false };
+
+  const member = viewerId
+    ? (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId, userId: viewerId } }))).Item
+    : null;
+  const isMember    = member?.status === 'active';
+  const canModerate = isMember && (group.ownerId === viewerId || member.role === 'moderator');
+  const canSee      = isMember || (group.joinType === 'open' && member?.status !== 'banned');
+  return { group, isMember, canModerate, canSee };
+}
+
+// Drops group posts the viewer can't see, checking each group once
+async function visibleToViewer(posts, viewerId) {
+  const access = new Map();
+  const visible = [];
+  for (const post of posts) {
+    if (post.groupId) {
+      if (!access.has(post.groupId)) access.set(post.groupId, await groupAccess(post.groupId, viewerId));
+      if (!access.get(post.groupId).canSee) continue;
+    }
+    visible.push(post);
+  }
+  return visible;
+}
+
 async function createPost(userId, body) {
-  const { type, caption, mediaKeys, tags } = body;
+  const { type, caption, mediaKeys, tags, groupId } = body;
+
+  let group = null;
+  if (groupId !== undefined) {
+    if (typeof groupId !== 'string' || !groupId) return response(400, { error: 'Invalid groupId.' });
+    const access = await groupAccess(groupId, userId);
+    if (!access.group) return response(404, { error: 'Group not found.' });
+    if (!access.isMember) return response(403, { error: 'Only members can post in this group.' });
+    group = access.group;
+  }
 
   if (!type) return response(400, { error: 'Post type is required.' });
   if (!['text', 'image', 'video'].includes(type)) {
@@ -106,6 +149,7 @@ async function createPost(userId, body) {
     reportCount:    0,
     createdAt:      now,
     updatedAt:      now,
+    ...(group && { groupId: group.groupId, groupName: group.name }),
   };
 
   await dynamo.send(new PutCommand({
@@ -174,10 +218,11 @@ async function forViewer(posts, viewerId) {
   });
 }
 
+// Group posts live only in their group, never in the main feed or on profiles
 async function getFeed(viewerId, limit = 20) {
   const active = await scanAll({
     TableName:        POSTS_TABLE,
-    FilterExpression: '#status = :active',
+    FilterExpression: '#status = :active AND attribute_not_exists(groupId)',
     ExpressionAttributeNames:  { '#status': 'status' },
     ExpressionAttributeValues: { ':active': 'active' },
   });
@@ -192,7 +237,7 @@ async function getFeed(viewerId, limit = 20) {
 async function getUserPosts(authorId, viewerId, limit = 20) {
   const authored = await scanAll({
     TableName:        POSTS_TABLE,
-    FilterExpression: 'authorId = :aid AND #status = :active',
+    FilterExpression: 'authorId = :aid AND #status = :active AND attribute_not_exists(groupId)',
     ExpressionAttributeNames:  { '#status': 'status' },
     ExpressionAttributeValues: { ':aid': authorId, ':active': 'active' },
   });
@@ -214,6 +259,7 @@ async function getPost(postId, viewerId) {
   if (result.Item.status !== 'active') return response(404, { error: 'Post not found.' });
 
   const post = result.Item;
+  if (!(await visibleToViewer([post], viewerId)).length) return response(404, { error: 'Post not found.' });
 
   // Authors viewing their own post don't add views
   if (post.authorId !== viewerId) {
@@ -240,6 +286,16 @@ async function setLike(userId, collection, targetId, liked) {
     const userResult = await dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId } }));
     if (!userResult.Item) return response(404, { error: 'User not found.' });
     if (userResult.Item.isBanned) return response(403, { error: 'Account banned.' });
+
+    // Only content the user can see can be liked; group posts follow group visibility
+    const targetResult = await dynamo.send(new GetCommand({ TableName: target.table, Key: { [target.key]: targetId } }));
+    const postId = target.type === 'post' ? targetId : targetResult.Item?.postId;
+    const post   = target.type === 'post'
+      ? targetResult.Item
+      : postId && (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } }))).Item;
+    if (!targetResult.Item || !post || !(await visibleToViewer([post], userId)).length) {
+      return response(404, { error: `${target.type === 'post' ? 'Post' : 'Comment'} not found.` });
+    }
   }
 
   const items = liked
@@ -320,14 +376,61 @@ async function getLikedPosts(userId, cursor) {
   const page  = likes.slice(start, start + LIKED_PAGE_SIZE);
   const next  = start + LIKED_PAGE_SIZE < likes.length ? String(start + LIKED_PAGE_SIZE) : null;
 
-  // Re-check every post: removed or deleted posts are skipped
+  // Re-check every post: removed posts, and group posts the user can no longer see, are skipped
   const fetched = await batchGet(POSTS_TABLE, page.map(like => ({ postId: like.targetId })));
   const byId    = new Map(fetched.map(post => [post.postId, post]));
-  const posts   = page
+  const active  = page
     .map(like => byId.get(like.targetId))
     .filter(post => post && post.status === 'active');
+  const posts   = await visibleToViewer(active, userId);
 
   return response(200, { posts: await forViewer(posts, userId), nextCursor: next });
+}
+
+// ─── Group feed ───────────────────────────────────────────────
+// Newest first, from groupId-index. cursor is the encoded LastEvaluatedKey.
+async function getGroupPosts(groupId, viewerId, cursor) {
+  const access = await groupAccess(groupId, viewerId);
+  // Invite-only groups stay hidden from outsiders, same as aura-groups
+  if (!access.group || (!access.canSee && access.group.joinType === 'invite')) {
+    return response(404, { error: 'Group not found.' });
+  }
+  if (!access.canSee) return response(403, { error: 'Join this group to see its posts.' });
+
+  let ExclusiveStartKey;
+  if (cursor) {
+    try { ExclusiveStartKey = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')); }
+    catch { return response(400, { error: 'Invalid cursor.' }); }
+    if (ExclusiveStartKey?.groupId !== groupId) return response(400, { error: 'Invalid cursor.' });
+  }
+
+  // Removed posts are filtered after the read, so keep reading until a page fills
+  const posts = [];
+  do {
+    const result = await dynamo.send(new QueryCommand({
+      TableName:                 POSTS_TABLE,
+      IndexName:                 'groupId-index',
+      KeyConditionExpression:    'groupId = :g',
+      FilterExpression:          '#status = :active',
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':g': groupId, ':active': 'active' },
+      ScanIndexForward:          false,
+      Limit:                     GROUP_PAGE_SIZE - posts.length,
+      ExclusiveStartKey,
+    }));
+    posts.push(...(result.Items ?? []));
+    ExclusiveStartKey = result.LastEvaluatedKey;
+  } while (ExclusiveStartKey && posts.length < GROUP_PAGE_SIZE);
+
+  const nextCursor = ExclusiveStartKey
+    ? Buffer.from(JSON.stringify(ExclusiveStartKey), 'utf8').toString('base64url')
+    : null;
+
+  const visible = await forViewer(posts, viewerId);
+  return response(200, {
+    posts: visible.map(post => ({ ...post, canRemove: access.canModerate || post.authorId === viewerId })),
+    nextCursor,
+  });
 }
 
 async function deletePost(postId, userId) {
@@ -337,7 +440,11 @@ async function deletePost(postId, userId) {
   }));
 
   if (!result.Item) return response(404, { error: 'Post not found.' });
-  if (result.Item.authorId !== userId) return response(403, { error: 'Not your post.' });
+  // Group owners and moderators can remove any post in their group
+  if (result.Item.authorId !== userId) {
+    const canModerate = result.Item.groupId && (await groupAccess(result.Item.groupId, userId)).canModerate;
+    if (!canModerate) return response(403, { error: 'Not your post.' });
+  }
 
   await dynamo.send(new UpdateCommand({
     TableName:                 POSTS_TABLE,
@@ -420,6 +527,12 @@ export const handler = async (event) => {
         && segments.length === 3 && segments[2] === 'like') {
       if (!userId) return response(401, { error: 'Unauthorized' });
       return await setLike(userId, segments[0], segments[1], method === 'POST');
+    }
+
+    // GET /groups/{id}/posts — a group's feed
+    if (method === 'GET' && segments[0] === 'groups' && segments.length === 3 && segments[2] === 'posts') {
+      if (!userId) return response(401, { error: 'Unauthorized' });
+      return await getGroupPosts(segments[1], userId, event.queryStringParameters?.cursor);
     }
 
     // GET /users/me/likes — the Liked tab

@@ -55,22 +55,31 @@ export const api = {
   claimDailyBonus:()                     => request('POST', '/aura/daily-bonus'),
 
   // ─── Comments ─────────────────────────────────────────────
-  getComments:    (postId, limit = 50)   => request('GET',  `/posts/${postId}/comments?limit=${limit}`, null, false),
+  getComments:    (postId, limit = 50)   => request('GET',  `/posts/${postId}/comments?limit=${limit}`),
   createComment:  (postId, text, parentCommentId = null) =>
     request('POST', `/posts/${postId}/comments`, { text, parentCommentId }),
   deleteComment:  (commentId)            => request('DELETE', `/comments/${commentId}`),
   reportComment:  (commentId, reason)    => request('POST', `/comments/${commentId}/report`, { reason }),
 
   // ─── Groups ───────────────────────────────────────────────
-  listGroups:     ()                     => request('GET',  '/groups', null, false),
-  getGroup:       (groupId)              => request('GET',  `/groups/${groupId}`, null, false),
+  listGroups:     (q = '')               => request('GET',  `/groups${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  getMyGroups:    ()                     => request('GET',  '/groups/mine'),
+  getGroup:       (groupId)              => request('GET',  `/groups/${groupId}`),
   createGroup:    (data)                 => request('POST', '/groups', data),
+  updateGroup:    (groupId, data)        => request('PUT',  `/groups/${groupId}`, data),
   deleteGroup:    (groupId)              => request('DELETE', `/groups/${groupId}`),
   joinGroup:      (groupId)              => request('POST', `/groups/${groupId}/join`),
   leaveGroup:     (groupId)              => request('POST', `/groups/${groupId}/leave`),
+  inviteToGroup:  (groupId, username)    => request('POST', `/groups/${groupId}/invite`, { username }),
+  muteGroup:      (groupId, muted)       => request('POST', `/groups/${groupId}/mute`, { muted }),
+  getGroupMembers:(groupId, status = 'active') => request('GET', `/groups/${groupId}/members?status=${status}`),
+  getGroupPosts:  (groupId, cursor = null) =>
+    request('GET', `/groups/${groupId}/posts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   kickMember:     (groupId, userId)      => request('POST', `/groups/${groupId}/kick/${userId}`),
   banMember:      (groupId, userId)      => request('POST', `/groups/${groupId}/ban/${userId}`),
+  unbanMember:    (groupId, userId)      => request('POST', `/groups/${groupId}/unban/${userId}`),
   appointMod:     (groupId, userId)      => request('POST', `/groups/${groupId}/moderator/${userId}`),
+  demoteMod:      (groupId, userId)      => request('POST', `/groups/${groupId}/demote/${userId}`),
   approveRequest: (groupId, userId)      => request('POST', `/groups/${groupId}/approve/${userId}`),
   declineRequest: (groupId, userId)      => request('POST', `/groups/${groupId}/decline/${userId}`),
 

@@ -8,6 +8,8 @@ const COMMENTS_TABLE       = 'aura-comments';
 const USERS_TABLE          = 'aura-users';
 const TRANSACTIONS_TABLE   = 'aura-transactions';
 const DAILY_BUDGETS_TABLE  = 'aura-daily-budgets';
+const GROUPS_TABLE         = 'aura-groups';
+const MEMBERS_TABLE        = 'aura-group-members';
 
 // Keep RULES and AURA_VERSION in sync with aura-users, which reports today's limits
 const RULES = {
@@ -164,6 +166,24 @@ async function getTarget(collection, targetId) {
   }));
   if (!result.Item || result.Item.status !== 'active') return null;
   return { ...target, id: targetId, item: result.Item };
+}
+
+// Aura on group content is for group members only. Returns null when allowed,
+// otherwise the error response (404 when the viewer can't even see it).
+async function checkGroupAccess(target, userId) {
+  const post = target.type === 'post'
+    ? target.item
+    : (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: target.item.postId } }))).Item;
+  if (!post?.groupId) return null;
+
+  const group  = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId: post.groupId } }))).Item;
+  const member = (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId: post.groupId, userId } }))).Item;
+  if (member?.status === 'active' && group?.status === 'active') return null;
+
+  const canSee = group?.status === 'active' && group.joinType === 'open' && member?.status !== 'banned';
+  return canSee
+    ? response(403, { error: 'Only group members can give or take aura here.' })
+    : response(404, { error: 'Post or comment not found.' });
 }
 
 function targetUpdate(target, scoreDelta, counterField, amount) {
@@ -433,6 +453,8 @@ export const handler = async (event) => {
       if (target.item.authorId === userId) {
         return response(403, { error: 'You cannot give or take aura on your own content.' });
       }
+      const denied = await checkGroupAccess(target, userId);
+      if (denied) return denied;
 
       return segments[3] === 'give'
         ? await giveAura(user, target, amount)

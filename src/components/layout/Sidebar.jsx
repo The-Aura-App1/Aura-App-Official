@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, PlusSquare, Wallet, Settings,
-  LogOut, Moon, Sun, User, Bell
+  LogOut, Moon, Sun, User, Bell, Users
 } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -33,6 +33,7 @@ export default function Sidebar() {
   const NAV = [
     { to: '/',                           icon: Home,       label: 'Feed'          },
     { to: '/notifications',              icon: Bell,       label: 'Notifications', badge: unreadCount },
+    { to: '/groups',                     icon: Users,      label: 'Groups'        },
     { to: '/create',                     icon: PlusSquare, label: 'Post'          },
     { to: `/profile/${username || displayName}`, icon: User, label: 'Profile'    },
     { to: '/wallet',                     icon: Wallet,     label: 'Aura Wallet'  },
