@@ -188,9 +188,10 @@ function targetFields(target) {
 }
 
 // ─── Give ─────────────────────────────────────────────────────
-// Free gives are used first, then spendable aura from the wallet. The recipient
-// gets earned aura, except gifts from new accounts and anything past the
-// per-source daily cap, which arrive as spendable.
+// Free gives are used first, then the wallet: spendable aura, falling back to
+// earned aura once spendable runs out. The recipient gets earned aura, except
+// gifts from new accounts and anything past the per-source daily cap, which
+// arrive as spendable.
 async function giveAura(giver, target, amount) {
   const rules = rulesFor(giver);
   if (amount > rules.freeGive + rules.giveCap) {
@@ -202,17 +203,19 @@ async function giveAura(giver, target, amount) {
   const fromFree   = Math.min(amount, freeLeft);
   const fromWallet = amount - fromFree;
 
+  const spendableAvailable = Math.max(0, giver.auraSpendable ?? 0);
+  const earnedAvailable    = Math.max(0, giver.auraEarned ?? 0);
+  const fromSpendable      = Math.min(fromWallet, spendableAvailable);
+  const fromEarned         = fromWallet - fromSpendable;
+
   if (fromWallet > 0) {
     const walletLeft = Math.max(0, rules.giveCap - day.walletGiveUsed);
     if (fromWallet > walletLeft) {
       return response(400, { error: `You can give ${freeLeft + walletLeft} more aura today.` });
     }
-    if ((giver.auraSpendable ?? 0) < fromWallet) {
-      return response(400, {
-        error: freeLeft > 0
-          ? `You have ${freeLeft} free aura left today and ${Math.max(0, giver.auraSpendable ?? 0)} spendable aura.`
-          : `Not enough spendable aura. You have ${Math.max(0, giver.auraSpendable ?? 0)}.`,
-      });
+    if (fromEarned > earnedAvailable) {
+      const canGive = freeLeft + spendableAvailable + earnedAvailable;
+      return response(400, { error: `Not enough aura. You can give up to ${canGive} right now.` });
     }
   }
 
@@ -242,10 +245,16 @@ async function giveAura(giver, target, amount) {
         },
       },
     },
-    fromWallet > 0
-      ? balanceUpdate(giver.userId, { auraSpendable: -fromWallet, auraBalance: -fromWallet, lifetimeGiven: amount },
-          'auraSpendable >= :needed', { ':needed': fromWallet })
-      : balanceUpdate(giver.userId, { lifetimeGiven: amount }),
+    balanceUpdate(
+      giver.userId,
+      { auraSpendable: -fromSpendable, auraEarned: -fromEarned, auraBalance: -fromWallet, lifetimeGiven: amount },
+      [fromSpendable > 0 && 'auraSpendable >= :fromSpendable', fromEarned > 0 && 'auraEarned >= :fromEarned']
+        .filter(Boolean).join(' AND ') || null,
+      {
+        ...(fromSpendable > 0 && { ':fromSpendable': fromSpendable }),
+        ...(fromEarned > 0 && { ':fromEarned': fromEarned }),
+      },
+    ),
     balanceUpdate(authorId, {
       auraEarned: earned, auraSpendable: spendable, auraBalance: amount,
       lifetimeEarned: earned, lifetimeReceived: amount,
@@ -254,7 +263,7 @@ async function giveAura(giver, target, amount) {
   ];
   const messages = [
     'Daily give limit reached.',
-    'Not enough spendable aura.',
+    'Not enough aura.',
     'Author not found.',
     'That post or comment is no longer available.',
   ];
@@ -266,7 +275,7 @@ async function giveAura(giver, target, amount) {
 
   items.push(transactionRecord({
     type: 'give', fromUserId: giver.userId, toUserId: authorId, ...targetFields(target),
-    amount, fromFree, fromWallet, earnedAmount: earned, spendableAmount: spendable,
+    amount, fromFree, fromWallet, fromSpendable, fromEarned, earnedAmount: earned, spendableAmount: spendable,
   }));
 
   const error = await commit(items, messages);
@@ -276,7 +285,8 @@ async function giveAura(giver, target, amount) {
     message:   `Gave ${amount} aura.`,
     scoreDelta: amount,
     fromFree,
-    fromWallet,
+    fromSpendable,
+    fromEarned,
   });
 }
 

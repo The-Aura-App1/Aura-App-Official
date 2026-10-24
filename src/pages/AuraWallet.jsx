@@ -147,13 +147,13 @@ export default function AuraWallet() {
             label="Spendable"
             amount={dbProfile.auraSpendable ?? 0}
             description={(dbProfile.auraSpendable ?? 0) < 0
-              ? 'Below zero. Giving from your wallet is paused until it recovers.'
-              : 'For giving, games and power-ups. Never cashable.'}
+              ? 'Below zero. Gifts come from your earned aura until it recovers.'
+              : 'Used first for giving, games and power-ups. Never cashable.'}
           />
           <Balance
             label="Earned"
             amount={dbProfile.auraEarned ?? 0}
-            description="Given to you by others. Cashable once payouts launch."
+            description="Given to you by others. Cashable once payouts launch, and used for giving when spendable runs out."
           />
         </div>
       </Section>
@@ -205,7 +205,7 @@ export default function AuraWallet() {
             <Meter label="Taking" used={today.take.used} limit={today.take.limit} />
           </div>
           <p className="text-xs text-[var(--text-muted)]">
-            Free aura is used first when you give. After that, gifts come from your spendable balance.
+            When you give, free aura is used first, then spendable aura, then earned aura.
             You can take up to 50 aura from any one post or comment.
           </p>
         </Section>

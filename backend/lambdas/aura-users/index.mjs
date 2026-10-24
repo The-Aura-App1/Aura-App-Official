@@ -477,12 +477,15 @@ export const handler = async (event) => {
   try {
     // POST /users — create user
     if (method === 'POST' && path === '/users') {
+      if (!userId) return response(401, { error: 'Unauthorized' });
       const body = JSON.parse(event.body ?? '{}');
-      const { userId: uid, email, username } = body;
-      if (!uid || !email || !username) {
-        return response(400, { error: 'userId, email, and username are required.' });
+      // The account is always the logged-in user's; a userId in the body is ignored
+      const email = event.requestContext?.authorizer?.jwt?.claims?.email ?? body.email;
+      const { username } = body;
+      if (!email || !username) {
+        return response(400, { error: 'email and username are required.' });
       }
-      const { user, error } = await createUser(uid, email, username);
+      const { user, error } = await createUser(userId, email, username);
       if (error) return error;
       return response(201, user);
     }

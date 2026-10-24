@@ -120,14 +120,16 @@ async function getGroup(groupId, requesterId) {
 
   const group = result.Item;
 
-  // Check if requester is a member
-  const memberResult = await dynamo.send(new GetCommand({
-    TableName: MEMBERS_TABLE,
-    Key: { groupId, userId: requesterId },
-  }));
+  // Check if requester is a member (logged-out viewers aren't)
+  const memberResult = requesterId
+    ? await dynamo.send(new GetCommand({
+        TableName: MEMBERS_TABLE,
+        Key: { groupId, userId: requesterId },
+      }))
+    : {};
 
   const isMember = !!memberResult.Item && memberResult.Item.status === 'active';
-  const isOwner  = group.ownerId === requesterId;
+  const isOwner  = !!requesterId && group.ownerId === requesterId;
   const isMod    = memberResult.Item?.role === 'moderator';
 
   // Hide member list if configured and not owner/mod

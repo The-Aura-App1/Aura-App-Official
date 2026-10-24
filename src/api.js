@@ -32,7 +32,7 @@ export const api = {
   // ─── Users ────────────────────────────────────────────────
   getMe:       ()                        => request('GET',  '/users/me'),
   getUser:     (username)                => request('GET',  `/users/${username}`, null, false),
-  createUser:  (userId, email, username) => request('POST', '/users', { userId, email, username }, false),
+  createUser:  (userId, email, username) => request('POST', '/users', { userId, email, username }),
   updateProfile:      (data)  => request('PUT',  '/users/me', data),
   getProfileUploadUrls: (files) => request('POST', '/users/me/upload-urls', { files }),
 
