@@ -63,6 +63,14 @@
 - Moments: group-only dual-camera photos/video, 24-hour expiry unless saved, aura on them counts as earned.
 - Profile: 3 pins max, 10 tags max, badges, global aura rank (hideable).
 
+## Likes and shares
+
+- Likes: a free, private bookmark/reaction with no aura effect and no effect on feed ranking. Posts, comments and Moments can be liked. The author always sees their own like count; nobody else does (strip likeCount for non-authors). The Liked tab is owner-only and re-checks visibility on every read. Likes don't notify. Only followers can like a private account's posts. Banned users can't like.
+- Shares: launch target is groups only (no copy link yet; DM sharing after chat). The sharer must be an active member of the target group, and can share a given post to a given group once. Private-account posts, Moments and posts from private groups can't be shared.
+- A share card always shows the original post with "Originally posted by @author" rendered from the original, which the sharer can't remove.
+- Aura on a share has two targets: the original author (earned, counted on the original post) and the sharer. For now the sharer always receives spendable aura; a way to reward reposts that add commentary is to be designed later.
+- The share count is visible only to the author, and only on creator accounts.
+
 ## Build order
 
 1. Settings page (next), Aura Wallet page, follow system

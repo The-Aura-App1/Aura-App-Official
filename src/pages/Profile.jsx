@@ -10,6 +10,7 @@ import PostCard from '../components/post/PostCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { formatAura, timeAgo, usernameStatusText } from '../utils/format';
 import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
+import LikedPosts from '../components/profile/LikedPosts';
 import { updateUserAttributes } from 'aws-amplify/auth';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
@@ -542,11 +543,7 @@ export default function Profile() {
         {activeTab === 'timeline' && (
           <AuraTimelineGraph userId={profile.userId} />
         )}
-        {activeTab === 'liked' && isOwner && (
-          <p className="text-center text-[var(--text-muted)] text-sm py-10">
-            Posts you like will appear here.
-          </p>
-        )}
+        {activeTab === 'liked' && isOwner && <LikedPosts />}
       </div>
     </div>
   );

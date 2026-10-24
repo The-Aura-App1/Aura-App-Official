@@ -37,12 +37,12 @@ export const api = {
   getProfileUploadUrls: (files) => request('POST', '/users/me/upload-urls', { files }),
 
   // ─── Posts ────────────────────────────────────────────────
-  getFeed:        (limit = 20)           => request('GET',  `/posts?limit=${limit}`, null, false),
-  getPost:        (postId)               => request('GET',  `/posts/${postId}`, null, false),
+  getFeed:        (limit = 20)           => request('GET',  `/posts?limit=${limit}`),
+  getPost:        (postId)               => request('GET',  `/posts/${postId}`),
   createPost:     (data)                 => request('POST', '/posts', data),
   deletePost:     (postId)               => request('DELETE', `/posts/${postId}`),
   getUploadUrls:  (files)                => request('POST', '/posts/upload-urls', { files }),
-  getUserPosts: (userId, limit = 20) => request('GET', `/users/${userId}/posts?limit=${limit}`, null, false),
+  getUserPosts: (userId, limit = 20) => request('GET', `/users/${userId}/posts?limit=${limit}`),
   fixAuthorNames: (newUsername, newDisplayName, newProfilePicKey) =>
   request('POST', '/posts/fix-author', { newUsername, newDisplayName, newProfilePicKey }),
 
@@ -83,7 +83,10 @@ export const api = {
   // ─── Likes ────────────────────────────────────────────────
   likePost:       (postId)               => request('POST', `/posts/${postId}/like`),
   unlikePost:     (postId)               => request('DELETE', `/posts/${postId}/like`),
-  getLikedPosts:  ()                     => request('GET',  '/users/me/likes'),
+  likeComment:    (commentId)            => request('POST', `/comments/${commentId}/like`),
+  unlikeComment:  (commentId)            => request('DELETE', `/comments/${commentId}/like`),
+  getLikedPosts:  (cursor = null)        =>
+    request('GET', `/users/me/likes${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
 
   // ─── Shares ───────────────────────────────────────────────
   shareToGroup:   (postId, groupId)      => request('POST', `/posts/${postId}/share`, { groupId }),

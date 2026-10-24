@@ -17,22 +17,24 @@ export default function PostCard({ post, onUpdate }) {
   const [showAuraModal, setShowAuraModal] = useState(false);
   const [auraType, setAuraType]           = useState('give');
   const [auraScore, setAuraScore]         = useState(post.auraScore ?? 0);
-  const [liked, setLiked]                 = useState(false);
+  const [liked, setLiked]                 = useState(!!post.likedByMe);
+  // Only the author receives likeCount from the API
+  const [likeCount, setLikeCount]         = useState(post.likeCount);
   const [liking, setLiking]               = useState(false);
 
+  // Updates immediately and rolls back if the request fails
   async function handleLike() {
     if (liking) return;
+    const next = !liked;
     setLiking(true);
+    setLiked(next);
+    if (likeCount !== undefined) setLikeCount(c => c + (next ? 1 : -1));
     try {
-      if (liked) {
-        await api.unlikePost(post.postId);
-        setLiked(false);
-      } else {
-        await api.likePost(post.postId);
-        setLiked(true);
-      }
+      await (next ? api.likePost(post.postId) : api.unlikePost(post.postId));
     } catch (err) {
       console.error(err);
+      setLiked(!next);
+      if (likeCount !== undefined) setLikeCount(c => c + (next ? -1 : 1));
     } finally {
       setLiking(false);
     }
@@ -153,13 +155,18 @@ export default function PostCard({ post, onUpdate }) {
             <button
               onClick={handleLike}
               disabled={liking}
-              className={`p-2 rounded-lg transition-all duration-200
+              aria-pressed={liked}
+              aria-label={liked ? 'Unlike' : 'Like'}
+              className={`flex items-center gap-1 p-2 rounded-lg transition-all duration-200
                 ${liked
                   ? 'text-red-400'
                   : 'text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10'
                 }`}
             >
               <Heart size={20} fill={liked ? 'currentColor' : 'none'} />
+              {likeCount !== undefined && (
+                <span className="text-xs font-semibold">{likeCount}</span>
+              )}
             </button>
 
             {/* Comment */}

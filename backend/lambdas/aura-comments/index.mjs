@@ -135,14 +135,25 @@ async function createComment(userId, postId, body) {
 
 // ─── Get comments for a post ──────────────────────────────────
 async function getComments(postId, limit = 50) {
-  const result = await dynamo.send(new ScanCommand({
-    TableName:        COMMENTS_TABLE,
-    FilterExpression: 'postId = :pid AND #status = :active',
-    ExpressionAttributeNames:  { '#status': 'status' },
-    ExpressionAttributeValues: { ':pid': postId, ':active': 'active' },
-  }));
+  // Scan every page: a single page stops at 1 MB, before the filter is applied
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const result = await dynamo.send(new ScanCommand({
+      TableName:        COMMENTS_TABLE,
+      FilterExpression: 'postId = :pid AND #status = :active',
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':pid': postId, ':active': 'active' },
+      ExclusiveStartKey,
+    }));
+    items.push(...(result.Items ?? []));
+    ExclusiveStartKey = result.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
 
-  const comments = (result.Items ?? [])
+  // Like counts are private to each comment's author, and this route is public
+  for (const comment of items) delete comment.likeCount;
+
+  const comments = items
     .sort((a, b) => {
       // Sort by aura score first, then recency
       const auraDiff = b.auraScore - a.auraScore;
