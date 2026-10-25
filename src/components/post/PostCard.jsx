@@ -10,15 +10,13 @@ import AuraModal   from './AuraModal';
 import PostMedia   from './PostMedia';
 import { formatAura, timeAgo } from '../../utils/format';
 
-// onRemove overrides the default delete (groups use it to drop the post from their list)
+// onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation)
 export default function PostCard({ post, onUpdate, onRemove }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
-  const canRemove = !!onRemove || isOwner;
   const [menuOpen, setMenuOpen]           = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving]           = useState(false);
-  const [removed, setRemoved]             = useState(false);
   const [removeError, setRemoveError]     = useState('');
 
   async function handleRemove() {
@@ -26,12 +24,7 @@ export default function PostCard({ post, onUpdate, onRemove }) {
     setRemoving(true);
     setRemoveError('');
     try {
-      if (onRemove) {
-        await onRemove(post);
-      } else {
-        await api.deletePost(post.postId);
-        setRemoved(true);
-      }
+      await onRemove(post);
       setMenuOpen(false);
     } catch (err) {
       setRemoveError(err.message || 'Could not delete post.');
@@ -76,8 +69,6 @@ export default function PostCard({ post, onUpdate, onRemove }) {
     setAuraScore(prev => prev + delta);
     setShowAuraModal(false);
   }
-
-  if (removed) return null;
 
   return (
     <>
@@ -128,7 +119,7 @@ export default function PostCard({ post, onUpdate, onRemove }) {
                          transition-all duration-200">
               <MoreHorizontal size={18} />
             </button>
-            {menuOpen && canRemove && (
+            {menuOpen && onRemove && (
               <div className="absolute right-0 top-full mt-1 z-20 min-w-[11rem] rounded-xl
                               bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-1">
                 <button

@@ -111,6 +111,12 @@ export default function Profile() {
     }
   }
 
+  // Errors propagate so PostCard can show them
+  async function deletePost(post) {
+    await api.deletePost(post.postId);
+    setPosts(prev => prev.filter(p => p.postId !== post.postId));
+  }
+
   function handleAvatarSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -536,7 +542,7 @@ export default function Profile() {
                 No posts yet.
               </p>
             ) : posts.map(post => (
-              <PostCard key={post.postId} post={post} />
+              <PostCard key={post.postId} post={post} onRemove={isOwner ? deletePost : undefined} />
             ))}
           </div>
         )}
