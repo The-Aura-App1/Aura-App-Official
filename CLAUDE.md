@@ -6,6 +6,7 @@
 - Only touch Lambda functions whose names start with `aura-`.
 - Never touch `postits-ai-proxy` or any other AWS resource. That includes other Lambdas, IAM, API Gateway, DynamoDB, S3, and so on.
 - Ask before running anything that changes live AWS state, including `deploy.ps1`.
+- TEMPORARY, one-time exception for custom domain setup only (approved 2026-10-24). Delete this rule once the domain is live. Claude may also read and change: Amplify Hosting (the aura app only), Route 53 (the aura domain's hosted zone only), ACM certificates for that domain, the Cognito app client 1b2uhsh7qdlmgbjj5vh09p64ds (callback/sign-out URLs only), and CORS on API 7uob369et4. Still never touch `postits-ai-proxy` or anything unrelated, and ask before each change. Buying the domain is done by the user.
 
 ## Lambda code
 

@@ -10,22 +10,33 @@ import AuraModal   from './AuraModal';
 import PostMedia   from './PostMedia';
 import { formatAura, timeAgo } from '../../utils/format';
 
-// onRemove, when given, adds "Remove post" to the ⋯ menu (used in groups)
+// onRemove overrides the default delete (groups use it to drop the post from their list)
 export default function PostCard({ post, onUpdate, onRemove }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
+  const canRemove = !!onRemove || isOwner;
   const [menuOpen, setMenuOpen]           = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving]           = useState(false);
+  const [removed, setRemoved]             = useState(false);
+  const [removeError, setRemoveError]     = useState('');
 
   async function handleRemove() {
     if (!confirmRemove) { setConfirmRemove(true); return; }
     setRemoving(true);
+    setRemoveError('');
     try {
-      await onRemove(post);
+      if (onRemove) {
+        await onRemove(post);
+      } else {
+        await api.deletePost(post.postId);
+        setRemoved(true);
+      }
+      setMenuOpen(false);
+    } catch (err) {
+      setRemoveError(err.message || 'Could not delete post.');
     } finally {
       setRemoving(false);
-      setMenuOpen(false);
       setConfirmRemove(false);
     }
   }
@@ -65,6 +76,8 @@ export default function PostCard({ post, onUpdate, onRemove }) {
     setAuraScore(prev => prev + delta);
     setShowAuraModal(false);
   }
+
+  if (removed) return null;
 
   return (
     <>
@@ -106,7 +119,7 @@ export default function PostCard({ post, onUpdate, onRemove }) {
 
           <div className="relative">
             <button
-              onClick={() => { setMenuOpen(o => !o); setConfirmRemove(false); }}
+              onClick={() => { setMenuOpen(o => !o); setConfirmRemove(false); setRemoveError(''); }}
               aria-label="More options"
               aria-expanded={menuOpen}
               className="p-2 rounded-lg text-[var(--text-muted)]
@@ -115,7 +128,7 @@ export default function PostCard({ post, onUpdate, onRemove }) {
                          transition-all duration-200">
               <MoreHorizontal size={18} />
             </button>
-            {menuOpen && onRemove && (
+            {menuOpen && canRemove && (
               <div className="absolute right-0 top-full mt-1 z-20 min-w-[11rem] rounded-xl
                               bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-1">
                 <button
@@ -123,8 +136,9 @@ export default function PostCard({ post, onUpdate, onRemove }) {
                   disabled={removing}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400
                              hover:bg-red-400/10 disabled:opacity-50">
-                  {removing ? 'Removing...' : confirmRemove ? 'Tap again to remove' : 'Remove post'}
+                  {removing ? 'Deleting...' : confirmRemove ? 'Tap again to delete' : isOwner ? 'Delete post' : 'Remove post'}
                 </button>
+                {removeError && <p className="px-3 py-1 text-xs text-red-400">{removeError}</p>}
               </div>
             )}
           </div>
