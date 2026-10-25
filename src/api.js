@@ -37,7 +37,7 @@ export const api = {
   getProfileUploadUrls: (files) => request('POST', '/users/me/upload-urls', { files }),
 
   // ─── Posts ────────────────────────────────────────────────
-  getFeed:        (limit = 20)           => request('GET',  `/posts?limit=${limit}`),
+  getFeed:        ()                     => request('GET',  '/posts'),
   getPost:        (postId)               => request('GET',  `/posts/${postId}`),
   createPost:     (data)                 => request('POST', '/posts', data),
   deletePost:     (postId)               => request('DELETE', `/posts/${postId}`),

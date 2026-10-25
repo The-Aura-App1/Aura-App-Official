@@ -33,6 +33,17 @@ const LIKE_TARGETS = {
 const HOT_EPOCH    = Date.parse('2026-01-01T00:00:00Z') / 1000;
 const HOT_HALF_DAY = 45000;
 
+// Keep in sync with src/utils/topics.js
+const TOPICS = new Set([
+  'photography', 'art', 'music', 'film', 'design', 'writing', 'gaming', 'comedy',
+  'sports', 'fitness', 'cooking', 'food', 'travel', 'fashion', 'beauty', 'tech',
+  'science', 'finance', 'coding', 'books', 'education', 'business', 'pets',
+  'motivation', 'sustainability', 'outdoors', 'cars', 'diy',
+]);
+const MAX_POST_TOPICS = 3;
+const FEED_ALL_SIZE   = 100;
+const FEED_TOPIC_SIZE = 20;
+
 function response(statusCode, body) {
   return {
     statusCode,
@@ -116,6 +127,10 @@ async function createPost(userId, body) {
   }
   if (type === 'video' && mediaKeys?.length > 1) {
     return response(400, { error: 'Only one video per post.' });
+  }
+  if (tags !== undefined && (!Array.isArray(tags) || tags.length > MAX_POST_TOPICS
+      || new Set(tags).size !== tags.length || !tags.every(t => TOPICS.has(t)))) {
+    return response(400, { error: `Pick up to ${MAX_POST_TOPICS} topics from the list.` });
   }
 
   const userResult = await dynamo.send(new GetCommand({
@@ -218,8 +233,10 @@ async function forViewer(posts, viewerId) {
   });
 }
 
-// Group posts live only in their group, never in the main feed or on profiles
-async function getFeed(viewerId, limit = 20) {
+// Every viewer gets the same posts: the overall top list plus the top of each
+// topic. Ranking by preference happens on the device, so the request reveals
+// nothing about what the viewer likes. Group posts never appear here.
+async function getFeed(viewerId) {
   const active = await scanAll({
     TableName:        POSTS_TABLE,
     FilterExpression: '#status = :active AND attribute_not_exists(groupId)',
@@ -227,11 +244,22 @@ async function getFeed(viewerId, limit = 20) {
     ExpressionAttributeValues: { ':active': 'active' },
   });
 
-  const top = active
-    .sort((a, b) => hotScore(b) - hotScore(a))
-    .slice(0, limit);
+  for (const post of active) post.hotScore = hotScore(post);
+  active.sort((a, b) => b.hotScore - a.hotScore);
 
-  return response(200, { posts: await forViewer(top, viewerId) });
+  const picked   = new Set(active.slice(0, FEED_ALL_SIZE));
+  const perTopic = new Map();
+  for (const post of active) {
+    for (const topic of post.tags ?? []) {
+      const count = perTopic.get(topic) ?? 0;
+      if (!TOPICS.has(topic) || count >= FEED_TOPIC_SIZE) continue;
+      perTopic.set(topic, count + 1);
+      picked.add(post);
+    }
+  }
+
+  const posts = active.filter(post => picked.has(post));
+  return response(200, { posts: await forViewer(posts, viewerId) });
 }
 
 async function getUserPosts(authorId, viewerId, limit = 20) {
@@ -548,8 +576,7 @@ export const handler = async (event) => {
     }
 
     if (method === 'GET' && path === '/posts') {
-      const limit = parseInt(event.queryStringParameters?.limit ?? '20');
-      return await getFeed(userId, limit);
+      return await getFeed(userId);
     }
 
     if (method === 'GET' && segments[0] === 'posts' && segments.length === 2) {

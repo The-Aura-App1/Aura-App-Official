@@ -42,6 +42,13 @@
 - Balances: `auraEarned` (cashable) and `auraSpendable` on the user record; `auraBalance` is kept equal to their sum for display. Lifetime counters: `lifetimeEarned`, `lifetimeReceived`, `lifetimeGiven`, `lifetimeTaken`, `lifetimeLost`. Records without `auraVersion: 2` predate the split and are reset to 0 on first use.
 - aura-aura is the only writer of balances. It logs every change to aura-transactions with its earned/spendable split. Daily usage lives in aura-daily-budgets under `<userId>#<UTC date>`; per-source and per-post counters use other keys in the same table.
 - The daily limits (`RULES`) are defined in both aura-aura (enforces) and aura-users (reports `today` on GET /users/me). Change both together.
+- Post topics (`TOPICS`, max 3 per post) are defined in both `src/utils/topics.js` and aura-posts (validates). Change both together.
+
+## Feed
+
+- Recommendations use only explicit choices (Tune your feed panel, "Show more/less like this"). Never track clicks, views, dwell time or likes for ranking.
+- Preferences are stored only in the browser's localStorage (`src/utils/feedPrefs.js`) and must never be sent to the server.
+- GET /posts returns the same posts to every viewer: the overall top 100 by hot score plus the top 20 per topic, each with `hotScore`. The client re-ranks them (`src/utils/feedRanking.js`). It still scans the table; move the per-topic lists to a GSI before launch.
 
 ## Economy (final)
 

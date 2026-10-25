@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
+import { TOPICS, MAX_POST_TOPICS } from '../utils/topics';
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;  // 20MB
@@ -24,6 +25,7 @@ export default function CreatePost() {
 
   const [postType, setPostType]     = useState('text');
   const [caption, setCaption]       = useState('');
+  const [topics, setTopics]         = useState([]);
   const [files, setFiles]           = useState([]);
   const [previews, setPreviews]     = useState([]);
   const [loading, setLoading]       = useState(false);
@@ -68,6 +70,12 @@ export default function CreatePost() {
       setFiles([f]);
       setPreviews([URL.createObjectURL(f)]);
     }
+  }
+
+  function toggleTopic(id) {
+    setTopics(prev => prev.includes(id)
+      ? prev.filter(t => t !== id)
+      : prev.length < MAX_POST_TOPICS ? [...prev, id] : prev);
   }
 
   function removeFile(index) {
@@ -120,7 +128,7 @@ export default function CreatePost() {
         type:      postType,
         caption:   caption.trim(),
         mediaKeys,
-        tags:      [],
+        tags:      groupId ? [] : topics,
         ...(groupId && { groupId }),
       });
 
@@ -265,6 +273,35 @@ export default function CreatePost() {
           {caption.length} / 2200
         </p>
       </div>
+
+      {!groupId && (
+        <div className="mb-4">
+          <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+            Topics <span className="text-[var(--text-muted)] font-normal">({topics.length}/{MAX_POST_TOPICS}, optional)</span>
+          </p>
+          <p className="text-xs text-[var(--text-muted)] mb-2">Helps people who want more of these find your post.</p>
+          <div className="flex flex-wrap gap-2">
+            {TOPICS.map(topic => {
+              const selected = topics.includes(topic.id);
+              const full     = !selected && topics.length >= MAX_POST_TOPICS;
+              return (
+                <button
+                  key={topic.id}
+                  type="button"
+                  onClick={() => toggleTopic(topic.id)}
+                  disabled={full}
+                  aria-pressed={selected}
+                  className={`px-3 py-1 rounded-full border text-xs font-medium transition-all disabled:opacity-40
+                    ${selected
+                      ? 'bg-aura-500/20 border-aura-500/50 text-aura-400'
+                      : 'bg-[var(--bg-elevated)] border-[var(--border)] text-[var(--text-muted)] hover:border-aura-500/30'}`}>
+                  {topic.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

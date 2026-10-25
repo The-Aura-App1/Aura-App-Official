@@ -9,12 +9,17 @@ import { api }     from '../../api';
 import AuraModal   from './AuraModal';
 import PostMedia   from './PostMedia';
 import { formatAura, timeAgo } from '../../utils/format';
+import { topicLabel } from '../../utils/topics';
 
-// onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation)
-export default function PostCard({ post, onUpdate, onRemove }) {
+// onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
+// onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
+export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
+  const tags      = post.tags ?? [];
+  const canPrefer = !!onPrefer && tags.length > 0;
   const [menuOpen, setMenuOpen]           = useState(false);
+  const [preferred, setPreferred]         = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving]           = useState(false);
   const [removeError, setRemoveError]     = useState('');
@@ -119,16 +124,36 @@ export default function PostCard({ post, onUpdate, onRemove }) {
                          transition-all duration-200">
               <MoreHorizontal size={18} />
             </button>
-            {menuOpen && onRemove && (
+            {menuOpen && (onRemove || canPrefer) && (
               <div className="absolute right-0 top-full mt-1 z-20 min-w-[11rem] rounded-xl
                               bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-1">
-                <button
+                {canPrefer && (preferred ? (
+                  <p className="px-3 py-2 text-xs text-[var(--text-muted)] max-w-[14rem]">
+                    Got it, you'll see {preferred} posts like this next time you open your feed.
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { onPrefer(post, 'more'); setPreferred('more'); }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-[var(--text-primary)]
+                                 hover:bg-[var(--accent-subtle)]">
+                      Show more like this
+                    </button>
+                    <button
+                      onClick={() => { onPrefer(post, 'less'); setPreferred('fewer'); }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-[var(--text-primary)]
+                                 hover:bg-[var(--accent-subtle)]">
+                      Show less like this
+                    </button>
+                  </>
+                ))}
+                {onRemove && <button
                   onClick={handleRemove}
                   disabled={removing}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400
                              hover:bg-red-400/10 disabled:opacity-50">
                   {removing ? 'Deleting...' : confirmRemove ? 'Tap again to delete' : isOwner ? 'Delete post' : 'Remove post'}
-                </button>
+                </button>}
                 {removeError && <p className="px-3 py-1 text-xs text-red-400">{removeError}</p>}
               </div>
             )}
@@ -236,6 +261,14 @@ export default function PostCard({ post, onUpdate, onRemove }) {
               <span className="font-semibold mr-1">{post.authorUsername}</span>
               {post.caption}
             </p>
+          </div>
+        )}
+
+        {tags.length > 0 && (
+          <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+            {tags.map(tag => (
+              <span key={tag} className="text-xs text-aura-400/80">#{topicLabel(tag)}</span>
+            ))}
           </div>
         )}
 
