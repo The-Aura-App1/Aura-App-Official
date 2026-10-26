@@ -1,27 +1,61 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
 import AuthBackdrop, { Wordmark } from '../components/auth/AuthBackdrop';
 
 const HIGHLIGHTS = [
-  { icon: SlidersHorizontal, text: 'Your feed, your rules' },
-  { icon: ShieldCheck,       text: 'Preferences stay on your device' },
-  { icon: Sparkles,          text: 'Get rewarded for what you share' },
+  {
+    icon: SlidersHorizontal,
+    title: 'Your feed, your rules',
+    body: 'Pick topics and keywords, or tap "Show more/less like this". Your feed is ranked only on what you tell it, never on what you click, view or like.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Preferences stay on your device',
+    body: 'Your feed settings are saved in your browser and never sent to our servers. Even keyword matching runs right on your device.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Get rewarded for what you share',
+    body: 'When people give aura to your posts, you earn it. Verified creators (18+) will be able to cash out the aura they earn.',
+  },
 ];
 
+// A pill that opens into a short explanation on hover, or on tap/keyboard
+// for devices without hover.
+function Highlight({ icon: Icon, title, body, open, onToggle }) {
+  return (
+    <li className={`aura-highlight ${open ? 'is-open' : ''}`}>
+      <button type="button" onClick={onToggle} aria-expanded={open}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-aura-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 rounded-2xl">
+        <Icon size={16} className="text-aura-500 shrink-0" />
+        {title}
+        <ChevronDown size={15} className="aura-highlight-chevron text-aura-400 shrink-0" />
+      </button>
+      <div className="aura-highlight-body">
+        <p className="overflow-hidden px-5 text-sm leading-relaxed text-aura-800/80">
+          <span className="block pb-4">{body}</span>
+        </p>
+      </div>
+    </li>
+  );
+}
+
 export default function Landing() {
+  const [openIndex, setOpenIndex] = useState(null);
+
   return (
     <AuthBackdrop>
-      <header className="flex items-center justify-between px-5 sm:px-10 py-5">
+      <header className="flex items-center justify-between px-5 sm:px-10 py-6">
         <img src="/aura-logo.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
-        <nav className="flex items-center gap-1 sm:gap-2 text-sm">
+        <nav className="flex items-center gap-1 sm:gap-3 text-sm">
           <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">About</Link>
           <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
         </nav>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-5 pb-16">
-        <div className="aura-rise relative w-40 sm:w-56 -mb-4 sm:-mb-8" aria-hidden="true">
+      <main className="flex-1 flex flex-col items-center justify-center text-center px-5 pt-6 pb-28 sm:pb-36">
+        <div className="aura-rise relative w-36 sm:w-48 mb-2" aria-hidden="true">
           <img src="/aura-halo.png" alt="" className="aura-float aura-halo-glow relative w-full" />
         </div>
 
@@ -29,7 +63,7 @@ export default function Landing() {
           <Wordmark />
         </h1>
 
-        <p className="aura-rise mt-6 sm:mt-8 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950"
+        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950"
           style={{ animationDelay: '0.25s' }}>
           A{' '}
           <span className="relative inline-block">
@@ -43,13 +77,13 @@ export default function Landing() {
           </span>{' '}
           approach to social media.
         </p>
-        <p className="aura-rise mt-4 max-w-lg text-sm sm:text-base text-aura-800/80 leading-relaxed"
+        <p className="aura-rise mt-7 max-w-lg text-base sm:text-lg text-aura-800/80 leading-relaxed"
           style={{ animationDelay: '0.35s' }}>
           Your feed follows the choices you make, not what you click on.
           Give aura to the posts you love and earn it on the ones you make.
         </p>
 
-        <div className="aura-rise mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-xs sm:max-w-none sm:w-auto"
+        <div className="aura-rise mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full max-w-xs sm:max-w-none sm:w-auto"
           style={{ animationDelay: '0.45s' }}>
           <Link to="/signup" className="aura-cta">
             Create account <ArrowRight size={18} />
@@ -59,24 +93,22 @@ export default function Landing() {
           </Link>
         </div>
 
-        <ul className="aura-rise mt-10 flex flex-wrap justify-center gap-2 sm:gap-3" style={{ animationDelay: '0.55s' }}>
-          {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-            <li key={text}
-              className="aura-pill">
-              <Icon size={15} className="text-aura-500" />
-              {text}
-            </li>
+        <ul className="aura-rise mt-16 grid grid-cols-1 md:grid-cols-3 items-start gap-4 w-full max-w-sm md:max-w-5xl"
+          style={{ animationDelay: '0.55s' }}>
+          {HIGHLIGHTS.map((h, i) => (
+            <Highlight key={h.title} {...h} open={openIndex === i}
+              onToggle={() => setOpenIndex(openIndex === i ? null : i)} />
           ))}
         </ul>
 
         <Link to="/about"
-          className="aura-rise mt-8 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
+          className="aura-rise mt-14 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
           style={{ animationDelay: '0.65s' }}>
           What is Aura? <ArrowRight size={18} />
         </Link>
       </main>
 
-      <footer className="px-5 py-6 text-center text-xs text-aura-800/60">
+      <footer className="relative px-5 py-8 text-center text-xs text-aura-800/60">
         © {new Date().getFullYear()} Aura App
       </footer>
     </AuthBackdrop>

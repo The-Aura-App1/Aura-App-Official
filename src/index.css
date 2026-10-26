@@ -97,13 +97,18 @@ h1, h2, h3 {
 }
 
 @layer components {
+  /* Soft, rounded serif (Fraunces' SOFT and WONK axes) with a gentle tint
+     rather than a hard gradient, and a white glow to lift it off the sky. */
   .aura-wordmark {
-    @apply font-wordmark font-bold uppercase leading-none tracking-tight;
-    background: linear-gradient(100deg, #2e1065 0%, #5b21b6 40%, #9333ea 70%, #c026d3 100%);
+    @apply font-wordmark leading-none;
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+    letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #4c1d95 0%, #6d3fc4 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.95)) drop-shadow(0 4px 24px rgba(124, 58, 237, 0.25));
+    filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.9));
   }
   .aura-cta {
     @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
@@ -119,9 +124,32 @@ h1, h2, h3 {
     @apply rounded-3xl p-6 sm:p-8 bg-white/70 border border-white backdrop-blur-xl;
     box-shadow: 0 30px 70px -24px rgba(91, 53, 158, 0.4);
   }
-  .aura-pill {
-    @apply flex items-center gap-2 px-3.5 py-2 rounded-full text-xs sm:text-sm text-aura-800 bg-white/55 border border-white/80 backdrop-blur-md;
+  .aura-highlight {
+    @apply rounded-2xl bg-white/55 border border-white/80 backdrop-blur-md transition-all duration-300;
   }
+}
+
+/* Highlight pills: the explanation opens on hover (where hover exists) or
+   when tapped. Animating grid rows from 0fr to 1fr lets the height ease
+   open without knowing it in advance. */
+.aura-highlight-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
+}
+.aura-highlight-body > * { min-height: 0; }
+.aura-highlight-chevron { transition: transform 0.3s ease; }
+.aura-highlight.is-open { background: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
+.aura-highlight.is-open .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
+.aura-highlight.is-open .aura-highlight-chevron { transform: rotate(180deg); }
+@media (hover: hover) {
+  .aura-highlight:hover { background: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
+  .aura-highlight:hover .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
+  .aura-highlight:hover .aura-highlight-chevron { transform: rotate(180deg); }
+}
+
+@layer components {
 }
 
 /* Dawn sky: lavender overhead fading to a warm, bright horizon. */

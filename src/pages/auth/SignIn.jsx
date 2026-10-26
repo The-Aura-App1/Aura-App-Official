@@ -35,7 +35,7 @@ export default function SignIn() {
     <AuthBackdrop>
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md" style={{ animation: 'slideUp 0.3s ease-out' }}>
-        <div className="flex justify-center mb-6"><Wordmark size="sm" linked /></div>
+        <div className="flex justify-center mb-8"><Wordmark size="sm" linked /></div>
         <div className="aura-glass-card">
         <div className="flex flex-col items-center gap-3 mb-10">
           <h1 className="font-hand text-4xl font-bold text-[var(--text-primary)]">Welcome back</h1>
