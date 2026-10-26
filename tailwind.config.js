@@ -21,7 +21,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],
+        sans: ['"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],
+        display: ['"Sora Variable"','"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','sans-serif'],
       },
       animation: {
         'fade-in':    'fadeIn 0.2s ease-out',

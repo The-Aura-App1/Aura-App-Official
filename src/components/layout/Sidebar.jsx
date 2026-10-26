@@ -49,7 +49,7 @@ export default function Sidebar() {
     <div className="flex flex-col h-full px-4 py-6">
       <div className="flex items-center gap-2 px-2 mb-10">
         <img src="/aura-logo.png" alt="Aura" className="w-9 h-9 rounded-xl" />
-        <span className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+        <span className="font-display text-xl font-bold text-[var(--text-primary)] tracking-tight">
           Aura App
         </span>
       </div>
