@@ -9,8 +9,8 @@ export default function About() {
     <AuthBackdrop>
       <main className="flex-1 flex flex-col items-center justify-center text-center px-5 py-16">
         <Wordmark size="sm" linked />
-        <h1 className="mt-8 text-3xl sm:text-4xl font-bold text-white">About Aura</h1>
-        <p className="mt-4 max-w-md text-aura-200/80">This page is coming soon.</p>
+        <h1 className="mt-8 text-3xl sm:text-4xl font-bold text-aura-950">About Aura</h1>
+        <p className="mt-4 max-w-md text-aura-800/80">This page is coming soon.</p>
         <Link to="/welcome" className="aura-glass-btn mt-8">
           <ArrowLeft size={16} /> Back
         </Link>

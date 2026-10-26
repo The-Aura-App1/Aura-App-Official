@@ -67,7 +67,7 @@ export default function ConfirmEmail() {
           </button>
         </form>
         <button onClick={handleResend}
-          className="mt-4 text-sm text-[var(--text-muted)] hover:text-aura-400 transition-colors">
+          className="mt-4 text-sm text-[var(--text-muted)] hover:text-aura-600 transition-colors">
           {resent ? 'Code resent!' : "Didn't get it? Resend code"}
         </button>
         </div>

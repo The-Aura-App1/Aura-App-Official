@@ -101,7 +101,7 @@ export default function SignUp() {
         </form>
         <p className="text-center text-sm text-[var(--text-muted)] mt-6">
           Already have an account?{' '}
-          <Link to="/signin" className="text-aura-400 font-medium hover:underline">Sign in</Link>
+          <Link to="/signin" className="text-aura-600 font-semibold hover:underline">Sign in</Link>
         </p>
         </div>
       </div>

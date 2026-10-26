@@ -68,7 +68,7 @@ export default function SignIn() {
         </form>
         <p className="text-center text-sm text-[var(--text-muted)] mt-6">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-aura-400 font-medium hover:underline">Create one</Link>
+          <Link to="/signup" className="text-aura-600 font-semibold hover:underline">Create one</Link>
         </p>
         </div>
       </div>
