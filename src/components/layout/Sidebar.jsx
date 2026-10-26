@@ -42,7 +42,7 @@ export default function Sidebar() {
 
   async function handleLogout() {
     await logout();
-    navigate('/signin');
+    navigate('/welcome');
   }
 
   return (

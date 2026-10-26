@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import AuthBackdrop, { Wordmark } from '../../components/auth/AuthBackdrop';
 
 export default function SignUp() {
   const { register } = useAuth();
@@ -44,12 +45,12 @@ export default function SignUp() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+    <AuthBackdrop>
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center mb-6"><Wordmark size="sm" linked /></div>
+        <div className="aura-glass-card">
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-aura-500 flex items-center justify-center shadow-aura-md">
-            <Sparkles size={28} className="text-white" />
-          </div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create your account</h1>
           <p className="text-sm text-[var(--text-muted)] text-center">You must be at least 13 years old to join Aura.</p>
         </div>
@@ -102,7 +103,9 @@ export default function SignUp() {
           Already have an account?{' '}
           <Link to="/signin" className="text-aura-400 font-medium hover:underline">Sign in</Link>
         </p>
+        </div>
       </div>
-    </div>
+      </main>
+    </AuthBackdrop>
   );
 }

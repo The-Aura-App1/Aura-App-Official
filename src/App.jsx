@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import SignIn        from './pages/auth/SignIn';
 import SignUp        from './pages/auth/SignUp';
 import ConfirmEmail  from './pages/auth/ConfirmEmail';
+import Landing       from './pages/Landing';
+import About         from './pages/About';
 import AppShell      from './components/layout/AppShell';
 import Feed          from './pages/Feed';
 import Profile       from './pages/Profile';
@@ -20,7 +22,7 @@ import GroupPage from './pages/GroupPage';
 function ProtectedRoute({ children }) {
   const { user, loading, profileComplete } = useAuth();
   if (loading) return null;
-  if (!user)   return <Navigate to="/signin" replace />;
+  if (!user)   return <Navigate to="/welcome" replace />;
   if (!profileComplete && window.location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;
   }
@@ -36,6 +38,8 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/welcome" element={<PublicRoute><Landing /></PublicRoute>} />
+      <Route path="/about" element={<About />} />
       <Route path="/signin" element={<PublicRoute><SignIn /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><SignUp /></PublicRoute>} />
       <Route path="/confirm-email" element={<PublicRoute><ConfirmEmail /></PublicRoute>} />

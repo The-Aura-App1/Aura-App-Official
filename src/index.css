@@ -78,3 +78,62 @@ h1, h2, h3 {
 
 @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+/* ── Landing and auth pages ─────────────────────────────────────────── */
+
+@layer components {
+  .aura-wordmark {
+    @apply font-wordmark font-bold uppercase leading-none tracking-tight;
+    background: linear-gradient(100deg, #ffffff 0%, #ddd6fe 35%, #c084fc 65%, #f0abfc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 28px rgba(167, 139, 250, 0.45));
+  }
+  .aura-cta {
+    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-300;
+    background: linear-gradient(110deg, #7c3aed, #a855f7 55%, #d946ef);
+    box-shadow: 0 10px 40px -8px rgba(168, 85, 247, 0.65);
+  }
+  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 48px -6px rgba(168, 85, 247, 0.8); }
+  .aura-glass-btn {
+    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-white bg-white/5 border border-white/15 backdrop-blur transition-all duration-200 hover:bg-white/10 hover:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-300;
+  }
+  .aura-glass-card {
+    @apply rounded-3xl p-6 sm:p-8 bg-[#140a26]/70 border border-white/10 backdrop-blur-xl;
+    box-shadow: 0 30px 80px -20px rgba(124, 58, 237, 0.35);
+  }
+}
+
+.aura-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+}
+.aura-orb-1 { width: 42rem; height: 42rem; top: -14rem; left: -12rem; background: #6d28d9; animation: orbDrift1 22s ease-in-out infinite; }
+.aura-orb-2 { width: 34rem; height: 34rem; bottom: -12rem; right: -10rem; background: #c026d3; opacity: 0.35; animation: orbDrift2 26s ease-in-out infinite; }
+.aura-orb-3 { width: 26rem; height: 26rem; top: 35%; left: 50%; margin-left: -13rem; background: #4f46e5; opacity: 0.25; animation: orbDrift1 30s ease-in-out infinite reverse; }
+
+.aura-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+.aura-twinkle { opacity: 0; animation: twinkle 4s ease-in-out infinite; }
+.aura-float   { animation: haloFloat 6s ease-in-out infinite; }
+.aura-rise    { opacity: 0; animation: slideUp 0.7s ease-out forwards; }
+
+@keyframes orbDrift1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(6rem, 4rem); } }
+@keyframes orbDrift2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-5rem, -3rem); } }
+@keyframes twinkle   { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 0.9; transform: scale(1); } }
+@keyframes haloFloat { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-orb, .aura-twinkle, .aura-float { animation: none; }
+  .aura-twinkle { opacity: 0.6; }
+  .aura-rise { animation: none; opacity: 1; }
+}
