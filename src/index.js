@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './amplifyConfigure';
 import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/sora';
-import '@fontsource-variable/fraunces/full.css';
+import '@fontsource-variable/cormorant-garamond';
 import '@fontsource-variable/caveat';
 import './index.css';
 import App from './App';

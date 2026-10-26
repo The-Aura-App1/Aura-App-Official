@@ -5,7 +5,7 @@
   "dependencies": {
     "@aws-amplify/ui-react": "^6.15.5",
     "@fontsource-variable/caveat": "^5.3.0",
-    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/cormorant-garamond": "^5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@fontsource-variable/sora": "^5.3.0",
     "@headlessui/react": "^2.2.10",

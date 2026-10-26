@@ -110,24 +110,39 @@ function FloatingCloud({ seed, className, style }) {
 // compact version used above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
   const text = (
-    <span className={`aura-wordmark ${size === 'lg' ? 'text-6xl sm:text-8xl md:text-9xl' : 'text-4xl sm:text-5xl'}`}>
+    <span className={`aura-wordmark ${size === 'lg' ? 'text-7xl sm:text-8xl md:text-[9.5rem]' : 'text-5xl sm:text-6xl'}`}>
       Aura App
     </span>
   );
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
 
+// Top bar for the public pages: logo home, plus About and Sign in.
+export function SiteHeader() {
+  return (
+    <header className="flex items-center justify-between px-5 sm:px-10 py-6">
+      <Link to="/welcome" aria-label="Aura App home">
+        <img src="/aura-logo.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
+      </Link>
+      <nav className="flex items-center gap-1 sm:gap-3 text-sm">
+        <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">About</Link>
+        <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
+      </nav>
+    </header>
+  );
+}
+
 // Heavenly dawn sky shared by the landing page and the auth pages: light rays
 // from above, drifting clouds below. The `aura-heaven` class pins the light
 // theme variables, so these pages look the same whatever theme the user picked
-// inside the app.
-export default function AuthBackdrop({ children }) {
+// inside the app. `className` can move the glow (see .aura-glow-on-halo).
+export default function AuthBackdrop({ children, className = '' }) {
   return (
-    <div className="aura-heaven relative min-h-screen overflow-hidden text-[var(--text-primary)]">
+    <div className={`aura-heaven relative min-h-screen overflow-hidden text-[var(--text-primary)] ${className}`}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="aura-sky absolute inset-0" />
         <div className="aura-rays absolute inset-0" />
-        <div className="aura-sun absolute left-1/2 top-[-18rem] w-[46rem] h-[46rem] -ml-[23rem]" />
+        <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />
         <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />
         <FloatingCloud seed={11} className="aura-float-cloud w-40 sm:w-60 top-[30%] -right-12 sm:right-[8%] opacity-80" style={{ animationDuration: '41s', animationDirection: 'reverse' }} />
         {SPARKLES.map((s, i) => (

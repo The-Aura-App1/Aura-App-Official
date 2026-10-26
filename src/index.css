@@ -94,21 +94,37 @@ h1, h2, h3 {
   --accent-hover:  #6d28d9;
   --accent-subtle: #ede9fe;
   background: #efe8ff;
+  /* Where the sun glow and the light rays are centred. */
+  --sun-y: 5rem;
+  --ray-y: -10%;
+}
+
+/* Landing page: centre the glow and rays on the halo. Its centre is the
+   header (84px) + the main top padding (24px) + half the halo's width. */
+.aura-glow-on-halo { --sun-y: 180px; --ray-y: 180px; }
+@media (min-width: 640px) {
+  .aura-glow-on-halo { --sun-y: 204px; --ray-y: 204px; }
 }
 
 @layer components {
-  /* Soft, rounded serif (Fraunces' SOFT and WONK axes) with a gentle tint
-     rather than a hard gradient, and a white glow to lift it off the sky. */
+  /* Airy serif with a soft gradient of close-together purples, and a white
+     glow to lift it off the sky. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
-    font-weight: 600;
-    font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
-    letter-spacing: -0.02em;
-    background: linear-gradient(180deg, #4c1d95 0%, #6d3fc4 100%);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding: 0 0.04em 0.12em;
+    background: linear-gradient(100deg, #5b21b6 0%, #8b5cf6 55%, #c084fc 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.9));
+  }
+  /* Section headings on the public pages, in the wordmark's soft serif. */
+  .aura-heading {
+    @apply font-wordmark text-aura-900;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .aura-cta {
     @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
@@ -139,6 +155,7 @@ h1, h2, h3 {
   transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
 }
 .aura-highlight-body > * { min-height: 0; }
+.aura-faq summary::-webkit-details-marker { display: none; }
 .aura-highlight-chevron { transition: transform 0.3s ease; }
 .aura-highlight.is-open { background: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
 .aura-highlight.is-open .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
@@ -161,15 +178,16 @@ h1, h2, h3 {
 
 /* Soft light rays fanning down from above the halo. */
 .aura-rays {
-  background: repeating-conic-gradient(from 180deg at 50% -10%,
+  background: repeating-conic-gradient(from 180deg at 50% var(--ray-y),
     rgba(255, 255, 255, 0.5) 0deg 3deg, rgba(255, 255, 255, 0) 3deg 9deg);
-  mask-image: radial-gradient(ellipse 60% 75% at 50% 0%, black 10%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 75% at 50% 0%, black 10%, transparent 75%);
-  transform-origin: 50% -10%;
+  mask-image: radial-gradient(ellipse 60% 75% at 50% var(--ray-y), black 10%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 75% at 50% var(--ray-y), black 10%, transparent 75%);
+  transform-origin: 50% var(--ray-y);
   animation: raySway 18s ease-in-out infinite;
 }
 
 .aura-sun {
+  top: calc(var(--sun-y) - 23rem);
   border-radius: 9999px;
   background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 247, 230, 0.8) 30%, rgba(255, 255, 255, 0) 70%);
   filter: blur(10px);

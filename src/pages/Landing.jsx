@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
-import AuthBackdrop, { Wordmark } from '../components/auth/AuthBackdrop';
+import AuthBackdrop, { SiteHeader, Wordmark } from '../components/auth/AuthBackdrop';
 
 const HIGHLIGHTS = [
   {
@@ -45,16 +45,10 @@ export default function Landing() {
   const [openIndex, setOpenIndex] = useState(null);
 
   return (
-    <AuthBackdrop>
-      <header className="flex items-center justify-between px-5 sm:px-10 py-6">
-        <img src="/aura-logo.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
-        <nav className="flex items-center gap-1 sm:gap-3 text-sm">
-          <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">About</Link>
-          <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
-        </nav>
-      </header>
+    <AuthBackdrop className="aura-glow-on-halo">
+      <SiteHeader />
 
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-5 pt-6 pb-28 sm:pb-36">
+      <main className="flex-1 flex flex-col items-center text-center px-5 pt-6 pb-28 sm:pb-36">
         <div className="aura-rise relative w-36 sm:w-48 mb-2" aria-hidden="true">
           <img src="/aura-halo.png" alt="" className="aura-float aura-halo-glow relative w-full" />
         </div>
@@ -93,16 +87,20 @@ export default function Landing() {
           </Link>
         </div>
 
-        <ul className="aura-rise mt-16 grid grid-cols-1 md:grid-cols-3 items-start gap-4 w-full max-w-sm md:max-w-5xl"
-          style={{ animationDelay: '0.55s' }}>
-          {HIGHLIGHTS.map((h, i) => (
-            <Highlight key={h.title} {...h} open={openIndex === i}
-              onToggle={() => setOpenIndex(openIndex === i ? null : i)} />
-          ))}
-        </ul>
+        {/* The min-height leaves room for one open highlight, so opening one
+            never changes the page height or shifts anything around it. */}
+        <div className="mt-16 w-full max-w-sm md:max-w-5xl min-h-[19rem] md:min-h-[11rem]">
+          <ul className="aura-rise grid grid-cols-1 md:grid-cols-3 items-start gap-4"
+            style={{ animationDelay: '0.55s' }}>
+            {HIGHLIGHTS.map((h, i) => (
+              <Highlight key={h.title} {...h} open={openIndex === i}
+                onToggle={() => setOpenIndex(openIndex === i ? null : i)} />
+            ))}
+          </ul>
+        </div>
 
         <Link to="/about"
-          className="aura-rise mt-14 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
+          className="aura-rise mt-6 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
           style={{ animationDelay: '0.65s' }}>
           What is Aura? <ArrowRight size={18} />
         </Link>
