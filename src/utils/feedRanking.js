@@ -1,4 +1,5 @@
 import { decodeVector, similarity } from './embeddings';
+import { hashtagKey } from './hashtags';
 
 // hotScore units: 1.0 = about 12.5 hours newer, or 10x the aura
 export const MORE_BOOST    = 1.5;
@@ -17,13 +18,20 @@ function ramp(sim) {
 
 function keywordVectors(prefs) {
   const words = prefs.words ?? [];
-  const pick = choice => words.filter(w => w.choice === choice).map(w => decodeVector(w.vec)).filter(Boolean);
+  const pick = choice => words.filter(w => w.choice === choice)
+    .map(w => ({ key: hashtagKey(w.text), vec: decodeVector(w.vec) }))
+    .filter(w => w.vec);
   return { more: pick('more'), less: pick('less') };
 }
 
-function bestMatch(postVec, vectors) {
+// A keyword that is exactly one of the post's hashtags is a full match;
+// otherwise the closest meaning counts
+function bestMatch(postVec, hashKeys, words) {
   let best = 0;
-  for (const vec of vectors) best = Math.max(best, ramp(similarity(postVec, vec)));
+  for (const { key, vec } of words) {
+    if (hashKeys.has(key)) return 1;
+    if (postVec) best = Math.max(best, ramp(similarity(postVec, vec)));
+  }
   return best;
 }
 
@@ -35,9 +43,11 @@ function evaluate(post, prefs, words) {
   const topicMore = tags.some(t => prefs.more.includes(t));
   const topicLess = tags.some(t => prefs.less.includes(t));
 
-  const postVec   = (words.more.length || words.less.length) ? decodeVector(post.embedding) : null;
-  const wordMore  = postVec ? bestMatch(postVec, words.more) : 0;
-  const wordLess  = postVec ? bestMatch(postVec, words.less) : 0;
+  const anyWords  = words.more.length || words.less.length;
+  const postVec   = anyWords ? decodeVector(post.embedding) : null;
+  const hashKeys  = new Set(anyWords ? (post.hashtags ?? []).map(hashtagKey) : []);
+  const wordMore  = bestMatch(postVec, hashKeys, words.more);
+  const wordLess  = bestMatch(postVec, hashKeys, words.less);
 
   score += MORE_BOOST   * Math.max(topicMore ? 1 : 0, wordMore);
   score -= LESS_PENALTY * Math.max(topicLess ? 1 : 0, wordLess);

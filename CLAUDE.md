@@ -43,6 +43,7 @@
 - aura-aura is the only writer of balances. It logs every change to aura-transactions with its earned/spendable split. Daily usage lives in aura-daily-budgets under `<userId>#<UTC date>`; per-source and per-post counters use other keys in the same table.
 - The daily limits (`RULES`) are defined in both aura-aura (enforces) and aura-users (reports `today` on GET /users/me). Change both together.
 - Post topics (`TOPICS`, max 3 per post) are defined in both `src/utils/topics.js` and aura-posts (validates). Change both together.
+- Post hashtags (free-form, `MAX_HASHTAGS` 10, `HASHTAG_PATTERN`) are defined in both `src/utils/hashtags.js` and aura-posts. Change both together. `src/backendContract.test.js` fails CI if any of these shared constants drift.
 
 ## Feed
 

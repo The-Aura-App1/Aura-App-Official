@@ -30,7 +30,7 @@ A social app where reputation is the currency. Instead of likes, people give (or
 | Feature | Details |
 |---|---|
 | **Accounts** | Email sign-up and sign-in via Cognito, onboarding, unique usernames, editable profile, light and dark themes |
-| **Posts** | Photo, video and text posts with up to 3 topics; media uploads go straight to S3 with pre-signed URLs |
+| **Posts** | Photo, video and text posts with up to 3 preset topics and up to 10 custom hashtags; media uploads go straight to S3 with pre-signed URLs |
 | **Aura** | Give or take aura on posts. Daily free aura, daily give/take caps and per-post limits, all enforced by the server |
 | **Aura Wallet** | Balance split into *earned* (cashable later) and *spendable*, lifetime stats; aura timeline graph on profiles |
 | **Feed** | Ranked on your device by your explicit choices: topic chips, free-text keywords, "show more/less like this" |
@@ -77,7 +77,8 @@ Most social feeds learn from everything you do. Aura's feed only uses what you e
 
 **On-device AI for keywords.** Keywords are matched by meaning, not spelling: "jazz" finds a post about a sax solo. A sentence-embedding model ([all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2), quantized, 23 MB) runs in a web worker in your browser:
 
-- Authors' devices turn each caption into a 384-number vector at post time, stored as a 512-character string.
+- Authors' devices turn each caption, its topics and hashtags into a 384-number vector at post time, stored as a 512-character string.
+- A keyword that exactly matches one of a post's hashtags ("live music" and #LiveMusic) always counts as a full match.
 - Your keywords are turned into vectors on your device and compared with cosine similarity. Thresholds were measured on real text.
 - The model and its runtime are **self-hosted** in this repo (`public/models`, checksum-verified in CI). Nothing loads from third parties.
 - **Never tracked:** clicks, views, watch time and likes play no part in ranking.

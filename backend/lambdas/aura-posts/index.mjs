@@ -42,6 +42,10 @@ const TOPICS = new Set([
 ]);
 const MAX_POST_TOPICS = 3;
 
+// Free-form hashtags (see src/utils/hashtags.js)
+const MAX_HASHTAGS    = 10;
+const HASHTAG_PATTERN = /^[\p{L}\p{N}_]{1,30}$/u;
+
 // Caption embeddings are computed on the author's device (see
 // src/utils/embeddings.js): base64 of EMBED_DIM signed bytes, value * 127
 const EMBED_MODEL = 'Xenova/all-MiniLM-L6-v2';
@@ -122,7 +126,7 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, caption, mediaKeys, tags, groupId, embedding } = body;
+  const { type, caption, mediaKeys, tags, hashtags, groupId, embedding } = body;
 
   let group = null;
   if (groupId !== undefined) {
@@ -146,6 +150,11 @@ async function createPost(userId, body) {
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > MAX_POST_TOPICS
       || new Set(tags).size !== tags.length || !tags.every(t => TOPICS.has(t)))) {
     return response(400, { error: `Pick up to ${MAX_POST_TOPICS} topics from the list.` });
+  }
+  if (hashtags !== undefined && (!Array.isArray(hashtags) || hashtags.length > MAX_HASHTAGS
+      || !hashtags.every(t => typeof t === 'string' && HASHTAG_PATTERN.test(t))
+      || new Set(hashtags.map(t => t.toLowerCase())).size !== hashtags.length)) {
+    return response(400, { error: `Up to ${MAX_HASHTAGS} different hashtags, using letters, numbers and _ (30 characters max).` });
   }
   if (embedding !== undefined && !isValidEmbedding(embedding)) {
     return response(400, { error: 'Invalid embedding.' });
@@ -173,6 +182,7 @@ async function createPost(userId, body) {
     caption:        caption ?? '',
     mediaKeys:      mediaKeys ?? [],
     tags:           tags ?? [],
+    hashtags:       hashtags ?? [],
     auraScore:      0,
     auraReceived:   0,
     auraTaken:      0,

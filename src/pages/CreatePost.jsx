@@ -4,6 +4,7 @@ import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
 import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
 import { postEmbeddingText } from '../utils/embeddings';
+import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
 
 const EMBED_TIMEOUT_MS = 15000;
@@ -30,6 +31,9 @@ export default function CreatePost() {
   const [postType, setPostType]     = useState('text');
   const [caption, setCaption]       = useState('');
   const [topics, setTopics]         = useState([]);
+  const [hashtags, setHashtags]     = useState([]);
+  const [hashtagInput, setHashtagInput] = useState('');
+  const [hashtagError, setHashtagError] = useState('');
   const [files, setFiles]           = useState([]);
   const [previews, setPreviews]     = useState([]);
   const [loading, setLoading]       = useState(false);
@@ -42,13 +46,13 @@ export default function CreatePost() {
   // Start loading the on-device model once there's something to read, so it's
   // usually ready by the time the post is shared. Group posts skip the feed.
   useEffect(() => {
-    if (groupId || warmedRef.current || (!caption.trim() && !topics.length)) return;
+    if (groupId || warmedRef.current || (!caption.trim() && !topics.length && !hashtags.length)) return;
     warmedRef.current = true;
     warmUpModel();
-  }, [groupId, caption, topics]);
+  }, [groupId, caption, topics, hashtags]);
 
-  async function captionEmbedding() {
-    const text = postEmbeddingText(caption, topics.map(topicLabel));
+  async function captionEmbedding(tags) {
+    const text = postEmbeddingText(caption, topics.map(topicLabel), tags);
     if (groupId || !text) return undefined;
     try {
       const [vec] = await embedTexts([text], EMBED_TIMEOUT_MS);
@@ -103,6 +107,18 @@ export default function CreatePost() {
       : prev.length < MAX_POST_TOPICS ? [...prev, id] : prev);
   }
 
+  // Adds whatever is typed in the hashtag box; returns the updated list, or null
+  // if some of it was invalid so the author can fix it before posting
+  function commitHashtags() {
+    if (!hashtagInput.trim()) return hashtags;
+    const { list, error } = addHashtags(hashtags, hashtagInput);
+    setHashtags(list);
+    setHashtagError(error);
+    if (error) return null;
+    setHashtagInput('');
+    return list;
+  }
+
   function removeFile(index) {
     setFiles(prev => prev.filter((_, i) => i !== index));
     setPreviews(prev => prev.filter((_, i) => i !== index));
@@ -118,6 +134,8 @@ export default function CreatePost() {
       return;
     }
 
+    const tags = commitHashtags();
+    if (!tags) return;
     setLoading(true);
     setError('');
 
@@ -148,7 +166,7 @@ export default function CreatePost() {
       }
 
       setUploadProgress('Preparing for recommendations...');
-      const embedding = await captionEmbedding();
+      const embedding = await captionEmbedding(tags);
 
       setUploadProgress('Creating post...');
 
@@ -157,6 +175,7 @@ export default function CreatePost() {
         caption:   caption.trim(),
         mediaKeys,
         tags:      groupId ? [] : topics,
+        hashtags:  tags,
         ...(embedding && { embedding }),
         ...(groupId && { groupId }),
       });
@@ -331,6 +350,45 @@ export default function CreatePost() {
           </div>
         </div>
       )}
+
+      <div className="mb-4">
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+          Hashtags <span className="text-[var(--text-muted)] font-normal">({hashtags.length}/{MAX_HASHTAGS}, optional)</span>
+        </p>
+        <p className="text-xs text-[var(--text-muted)] mb-2">Your own tags, like #jazz or #streetphoto. Separate them with spaces.</p>
+        <form onSubmit={e => { e.preventDefault(); commitHashtags(); }} className="flex gap-2">
+          <input
+            value={hashtagInput}
+            onChange={e => { setHashtagInput(e.target.value); setHashtagError(''); }}
+            disabled={hashtags.length >= MAX_HASHTAGS}
+            placeholder={hashtags.length >= MAX_HASHTAGS ? 'Hashtag limit reached' : 'Add a hashtag'}
+            aria-label="Hashtags"
+            className="input flex-1 min-w-0 py-1.5 text-sm"
+          />
+          <button type="submit" disabled={!hashtagInput.trim()}
+            className="px-3 rounded-xl text-xs font-semibold bg-aura-500/15 text-aura-400 border border-aura-500/30 disabled:opacity-40">
+            Add
+          </button>
+        </form>
+        {hashtagError && <p className="text-xs text-red-400 mt-2">{hashtagError}</p>}
+        {hashtags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {hashtags.map(tag => (
+              <span key={tag}
+                className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-full border text-xs font-medium bg-aura-500/20 border-aura-500/50 text-aura-400">
+                #{tag}
+                <button
+                  type="button"
+                  onClick={() => setHashtags(prev => prev.filter(t => t !== tag))}
+                  aria-label={`Remove #${tag}`}
+                  className="p-0.5 rounded-full hover:bg-black/20">
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Error */}
       {error && (

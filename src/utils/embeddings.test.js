@@ -34,3 +34,8 @@ test('post text combines caption and topic labels, skipping empty parts', () => 
   expect(postEmbeddingText('', ['Music', 'Art'])).toBe('Music, Art');
   expect(postEmbeddingText('   ', [])).toBe('');
 });
+
+test('hashtags are added as readable words', () => {
+  expect(postEmbeddingText('Sax solo', ['Music'], ['jazz', 'LiveMusic'])).toBe('Sax solo\nMusic\njazz, Live Music');
+  expect(postEmbeddingText('', [], ['street_photo'])).toBe('street photo');
+});

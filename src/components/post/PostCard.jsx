@@ -17,6 +17,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
   const tags      = post.tags ?? [];
+  const hashtags  = post.hashtags ?? [];
   const canPrefer = !!onPrefer && tags.length > 0;
   const [menuOpen, setMenuOpen]           = useState(false);
   const [preferred, setPreferred]         = useState(null);
@@ -264,10 +265,13 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
           </div>
         )}
 
-        {tags.length > 0 && (
+        {(tags.length > 0 || hashtags.length > 0) && (
           <div className="px-4 pb-2 flex flex-wrap gap-1.5">
             {tags.map(tag => (
               <span key={tag} className="text-xs text-aura-400/80">#{topicLabel(tag)}</span>
+            ))}
+            {hashtags.map(tag => (
+              <span key={`h-${tag}`} className="text-xs text-aura-400/80">#{tag}</span>
             ))}
           </div>
         )}

@@ -9,6 +9,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { TOPIC_IDS, MAX_POST_TOPICS } from './utils/topics';
 import { EMBED_MODEL, EMBED_DIM, encodeVector } from './utils/embeddings';
+import { MAX_HASHTAGS, HASHTAG_PATTERN } from './utils/hashtags';
 
 const LAMBDAS = path.join(__dirname, '..', 'backend', 'lambdas');
 const MODEL   = path.join(__dirname, '..', 'public', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
@@ -30,6 +31,11 @@ test('aura-posts accepts exactly the topics the app offers', () => {
   const serverTopics = [...constant(posts, 'TOPICS').matchAll(/'([a-z]+)'/g)].map(m => m[1]);
   expect([...serverTopics].sort()).toEqual([...TOPIC_IDS].sort());
   expect(Number(constant(posts, 'MAX_POST_TOPICS'))).toBe(MAX_POST_TOPICS);
+});
+
+test('aura-posts enforces the same hashtag rules as the app', () => {
+  expect(Number(constant(posts, 'MAX_HASHTAGS'))).toBe(MAX_HASHTAGS);
+  expect(constant(posts, 'HASHTAG_PATTERN')).toBe(HASHTAG_PATTERN.toString());
 });
 
 test('aura-posts expects the same embedding model and size as the app', () => {

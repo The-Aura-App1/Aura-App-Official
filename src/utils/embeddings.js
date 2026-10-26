@@ -1,5 +1,7 @@
 // Vectors are stored as base64 of 384 signed bytes (value * 127), about 512
 // characters per post. Keep EMBED_DIM and EMBED_MODEL in sync with aura-posts.
+import { hashtagWords } from './hashtags';
+
 export const EMBED_MODEL = 'Xenova/all-MiniLM-L6-v2';
 export const EMBED_DIM   = 384;
 
@@ -38,6 +40,7 @@ export function similarity(a, b) {
   return sum;
 }
 
-export function postEmbeddingText(caption, topicLabels) {
-  return [caption?.trim().slice(0, 1000), topicLabels.join(', ')].filter(Boolean).join('\n');
+export function postEmbeddingText(caption, topicLabels, hashtags = []) {
+  return [caption?.trim().slice(0, 1000), topicLabels.join(', '), hashtags.map(hashtagWords).join(', ')]
+    .filter(Boolean).join('\n');
 }

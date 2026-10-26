@@ -97,6 +97,14 @@ test('keyword matches move posts up and count as matches for exploration', () =>
   expect(ranked[EXPLORE_EVERY - 1].postId).toBe('o1');
 });
 
+test('a keyword that equals a hashtag is a full match, even without an embedding', () => {
+  const tagged = { ...post('a', 1), hashtags: ['Live_Music'] };
+  const live   = { text: 'live music', vec: vecWithSim(0), choice: 'more' };
+  expect(scorePost(tagged, { more: [], less: [], words: [live] })).toBeCloseTo(1 + MORE_BOOST, 5);
+  expect(scorePost(tagged, { more: [], less: [], words: [{ ...live, choice: 'less' }] })).toBeCloseTo(1 - LESS_PENALTY, 5);
+  expect(scorePost(tagged, { more: [], less: [], words: [{ ...live, text: 'jazz' }] })).toBe(1);
+});
+
 test('empty feed returns an empty list', () => {
   expect(rankFeed([], { more: ['music'], less: [] })).toEqual([]);
 });
