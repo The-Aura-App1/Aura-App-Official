@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import AuthBackdrop, { Wordmark } from '../../components/auth/AuthBackdrop';
+import AuthBackdrop, { SiteHeader, Wordmark } from '../../components/auth/AuthBackdrop';
 
 export default function SignUp() {
   const { register } = useAuth();
@@ -46,6 +46,7 @@ export default function SignUp() {
 
   return (
     <AuthBackdrop>
+      <SiteHeader />
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8"><Wordmark size="sm" linked /></div>
@@ -101,7 +102,7 @@ export default function SignUp() {
         </form>
         <p className="text-center text-sm text-[var(--text-muted)] mt-6">
           Already have an account?{' '}
-          <Link to="/signin" className="text-aura-600 font-semibold hover:underline">Sign in</Link>
+          <Link to="/signin" className="text-aura-600 dark:text-aura-300 font-semibold hover:underline">Sign in</Link>
         </p>
         </div>
       </div>

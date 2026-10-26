@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import AuthBackdrop, { Wordmark } from '../../components/auth/AuthBackdrop';
+import AuthBackdrop, { SiteHeader, Wordmark } from '../../components/auth/AuthBackdrop';
 
 export default function ConfirmEmail() {
   const { confirmEmail, resendCode } = useAuth();
@@ -40,6 +40,7 @@ export default function ConfirmEmail() {
 
   return (
     <AuthBackdrop>
+      <SiteHeader />
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md text-center">
         <div className="flex justify-center mb-8"><Wordmark size="sm" linked /></div>

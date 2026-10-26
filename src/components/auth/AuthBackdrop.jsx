@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 // Fixed positions so the sparkles don't jump around between renders.
 const SPARKLES = [
@@ -117,16 +119,23 @@ export function Wordmark({ size = 'lg', linked = false }) {
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
 
-// Top bar for the public pages: logo home, plus About and Sign in.
+// Top bar for the public pages: logo home, About, Sign in and the light/dark
+// toggle (shared with the app's own theme setting).
 export function SiteHeader() {
+  const { theme, toggleTheme } = useTheme();
+  const dark = theme === 'dark';
   return (
     <header className="flex items-center justify-between px-5 sm:px-10 py-6">
       <Link to="/welcome" aria-label="Aura App home">
         <img src="/aura-logo.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
       </Link>
       <nav className="flex items-center gap-1 sm:gap-3 text-sm">
-        <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">About</Link>
-        <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
+        <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">About</Link>
+        <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
+        <button type="button" onClick={toggleTheme} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="ml-1 w-9 h-9 rounded-xl flex items-center justify-center text-aura-800 dark:text-aura-100 bg-white/50 dark:bg-white/5 border border-white/80 dark:border-white/15 hover:text-aura-500 transition-colors">
+          {dark ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
       </nav>
     </header>
   );
@@ -141,12 +150,16 @@ export default function AuthBackdrop({ children, className = '' }) {
     <div className={`aura-heaven relative min-h-screen overflow-hidden text-[var(--text-primary)] ${className}`}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="aura-sky absolute inset-0" />
+        <div className="aura-night-only absolute inset-0 aura-galaxy-band" />
+        <div className="aura-night-only absolute inset-0 aura-stars-1" />
+        <div className="aura-night-only absolute inset-0 aura-stars-2" />
+        <span className="aura-night-only aura-shooting-star" />
         <div className="aura-rays absolute inset-0" />
         <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />
         <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />
         <FloatingCloud seed={11} className="aura-float-cloud w-40 sm:w-60 top-[30%] -right-12 sm:right-[8%] opacity-80" style={{ animationDuration: '41s', animationDirection: 'reverse' }} />
         {SPARKLES.map((s, i) => (
-          <span key={i} className="aura-twinkle absolute text-amber-200"
+          <span key={i} className="aura-twinkle absolute text-amber-200 dark:text-aura-100"
             style={{ top: s.top, left: s.left, animationDelay: s.delay }}>
             <Sparkle size={s.size} />
           </span>

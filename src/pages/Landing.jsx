@@ -27,13 +27,13 @@ function Highlight({ icon: Icon, title, body, open, onToggle }) {
   return (
     <li className={`aura-highlight ${open ? 'is-open' : ''}`}>
       <button type="button" onClick={onToggle} aria-expanded={open}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-aura-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 rounded-2xl">
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-aura-800 dark:text-aura-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 rounded-2xl">
         <Icon size={16} className="text-aura-500 shrink-0" />
         {title}
         <ChevronDown size={15} className="aura-highlight-chevron text-aura-400 shrink-0" />
       </button>
       <div className="aura-highlight-body">
-        <p className="overflow-hidden px-5 text-sm leading-relaxed text-aura-800/80">
+        <p className="overflow-hidden px-5 text-sm leading-relaxed text-aura-800/80 dark:text-aura-100/80">
           <span className="block pb-4">{body}</span>
         </p>
       </div>
@@ -57,7 +57,7 @@ export default function Landing() {
           <Wordmark />
         </h1>
 
-        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950"
+        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950 dark:text-white"
           style={{ animationDelay: '0.25s' }}>
           A{' '}
           <span className="relative inline-block">
@@ -71,7 +71,7 @@ export default function Landing() {
           </span>{' '}
           approach to social media.
         </p>
-        <p className="aura-rise mt-7 max-w-lg text-base sm:text-lg text-aura-800/80 leading-relaxed"
+        <p className="aura-rise mt-7 max-w-lg text-base sm:text-lg text-aura-800/80 dark:text-aura-100/80 leading-relaxed"
           style={{ animationDelay: '0.35s' }}>
           Your feed follows the choices you make, not what you click on.
           Give aura to the posts you love and earn it on the ones you make.
@@ -100,13 +100,13 @@ export default function Landing() {
         </div>
 
         <Link to="/about"
-          className="aura-rise mt-6 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
+          className="aura-rise mt-6 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 dark:text-aura-300 hover:text-aura-500 transition-colors"
           style={{ animationDelay: '0.65s' }}>
           What is Aura? <ArrowRight size={18} />
         </Link>
       </main>
 
-      <footer className="relative px-5 py-8 text-center text-xs text-aura-800/60">
+      <footer className="relative px-5 py-8 text-center text-xs text-aura-800/60 dark:text-aura-200/60">
         © {new Date().getFullYear()} Aura App
       </footer>
     </AuthBackdrop>

@@ -114,17 +114,17 @@ const FAQS = [
 function SectionHeading({ kicker, title, children }) {
   return (
     <div className="text-center max-w-2xl mx-auto">
-      <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600">{kicker}</p>
+      <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600 dark:text-fuchsia-300">{kicker}</p>
       <h2 className="aura-heading mt-1 text-4xl sm:text-6xl">{title}</h2>
-      {children && <p className="mt-5 text-base sm:text-lg text-aura-800/80 leading-relaxed">{children}</p>}
+      {children && <p className="mt-5 text-base sm:text-lg text-aura-800/80 dark:text-aura-100/80 leading-relaxed">{children}</p>}
     </div>
   );
 }
 
 function IconBadge({ icon: Icon }) {
   return (
-    <div className="w-11 h-11 rounded-2xl bg-aura-100 border border-white flex items-center justify-center shrink-0">
-      <Icon size={20} className="text-aura-600" />
+    <div className="w-11 h-11 rounded-2xl bg-aura-100 dark:bg-aura-500/15 border border-white dark:border-white/10 flex items-center justify-center shrink-0">
+      <Icon size={20} className="text-aura-600 dark:text-aura-300" />
     </div>
   );
 }
@@ -137,11 +137,11 @@ export default function About() {
       <main className="flex-1 px-5 pb-28 sm:pb-40">
         {/* Hero */}
         <section className="aura-rise max-w-3xl mx-auto text-center pt-10 sm:pt-16">
-          <p className="font-hand text-3xl sm:text-4xl font-bold text-fuchsia-600">Why we built Aura</p>
+          <p className="font-hand text-3xl sm:text-4xl font-bold text-fuchsia-600 dark:text-fuchsia-300">Why we built Aura</p>
           <h1 className="aura-heading mt-3 text-5xl sm:text-7xl leading-[1.05]">
             Social media that works for you, not the other way around.
           </h1>
-          <p className="mt-7 text-base sm:text-lg text-aura-800/80 leading-relaxed max-w-2xl mx-auto">
+          <p className="mt-7 text-base sm:text-lg text-aura-800/80 dark:text-aura-100/80 leading-relaxed max-w-2xl mx-auto">
             Most platforms are built to keep you scrolling, because your time and your data are what
             they sell. Aura is built on a different idea: you decide what's worth seeing, and you
             reward the people who make it.
@@ -155,8 +155,8 @@ export default function About() {
             {PROBLEMS.map(p => (
               <article key={p.title} className="aura-glass-card !p-7 text-left">
                 <IconBadge icon={p.icon} />
-                <h3 className="mt-5 text-xl font-bold text-aura-950">{p.title}</h3>
-                <p className="mt-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80">{p.body}</p>
+                <h3 className="mt-5 text-xl font-bold text-aura-950 dark:text-white">{p.title}</h3>
+                <p className="mt-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">{p.body}</p>
               </article>
             ))}
           </div>
@@ -176,8 +176,8 @@ export default function About() {
                   <span className="font-hand text-2xl font-bold text-aura-400">{i + 1}</span>
                 </div>
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-aura-950">{s.title}</h3>
-                  <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-aura-800/80">{s.body}</p>
+                  <h3 className="text-lg sm:text-xl font-bold text-aura-950 dark:text-white">{s.title}</h3>
+                  <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">{s.body}</p>
                 </div>
               </li>
             ))}
@@ -208,11 +208,11 @@ export default function About() {
               <article key={p.title} className="aura-glass-card !p-7 text-left">
                 <div className="flex items-center gap-4">
                   <IconBadge icon={p.icon} />
-                  <h3 className="text-lg sm:text-xl font-bold text-aura-950">{p.title}</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-aura-950 dark:text-white">{p.title}</h3>
                 </div>
                 <ul className="mt-5 space-y-3">
                   {p.points.map(point => (
-                    <li key={point} className="flex gap-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80">
+                    <li key={point} className="flex gap-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">
                       <span className="mt-2 w-1.5 h-1.5 rounded-full bg-fuchsia-500 shrink-0" />
                       {point}
                     </li>
@@ -228,12 +228,12 @@ export default function About() {
           <SectionHeading kicker="good questions" title="FAQ" />
           <div className="mt-12 space-y-3">
             {FAQS.map(f => (
-              <details key={f.q} className="aura-faq group rounded-2xl bg-white/60 border border-white backdrop-blur-md">
-                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-4 font-semibold text-aura-950">
+              <details key={f.q} className="aura-faq group rounded-2xl bg-white/60 dark:bg-white/5 border border-white dark:border-white/10 backdrop-blur-md">
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-6 py-4 font-semibold text-aura-950 dark:text-white">
                   {f.q}
                   <ChevronDown size={18} className="text-aura-400 shrink-0 transition-transform group-open:rotate-180" />
                 </summary>
-                <p className="px-6 pb-5 -mt-1 text-sm sm:text-[15px] leading-relaxed text-aura-800/80">{f.a}</p>
+                <p className="px-6 pb-5 -mt-1 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">{f.a}</p>
               </details>
             ))}
           </div>
@@ -242,13 +242,13 @@ export default function About() {
         {/* Founder note */}
         <section className="mt-28 sm:mt-36 max-w-2xl mx-auto">
           <figure className="aura-glass-card !p-8 sm:!p-10 text-center">
-            <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600">a note from the founder</p>
-            <blockquote className="mt-4 font-hand text-2xl sm:text-3xl leading-snug text-aura-950">
+            <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600 dark:text-fuchsia-300">a note from the founder</p>
+            <blockquote className="mt-4 font-hand text-2xl sm:text-3xl leading-snug text-aura-950 dark:text-white">
               "Social media should be about the people on it. I want a feed where your time isn't the
               product, real creators get rewarded, and nobody is harvesting your data to keep you
               hooked. That's what Aura is for."
             </blockquote>
-            <figcaption className="mt-5 text-sm text-aura-800/70">Founder of Aura</figcaption>
+            <figcaption className="mt-5 text-sm text-aura-800/70 dark:text-aura-200/70">Founder of Aura</figcaption>
           </figure>
         </section>
 
@@ -266,7 +266,7 @@ export default function About() {
         </section>
       </main>
 
-      <footer className="relative px-5 py-8 text-center text-xs text-aura-800/60">
+      <footer className="relative px-5 py-8 text-center text-xs text-aura-800/60 dark:text-aura-200/60">
         © {new Date().getFullYear()} Aura App
       </footer>
     </AuthBackdrop>

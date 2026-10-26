@@ -107,14 +107,14 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* Airy serif with a soft gradient of close-together purples, and a white
-     glow to lift it off the sky. */
+  /* Playful script in the same gradient as the Create account button, with a
+     white glow to lift it off the sky. The padding keeps the script's swashes
+     inside the gradient. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    padding: 0 0.04em 0.12em;
-    background: linear-gradient(100deg, #5b21b6 0%, #8b5cf6 55%, #c084fc 100%);
+    font-weight: 400;
+    padding: 0.08em 0.14em 0.16em;
+    background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -122,7 +122,7 @@ h1, h2, h3 {
   }
   /* Section headings on the public pages, in the wordmark's soft serif. */
   .aura-heading {
-    @apply font-wordmark text-aura-900;
+    @apply font-heading text-aura-900;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -217,4 +217,135 @@ h1, h2, h3 {
   .aura-twinkle { opacity: 0.8; }
   .aura-rise { animation: none; opacity: 1; }
   .aura-scribble { animation: none; stroke-dashoffset: 0; }
+}
+
+/* ── Galaxy theme: the landing and auth pages in dark mode ──────────── */
+
+.aura-night-only { display: none; }
+.dark .aura-night-only { display: block; }
+
+.dark .aura-heaven {
+  --bg-primary:    #0d0618;
+  --bg-secondary:  #1a0a2e;
+  --bg-elevated:   #1c0f33;
+  --bg-card:       #1a0a2e;
+  --border:        #33205a;
+  --text-primary:  #f8f7ff;
+  --text-secondary:#c4b5fd;
+  --text-muted:    #a59cc0;
+  --accent:        #a78bfa;
+  --accent-hover:  #c4b5fd;
+  --accent-subtle: #2d1b4e;
+  background: #05020d;
+}
+
+/* Deep space with violet, magenta and indigo nebulae. */
+.dark .aura-sky {
+  background:
+    radial-gradient(ellipse 50% 40% at 12% 22%, rgba(124, 58, 237, 0.35), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 88% 38%, rgba(192, 38, 211, 0.25), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 50% 100%, rgba(79, 70, 229, 0.35), transparent 70%),
+    linear-gradient(180deg, #05020d 0%, #0d0620 45%, #170b33 100%);
+}
+.dark .aura-rays {
+  background: repeating-conic-gradient(from 180deg at 50% var(--ray-y),
+    rgba(196, 181, 253, 0.12) 0deg 3deg, rgba(196, 181, 253, 0) 3deg 9deg);
+}
+.dark .aura-sun {
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.5) 0%, rgba(124, 58, 237, 0.25) 35%, rgba(124, 58, 237, 0) 70%);
+}
+/* The cloud bank becomes a faint, misty nebula at the bottom. */
+.dark .aura-cloud-layer { opacity: 0.06 !important; }
+.dark .aura-float-cloud { display: none; }
+.dark .aura-halo-glow { filter: drop-shadow(0 0 22px rgba(196, 181, 253, 0.6)) drop-shadow(0 10px 30px rgba(124, 58, 237, 0.6)); }
+
+/* A soft band of the Milky Way across the sky. */
+.aura-galaxy-band {
+  background: linear-gradient(115deg, transparent 28%, rgba(196, 181, 253, 0.08) 42%,
+    rgba(240, 171, 252, 0.12) 50%, rgba(196, 181, 253, 0.08) 58%, transparent 72%);
+  filter: blur(24px);
+}
+
+/* Star fields: small tiles of dots repeated across the sky, two layers that
+   twinkle out of step. */
+.aura-stars-1, .aura-stars-2 { background-repeat: repeat; }
+.aura-stars-1 {
+  background-image:
+    radial-gradient(circle at 23px 41px,  rgba(255, 255, 255, 0.9) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 141px 12px, rgba(255, 255, 255, 0.7) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 92px 133px, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 211px 88px, rgba(255, 255, 255, 0.6) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 270px 201px,rgba(255, 255, 255, 0.9) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 37px 244px, rgba(255, 255, 255, 0.7) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 168px 262px,rgba(255, 255, 255, 0.8) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 252px 23px, rgba(255, 255, 255, 0.6) 0 1px, transparent 1.6px);
+  background-size: 300px 300px;
+  animation: starTwinkle 6s ease-in-out infinite alternate;
+}
+.aura-stars-2 {
+  background-image:
+    radial-gradient(circle at 80px 60px,  rgba(221, 214, 254, 1) 0 1.4px, transparent 2.2px),
+    radial-gradient(circle at 390px 150px,rgba(240, 171, 252, 0.9) 0 1.4px, transparent 2.2px),
+    radial-gradient(circle at 250px 380px,rgba(255, 255, 255, 1) 0 1.4px, transparent 2.2px),
+    radial-gradient(circle at 470px 430px,rgba(196, 181, 253, 0.9) 0 1.4px, transparent 2.2px),
+    radial-gradient(circle at 30px 470px, rgba(255, 255, 255, 0.9) 0 1.4px, transparent 2.2px);
+  background-size: 520px 520px;
+  animation: starTwinkle 4.5s ease-in-out 1.5s infinite alternate-reverse;
+}
+@keyframes starTwinkle { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* An occasional shooting star. */
+.aura-shooting-star {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  width: 140px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(196, 181, 253, 0));
+  opacity: 0;
+  animation: shootingStar 11s ease-in 3s infinite;
+}
+@keyframes shootingStar {
+  0%   { opacity: 0; transform: rotate(-28deg) translateX(0); }
+  2%   { opacity: 1; }
+  9%   { opacity: 0; transform: rotate(-28deg) translateX(-520px); }
+  100% { opacity: 0; transform: rotate(-28deg) translateX(-520px); }
+}
+
+.dark .aura-wordmark {
+  background-image: linear-gradient(110deg, #8b5cf6, #a855f7 55%, #d946ef);
+  filter: drop-shadow(0 0 24px rgba(168, 85, 247, 0.45));
+}
+.dark .aura-cta {
+  background: linear-gradient(110deg, #8b5cf6, #a855f7 55%, #d946ef);
+  box-shadow: 0 10px 40px -8px rgba(168, 85, 247, 0.65);
+}
+.dark .aura-cta:hover { box-shadow: 0 14px 48px -6px rgba(168, 85, 247, 0.8); }
+.dark .aura-heading { color: #f5f3ff; }
+.dark .aura-glass-btn,
+.dark .aura-glass-btn:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+.dark .aura-glass-btn { background: rgba(255, 255, 255, 0.05); }
+.dark .aura-glass-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.25); }
+.dark .aura-glass-card {
+  background: rgba(20, 10, 38, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px -20px rgba(124, 58, 237, 0.35);
+}
+.dark .aura-highlight {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark .aura-highlight.is-open { background: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
+@media (hover: hover) {
+  .dark .aura-highlight:hover { background: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-stars-1, .aura-stars-2 { animation: none; }
+  .aura-shooting-star { display: none; }
 }

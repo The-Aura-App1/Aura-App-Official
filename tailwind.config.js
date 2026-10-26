@@ -22,7 +22,8 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],
-        wordmark: ['"Cormorant Garamond Variable"','Georgia','"Sora Variable"','sans-serif'],
+        wordmark: ['"Grand Hotel"','cursive'],
+        heading: ['"Cormorant Garamond Variable"','Georgia','"Sora Variable"','sans-serif'],
         hand: ['"Caveat Variable"','cursive'],
         display: ['"Sora Variable"','"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','sans-serif'],
       },
