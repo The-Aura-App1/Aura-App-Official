@@ -2,7 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
-import { TOPICS, MAX_POST_TOPICS } from '../utils/topics';
+import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
+import { postEmbeddingText } from '../utils/embeddings';
+import { embedTexts, warmUpModel } from '../utils/embedClient';
+
+const EMBED_TIMEOUT_MS = 15000;
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;  // 20MB
@@ -33,6 +37,27 @@ export default function CreatePost() {
   const [uploadProgress, setUploadProgress] = useState('');
 
   const fileInputRef = useRef(null);
+  const warmedRef    = useRef(false);
+
+  // Start loading the on-device model once there's something to read, so it's
+  // usually ready by the time the post is shared. Group posts skip the feed.
+  useEffect(() => {
+    if (groupId || warmedRef.current || (!caption.trim() && !topics.length)) return;
+    warmedRef.current = true;
+    warmUpModel();
+  }, [groupId, caption, topics]);
+
+  async function captionEmbedding() {
+    const text = postEmbeddingText(caption, topics.map(topicLabel));
+    if (groupId || !text) return undefined;
+    try {
+      const [vec] = await embedTexts([text], EMBED_TIMEOUT_MS);
+      return vec;
+    } catch (err) {
+      console.warn('Posting without an embedding:', err.message);
+      return undefined;
+    }
+  }
 
   function handleTypeSelect(type) {
     setPostType(type);
@@ -122,6 +147,9 @@ export default function CreatePost() {
         }));
       }
 
+      setUploadProgress('Preparing for recommendations...');
+      const embedding = await captionEmbedding();
+
       setUploadProgress('Creating post...');
 
       await api.createPost({
@@ -129,6 +157,7 @@ export default function CreatePost() {
         caption:   caption.trim(),
         mediaKeys,
         tags:      groupId ? [] : topics,
+        ...(embedding && { embedding }),
         ...(groupId && { groupId }),
       });
 

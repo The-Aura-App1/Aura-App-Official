@@ -41,6 +41,11 @@ const TOPICS = new Set([
   'motivation', 'sustainability', 'outdoors', 'cars', 'diy',
 ]);
 const MAX_POST_TOPICS = 3;
+
+// Caption embeddings are computed on the author's device (see
+// src/utils/embeddings.js): base64 of EMBED_DIM signed bytes, value * 127
+const EMBED_MODEL = 'Xenova/all-MiniLM-L6-v2';
+const EMBED_DIM   = 384;
 const FEED_ALL_SIZE   = 100;
 const FEED_TOPIC_SIZE = 20;
 
@@ -54,6 +59,16 @@ function response(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
+}
+
+// A normalized vector stays close to length 1 after rounding to bytes
+function isValidEmbedding(value) {
+  if (typeof value !== 'string' || value.length > 600 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false;
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length !== EMBED_DIM) return false;
+  let sumSquares = 0;
+  for (let i = 0; i < EMBED_DIM; i++) sumSquares += (bytes.readInt8(i) / 127) ** 2;
+  return sumSquares > 0.9 && sumSquares < 1.1;
 }
 
 function generateId() {
@@ -107,7 +122,7 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, caption, mediaKeys, tags, groupId } = body;
+  const { type, caption, mediaKeys, tags, groupId, embedding } = body;
 
   let group = null;
   if (groupId !== undefined) {
@@ -131,6 +146,9 @@ async function createPost(userId, body) {
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > MAX_POST_TOPICS
       || new Set(tags).size !== tags.length || !tags.every(t => TOPICS.has(t)))) {
     return response(400, { error: `Pick up to ${MAX_POST_TOPICS} topics from the list.` });
+  }
+  if (embedding !== undefined && !isValidEmbedding(embedding)) {
+    return response(400, { error: 'Invalid embedding.' });
   }
 
   const userResult = await dynamo.send(new GetCommand({
@@ -165,6 +183,7 @@ async function createPost(userId, body) {
     createdAt:      now,
     updatedAt:      now,
     ...(group && { groupId: group.groupId, groupName: group.name }),
+    ...(!group && embedding && { embedding, embeddingModel: EMBED_MODEL }),
   };
 
   await dynamo.send(new PutCommand({

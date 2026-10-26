@@ -20,10 +20,12 @@ export default function Feed() {
   // from a post's menu wait until the next load so the feed doesn't jump.
   const [prefs, setPrefs]         = useState(() => loadPrefs(userId));
   const [rankPrefs, setRankPrefs] = useState(prefs);
+  const prefsRef    = useRef(prefs);
   const sentinelRef = useRef(null);
 
   useEffect(() => {
     const saved = loadPrefs(userId);
+    prefsRef.current = saved;
     setPrefs(saved);
     setRankPrefs(saved);
   }, [userId]);
@@ -54,17 +56,21 @@ export default function Feed() {
     return () => observer.disconnect();
   }, [ranked, shown]);
 
-  function changePrefs(next) {
+  function storePrefs(update) {
+    const next = update(prefsRef.current);
+    prefsRef.current = next;
     savePrefs(userId, next);
     setPrefs(next);
-    setRankPrefs(next);
+    return next;
+  }
+
+  function changePrefs(update) {
+    setRankPrefs(storePrefs(update));
     setShown(PAGE_SIZE);
   }
 
   function preferPost(post, choice) {
-    const next = setTopics(prefs, post.tags ?? [], choice);
-    savePrefs(userId, next);
-    setPrefs(next);
+    storePrefs(current => setTopics(current, post.tags ?? [], choice));
   }
 
   if (loading) return <LoadingSpinner />;

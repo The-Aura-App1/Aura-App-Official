@@ -1,4 +1,16 @@
 import { rankFeed, scorePost, MORE_BOOST, LESS_PENALTY, EXPLORE_EVERY } from './feedRanking';
+import { encodeVector, EMBED_DIM } from './embeddings';
+
+// A vector whose similarity to the base direction (dimension 0) is `sim`
+function vecWithSim(sim) {
+  const v = new Array(EMBED_DIM).fill(0);
+  v[0] = sim;
+  v[1] = Math.sqrt(1 - sim * sim);
+  return encodeVector(v);
+}
+const BASE = vecWithSim(1);
+const word = (sim, choice = 'more') => ({ text: `w${sim}${choice}`, vec: vecWithSim(sim), choice });
+const embedded = (id, hotScore, tags = []) => ({ postId: id, hotScore, tags, embedding: BASE });
 
 const post = (id, hotScore, tags = []) => ({ postId: id, hotScore, tags });
 const ids  = posts => posts.map(p => p.postId);
@@ -51,6 +63,38 @@ test(`every ${EXPLORE_EVERY}th slot is a post outside the "more" topics`, () => 
 test('exploration falls back to normal order when every post matches', () => {
   const posts = Array.from({ length: 7 }, (_, i) => post(`m${i}`, 7 - i, ['music']));
   expect(ids(rankFeed(posts, { more: ['music'], less: [] }))).toEqual(ids(posts));
+});
+
+test('keyword matches ramp from no effect to the full boost', () => {
+  const p = embedded('a', 1);
+  const at = sim => scorePost(p, { more: [], less: [], words: [word(sim)] }) - 1;
+  expect(at(0.1)).toBeCloseTo(0, 5);
+  expect(at(0.35)).toBeCloseTo(MORE_BOOST / 2, 1);
+  expect(at(0.6)).toBeCloseTo(MORE_BOOST, 5);
+});
+
+test('"less" keywords push posts down by up to the full penalty', () => {
+  const p = embedded('a', 1);
+  expect(scorePost(p, { more: [], less: [], words: [word(0.6, 'less')] })).toBeCloseTo(1 - LESS_PENALTY, 5);
+});
+
+test('the best keyword counts, and topic plus keyword matches do not stack', () => {
+  const p = embedded('a', 1, ['music']);
+  const prefs = { more: ['music'], less: [], words: [word(0.6), word(0.5), word(0.1)] };
+  expect(scorePost(p, prefs)).toBeCloseTo(1 + MORE_BOOST, 5);
+});
+
+test('posts without an embedding ignore keywords', () => {
+  expect(scorePost(post('a', 2), { more: [], less: [], words: [word(0.9)] })).toBe(2);
+  expect(scorePost({ ...post('b', 2), embedding: 'garbage' }, { more: [], less: [], words: [word(0.9)] })).toBe(2);
+});
+
+test('keyword matches move posts up and count as matches for exploration', () => {
+  const matches = Array.from({ length: 6 }, (_, i) => embedded(`k${i}`, 5 - i * 0.1));
+  const others  = [post('o1', 5.5)];
+  const ranked  = rankFeed([...others, ...matches], { more: [], less: [], words: [word(0.6)] });
+  expect(ids(ranked).slice(0, 4)).toEqual(['k0', 'k1', 'k2', 'k3']);
+  expect(ranked[EXPLORE_EVERY - 1].postId).toBe('o1');
 });
 
 test('empty feed returns an empty list', () => {
