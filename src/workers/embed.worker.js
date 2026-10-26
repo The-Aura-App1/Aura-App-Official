@@ -1,9 +1,15 @@
 /* eslint-disable no-restricted-globals */
-import { pipeline } from '@huggingface/transformers';
+import { pipeline, env } from '@huggingface/transformers';
 import { EMBED_MODEL } from '../utils/embeddings';
 
-// Runs the model off the main thread. The model downloads once and the
-// browser caches it; the text being embedded never leaves the device.
+// Runs the model off the main thread. The model (public/models) and runtime
+// (public/ort) are served by Aura itself; nothing loads from third parties and
+// the text being embedded never leaves the device.
+env.allowRemoteModels = false;
+env.allowLocalModels  = true;
+env.localModelPath    = '/models/';
+env.backends.onnx.wasm.wasmPaths = '/ort/';
+
 let extractor = null;
 
 self.onmessage = async ({ data }) => {

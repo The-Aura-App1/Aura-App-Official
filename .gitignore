@@ -22,5 +22,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# copied from node_modules by scripts/copy-ort.js
+/public/ort
+
 # lambda deployment packages
 *.zip

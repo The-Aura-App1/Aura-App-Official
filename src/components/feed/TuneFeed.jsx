@@ -5,7 +5,7 @@ import {
   setTopics, topicChoice, addKeyword, removeKeyword, hasKeyword,
   EMPTY_PREFS, MAX_KEYWORDS, MAX_KEYWORD_LENGTH,
 } from '../../utils/feedPrefs';
-import { embedTexts } from '../../utils/embedClient';
+import { embedTexts, warmUpModel } from '../../utils/embedClient';
 
 const NEXT_CHOICE = { null: 'more', more: 'less', less: null };
 
@@ -51,7 +51,7 @@ export default function TuneFeed({ prefs, onChange }) {
   return (
     <section className="card p-0 overflow-hidden">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { if (!open) warmUpModel(); setOpen(o => !o); }}
         aria-expanded={open}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold
                    text-[var(--text-primary)] hover:bg-[var(--accent-subtle)] transition-colors">
@@ -111,9 +111,7 @@ export default function TuneFeed({ prefs, onChange }) {
             </button>
           </form>
           {adding && (
-            <p className="text-xs text-aura-400 mt-2">
-              Reading your keyword on this device. The first time, this downloads a small model (about 23 MB).
-            </p>
+            <p className="text-xs text-aura-400 mt-2">Reading your keyword on this device...</p>
           )}
           {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           {prefs.words.length > 0 && (
