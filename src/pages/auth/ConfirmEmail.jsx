@@ -48,7 +48,7 @@ export default function ConfirmEmail() {
           <div className="w-14 h-14 rounded-2xl bg-aura-500/20 border border-aura-500/30 flex items-center justify-center">
             <Mail size={28} className="text-aura-400" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Check your email</h1>
+          <h1 className="font-hand text-4xl font-bold text-[var(--text-primary)]">Check your email</h1>
           <p className="text-sm text-[var(--text-muted)]">
             We sent a 6-digit code to{' '}
             <span className="text-[var(--text-primary)] font-medium">{email || 'your email'}</span>

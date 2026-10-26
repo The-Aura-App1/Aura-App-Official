@@ -29,9 +29,19 @@ export default function Landing() {
           <Wordmark />
         </h1>
 
-        <p className="aura-rise mt-6 sm:mt-8 max-w-2xl font-display text-xl sm:text-3xl font-semibold leading-snug text-aura-950"
+        <p className="aura-rise mt-6 sm:mt-8 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950"
           style={{ animationDelay: '0.25s' }}>
-          A consumer-centered approach to social media.
+          A{' '}
+          <span className="relative inline-block">
+            consumer-centered
+            {/* Hand-drawn underline */}
+            <svg className="absolute left-0 -bottom-2 w-full h-4 text-fuchsia-500" viewBox="0 0 300 16"
+              preserveAspectRatio="none" fill="none" aria-hidden="true">
+              <path className="aura-scribble" d="M3 11c38-6 84-9 135-8 52 1 104 3 159 0M18 14c56-4 128-6 210-3"
+                stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </span>{' '}
+          approach to social media.
         </p>
         <p className="aura-rise mt-4 max-w-lg text-sm sm:text-base text-aura-800/80 leading-relaxed"
           style={{ animationDelay: '0.35s' }}>
@@ -60,9 +70,9 @@ export default function Landing() {
         </ul>
 
         <Link to="/about"
-          className="aura-rise mt-8 inline-flex items-center gap-1.5 text-sm font-semibold text-aura-700 hover:text-aura-500 transition-colors"
+          className="aura-rise mt-8 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 hover:text-aura-500 transition-colors"
           style={{ animationDelay: '0.65s' }}>
-          What is Aura? <ArrowRight size={15} />
+          What is Aura? <ArrowRight size={18} />
         </Link>
       </main>
 

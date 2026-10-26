@@ -4,6 +4,7 @@ import './amplifyConfigure';
 import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/sora';
 import '@fontsource-variable/unbounded';
+import '@fontsource-variable/caveat';
 import './index.css';
 import App from './App';
 

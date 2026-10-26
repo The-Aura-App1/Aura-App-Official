@@ -38,7 +38,7 @@ export default function SignIn() {
         <div className="flex justify-center mb-6"><Wordmark size="sm" linked /></div>
         <div className="aura-glass-card">
         <div className="flex flex-col items-center gap-3 mb-10">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Welcome back</h1>
+          <h1 className="font-hand text-4xl font-bold text-[var(--text-primary)]">Welcome back</h1>
           <p className="text-sm text-[var(--text-muted)]">Sign in to your Aura account</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

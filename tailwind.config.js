@@ -23,6 +23,7 @@ module.exports = {
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],
         wordmark: ['"Unbounded Variable"','"Sora Variable"','sans-serif'],
+        hand: ['"Caveat Variable"','cursive'],
         display: ['"Sora Variable"','"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','sans-serif'],
       },
       animation: {
