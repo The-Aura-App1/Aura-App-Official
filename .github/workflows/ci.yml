@@ -1,0 +1,33 @@
+name: CI
+
+# Runs on every push and pull request: Lambda syntax check, unit tests, production build
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Check Lambda syntax
+        run: for f in backend/lambdas/*/index.mjs; do node --check "$f" || exit 1; echo "ok  $f"; done
+
+      - name: Run tests
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
+
+      - name: Build
+        run: npm run build
+        env:
+          CI: false
