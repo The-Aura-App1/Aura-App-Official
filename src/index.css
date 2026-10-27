@@ -366,3 +366,15 @@ h1, h2, h3 {
   .aura-stars-1, .aura-stars-2 { animation: none; }
   .aura-shooting-star { display: none; }
 }
+
+/* ── Sky details behind the signed-in app ──────────────────────────── */
+/* A softer version of the public pages' sky, so it never competes with posts. */
+.aura-app-sky .aura-sky { opacity: 0.55; }
+.dark .aura-app-sky .aura-sky { opacity: 0.9; }
+/* Full-height bank pushed partly below the screen, so the cloud tops stay soft. */
+.aura-app-sky .aura-cloud-bank { transform: translateY(45%); opacity: 0.75; }
+/* The constellation only fits beside the feed on wide screens. */
+.aura-app-sky .aura-constellation { display: none; }
+@media (min-width: 1440px) {
+  .dark .aura-app-sky .aura-constellation { display: block; }
+}

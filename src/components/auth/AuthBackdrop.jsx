@@ -55,7 +55,7 @@ const CLOUD_LAYERS = [
 
 function CloudBank() {
   return (
-    <div className="absolute inset-x-0 bottom-0 h-[42vh] min-h-[220px]">
+    <div className="aura-cloud-bank absolute inset-x-0 bottom-0 h-[42vh] min-h-[220px]">
       {CLOUD_LAYERS.map((layer, i) => {
         const puffs = cloudPuffs(layer.seed, { width: BANK_WIDTH, ...layer });
         return (
@@ -133,10 +133,10 @@ const HALO_STARS = [
   };
 });
 
-function HaloConstellation() {
+function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }) {
   const path = HALO_STARS.map((s, i) => `${i ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`).join(' ') + ' Z';
   return (
-    <svg className="aura-constellation absolute top-[120px] right-[5%] w-60 xl:w-72"
+    <svg className={`aura-constellation absolute ${className}`}
       viewBox="0 0 220 140" aria-hidden="true">
       <path className="aura-constellation-line" d={path} fill="none" stroke="rgba(221, 214, 254, 0.35)"
         strokeWidth="0.8" strokeDasharray="3 3" />
@@ -186,31 +186,53 @@ export function SiteHeader() {
   );
 }
 
+// The sky itself: a dawn sky with clouds in light mode, a galaxy in dark mode.
+// `page` is the full version for the public pages, with the sun and light
+// rays; `app` is the quieter version behind the signed-in app, without rays
+// and with the floating clouds and constellation kept to the side margins.
+export function SkyDecor({ variant = 'page' }) {
+  const page = variant === 'page';
+  return (
+    <>
+      <div className="aura-sky absolute inset-0" />
+      <div className="aura-night-only absolute inset-0 aura-galaxy-band" />
+      <div className="aura-night-only absolute inset-0 aura-stars-1" />
+      <div className="aura-night-only absolute inset-0 aura-stars-2" />
+      <span className="aura-night-only aura-shooting-star" />
+      {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
+      {page && <div className="aura-rays absolute inset-0" />}
+      {page && <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />}
+      {page ? (
+        <>
+          <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />
+          <FloatingCloud seed={11} className="aura-float-cloud w-40 sm:w-60 top-[30%] -right-12 sm:right-[8%] opacity-80" style={{ animationDuration: '41s', animationDirection: 'reverse' }} />
+        </>
+      ) : (
+        <>
+          <FloatingCloud seed={3}  className="aura-float-cloud w-56 top-[14%] -left-16" style={{ animationDuration: '38s' }} />
+          <FloatingCloud seed={11} className="aura-float-cloud w-48 top-[46%] -right-12 opacity-80" style={{ animationDuration: '44s', animationDirection: 'reverse' }} />
+        </>
+      )}
+      {SPARKLES.map((s, i) => (
+        <span key={i} className="aura-twinkle absolute text-amber-200 dark:text-aura-100"
+          style={{ top: s.top, left: s.left, animationDelay: s.delay }}>
+          <Sparkle size={s.size} />
+        </span>
+      ))}
+      <CloudBank />
+    </>
+  );
+}
+
 // Heavenly dawn sky shared by the landing page and the auth pages: light rays
-// from above, drifting clouds below. The `aura-heaven` class pins the light
-// theme variables, so these pages look the same whatever theme the user picked
-// inside the app. `className` can move the glow (see .aura-glow-on-halo).
+// from above, drifting clouds below. The `aura-heaven` class sets the theme
+// variables for these pages. `className` can move the glow (see
+// .aura-glow-on-halo).
 export default function AuthBackdrop({ children, className = '' }) {
   return (
     <div className={`aura-heaven relative min-h-screen overflow-hidden text-[var(--text-primary)] ${className}`}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="aura-sky absolute inset-0" />
-        <div className="aura-night-only absolute inset-0 aura-galaxy-band" />
-        <div className="aura-night-only absolute inset-0 aura-stars-1" />
-        <div className="aura-night-only absolute inset-0 aura-stars-2" />
-        <span className="aura-night-only aura-shooting-star" />
-        <HaloConstellation />
-        <div className="aura-rays absolute inset-0" />
-        <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />
-        <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />
-        <FloatingCloud seed={11} className="aura-float-cloud w-40 sm:w-60 top-[30%] -right-12 sm:right-[8%] opacity-80" style={{ animationDuration: '41s', animationDirection: 'reverse' }} />
-        {SPARKLES.map((s, i) => (
-          <span key={i} className="aura-twinkle absolute text-amber-200 dark:text-aura-100"
-            style={{ top: s.top, left: s.left, animationDelay: s.delay }}>
-            <Sparkle size={s.size} />
-          </span>
-        ))}
-        <CloudBank />
+        <SkyDecor />
       </div>
       <div className="relative z-10 min-h-screen flex flex-col">{children}</div>
     </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings as SettingsIcon, User, Shield, Bell, KeyRound } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette } from 'lucide-react';
 import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { api } from '../api';
 import { usernameStatusText } from '../utils/format';
 
@@ -131,6 +132,7 @@ function PasswordForm() {
 
 export default function Settings() {
   const { dbProfile, username, refreshUser } = useAuth();
+  const { theme, toggleTheme, skyDetails, setSkyDetails } = useTheme();
 
   const [settings, setSettings] = useState(null);
   const [saving, setSaving]     = useState(false);
@@ -201,6 +203,21 @@ export default function Settings() {
         <p className="text-xs text-[var(--text-muted)]">
           Email changes and two-factor authentication are coming soon.
         </p>
+      </Section>
+
+      {/* ── Appearance (saved on this device, not the account) ── */}
+      <Section icon={Palette} title="Appearance">
+        <Toggle
+          label="Dark mode"
+          checked={theme === 'dark'}
+          onChange={toggleTheme}
+        />
+        <Toggle
+          label="Background details"
+          description="Clouds and sparkles in light mode, stars and galaxies in dark mode. Saved on this device."
+          checked={skyDetails}
+          onChange={setSkyDetails}
+        />
       </Section>
 
       {!settings ? null : (
