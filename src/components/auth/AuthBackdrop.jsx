@@ -108,6 +108,51 @@ function FloatingCloud({ seed, className, style }) {
   );
 }
 
+// Stars on a tilted ellipse, like the halo logo (tilted about 12 degrees and
+// squashed to half its width). Each star is nudged off the ellipse a little so
+// it reads as a constellation rather than a drawn ring.
+const HALO_STARS = [
+  { angle: 0,   nudge: 2,  r: 2.6 },
+  { angle: 38,  nudge: -3, r: 1.8 },
+  { angle: 80,  nudge: 3,  r: 2.2 },
+  { angle: 122, nudge: -2, r: 1.6 },
+  { angle: 160, nudge: 4,  r: 2.8 },
+  { angle: 200, nudge: -3, r: 1.7 },
+  { angle: 243, nudge: 2,  r: 2.3 },
+  { angle: 285, nudge: -4, r: 1.6 },
+  { angle: 322, nudge: 3,  r: 2.0 },
+].map(({ angle, nudge, r }) => {
+  const a = (angle * Math.PI) / 180;
+  const tilt = (-12 * Math.PI) / 180;
+  const x = (88 + nudge) * Math.cos(a);
+  const y = (36 + nudge / 2) * Math.sin(a);
+  return {
+    x: 110 + x * Math.cos(tilt) - y * Math.sin(tilt),
+    y: 62 + x * Math.sin(tilt) + y * Math.cos(tilt),
+    r,
+  };
+});
+
+function HaloConstellation() {
+  const path = HALO_STARS.map((s, i) => `${i ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`).join(' ') + ' Z';
+  return (
+    <svg className="aura-constellation absolute top-[120px] right-[5%] w-60 xl:w-72"
+      viewBox="0 0 220 140" aria-hidden="true">
+      <path className="aura-constellation-line" d={path} fill="none" stroke="rgba(221, 214, 254, 0.35)"
+        strokeWidth="0.8" strokeDasharray="3 3" />
+      {HALO_STARS.map((s, i) => (
+        <g key={i} className="aura-constellation-star" style={{ animationDelay: `${(i * 0.7) % 4}s` }}>
+          <circle cx={s.x} cy={s.y} r={s.r * 2.6} fill="rgba(196, 181, 253, 0.18)" />
+          <circle cx={s.x} cy={s.y} r={s.r} fill="#f5f3ff" />
+        </g>
+      ))}
+      <text x="110" y="128" textAnchor="middle" className="font-hand" fontSize="15" fill="rgba(221, 214, 254, 0.55)">
+        Aura
+      </text>
+    </svg>
+  );
+}
+
 // The "Aura App" name in the display font. `size` picks the landing-page or
 // compact version used above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
@@ -154,6 +199,7 @@ export default function AuthBackdrop({ children, className = '' }) {
         <div className="aura-night-only absolute inset-0 aura-stars-1" />
         <div className="aura-night-only absolute inset-0 aura-stars-2" />
         <span className="aura-night-only aura-shooting-star" />
+        <HaloConstellation />
         <div className="aura-rays absolute inset-0" />
         <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />
         <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />

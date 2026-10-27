@@ -348,7 +348,21 @@ h1, h2, h3 {
   .dark .aura-highlight:hover { background: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
 }
 
+/* Halo-shaped constellation: dark mode on wide screens only, where there's
+   empty sky beside the content. The dashed lines draw in, then each star
+   twinkles on its own rhythm. */
+.aura-constellation { display: none; }
+@media (min-width: 1024px) {
+  .dark .aura-constellation { display: block; }
+}
+.aura-constellation-line { stroke-dashoffset: 600; animation: constellationDraw 3s ease-out 0.8s forwards; }
+.aura-constellation-star { animation: constellationTwinkle 3.5s ease-in-out infinite; }
+@keyframes constellationDraw    { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes constellationTwinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
 @media (prefers-reduced-motion: reduce) {
+  .aura-constellation-line { animation: none; stroke-dashoffset: 0; }
+  .aura-constellation-star { animation: none; }
   .aura-stars-1, .aura-stars-2 { animation: none; }
   .aura-shooting-star { display: none; }
 }
