@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Hourglass, Bot, EyeOff, Gift, Heart, ThumbsDown, TrendingUp,
-  SlidersHorizontal, Smartphone, Ban, Megaphone, Scale, Wallet, ArrowRight, ChevronDown,
+  SlidersHorizontal, Smartphone, Ban, Megaphone, Scale, Wallet, ArrowRight, ChevronDown, Map,
 } from 'lucide-react';
 import AuthBackdrop, { SiteHeader } from '../components/auth/AuthBackdrop';
 
@@ -37,8 +37,8 @@ const STEPS = [
   },
   {
     icon: ThumbsDown,
-    title: 'Skip or take from what you don\'t',
-    body: 'Low-effort rage bait? Just scroll past and it gets nothing from you. If you really don\'t like it, you can take aura away from the poster as a disincentive. Taking is capped, so nobody can be piled on.',
+    title: 'Skip it, or take if you mean it',
+    body: 'Low-effort rage bait? Just scroll past and it gets nothing from you. If you really mean it, you can take aura away, but taking costs you the same amount and nobody profits from it. Authors can turn taking off for any post, and groups can turn it off entirely.',
   },
   {
     icon: TrendingUp,
@@ -78,8 +78,36 @@ const PROMISES = [
     title: 'Fair by design',
     points: [
       'Daily limits on giving and taking aura are enforced on our servers, not just in the app.',
-      'Gifts from brand-new accounts can\'t be cashed out, and there\'s a daily cap on how much earned aura one account can send you.',
-      'Cash-outs will need a verified creator account (18+) and support from many different people.',
+      'Taking aura costs the taker the same amount, so piling on someone never pays off.',
+      'Authors choose whether each post can be taken from, and groups can be take-free safe spaces.',
+    ],
+  },
+];
+
+const ROADMAP = [
+  {
+    when: 'Next up',
+    items: [
+      'Blocking: stop someone from interacting with your posts or your account',
+      'Following, with private accounts and follow requests',
+      'Reporting and moderation tools for posts and profiles',
+    ],
+  },
+  {
+    when: 'Soon',
+    items: [
+      'iOS and Android apps',
+      'Moments: group-only photos that disappear after 24 hours',
+      'Group games like Connect 4, played for aura, never money',
+      'Aura Premium: ad-free, custom post styles, higher limits',
+    ],
+  },
+  {
+    when: 'Later',
+    items: [
+      'Creator payouts, once the payment and money-transmission rules are sorted out',
+      'Badges, leaderboards and a global aura rank you can hide',
+      'Direct messages',
     ],
   },
 ];
@@ -94,8 +122,8 @@ const FAQS = [
     a: 'No, never. Aura can only be earned, so the only way to get ahead is to make things people genuinely value. Real money only buys Premium and cosmetics, never aura.',
   },
   {
-    q: 'When can creators cash out?',
-    a: 'Cash-outs are coming later. When they launch, top creators with a verified creator account (18+) will be able to cash out the aura they\'ve earned from other people for real money. Your daily free aura and anything you take from others can\'t be cashed out.',
+    q: 'Can I turn aura into money?',
+    a: 'Not today. Aura has no cash value. Creator payouts are on our roadmap, but paying people real money comes with payment and money-transmission rules we want to get right before we offer it.',
   },
   {
     q: 'How does Aura make money?',
@@ -192,8 +220,7 @@ export default function About() {
             <p className="mt-4 font-hand text-3xl sm:text-4xl font-bold">Aura can never be bought. Only earned.</p>
             <p className="mt-3 max-w-2xl mx-auto text-aura-100 leading-relaxed">
               There's no way to pay to win. The only way to get ahead is to make things people
-              genuinely value, and later on, top creators will be able to cash out the aura they
-              earn for real money.
+              genuinely value.
             </p>
           </div>
         </section>
@@ -215,6 +242,31 @@ export default function About() {
                     <li key={point} className="flex gap-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">
                       <span className="mt-2 w-1.5 h-1.5 rounded-full bg-fuchsia-500 shrink-0" />
                       {point}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* Roadmap */}
+        <section className="mt-28 sm:mt-36 max-w-5xl mx-auto">
+          <SectionHeading kicker="what's next" title="Roadmap">
+            Aura is early. Here's what we're building, in roughly the order it's coming.
+          </SectionHeading>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+            {ROADMAP.map(stage => (
+              <article key={stage.when} className="aura-glass-card !p-7 text-left">
+                <div className="flex items-center gap-3">
+                  <IconBadge icon={Map} />
+                  <h3 className="text-lg sm:text-xl font-bold text-aura-950 dark:text-white">{stage.when}</h3>
+                </div>
+                <ul className="mt-5 space-y-3">
+                  {stage.items.map(item => (
+                    <li key={item} className="flex gap-3 text-sm sm:text-[15px] leading-relaxed text-aura-800/80 dark:text-aura-100/80">
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-fuchsia-500 shrink-0" />
+                      {item}
                     </li>
                   ))}
                 </ul>

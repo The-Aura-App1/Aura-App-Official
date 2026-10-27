@@ -5,7 +5,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import useInfiniteList from '../../hooks/useInfiniteList';
 
 // A group's feed, newest first, loading more as you scroll
-export default function GroupPosts({ groupId }) {
+export default function GroupPosts({ groupId, takesOff = false }) {
   const fetchPage = useCallback(async cursor => {
     const data = await api.getGroupPosts(groupId, cursor);
     return { items: data.posts ?? [], nextCursor: data.nextCursor };
@@ -24,7 +24,7 @@ export default function GroupPosts({ groupId }) {
   return (
     <div className="flex flex-col gap-4">
       {posts.map(post => (
-        <PostCard key={post.postId} post={post} onRemove={post.canRemove ? removePost : undefined} />
+        <PostCard key={post.postId} post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} />
       ))}
 
       {done && posts.length === 0 && (

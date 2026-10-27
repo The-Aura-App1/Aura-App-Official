@@ -43,7 +43,7 @@ function GroupRow({ group, children }) {
 
 function CreateGroupForm({ onCancel }) {
   const navigate = useNavigate();
-  const [form, setForm]     = useState({ name: '', description: '', joinType: 'open', hideMemberList: false });
+  const [form, setForm]     = useState({ name: '', description: '', joinType: 'open', hideMemberList: false, allowTakes: true });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -111,6 +111,11 @@ function CreateGroupForm({ onCancel }) {
         <input type="checkbox" checked={form.hideMemberList}
           onChange={e => setForm(f => ({ ...f, hideMemberList: e.target.checked }))} className="accent-[#7c3aed]" />
         Only owners and moderators can see the member list
+      </label>
+      <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+        <input type="checkbox" checked={form.allowTakes}
+          onChange={e => setForm(f => ({ ...f, allowTakes: e.target.checked }))} className="accent-[#7c3aed]" />
+        Members can take aura from posts (turn off for a safe space)
       </label>
       <Message error={error} />
       <div className="flex gap-2 justify-end">

@@ -16,7 +16,6 @@ const NOTIFICATION_OPTIONS = [
   { key: 'followAccepted',       label: 'Follow request accepted'    },
   { key: 'groupInvite',          label: 'Group invites'              },
   { key: 'groupRequestApproved', label: 'Group request approved'     },
-  { key: 'cashoutProcessed',     label: 'Cashout processed'          },
   { key: 'dailyBonus',           label: 'Daily bonus available'      },
 ];
 

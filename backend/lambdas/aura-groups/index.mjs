@@ -217,7 +217,7 @@ function publicGroup(group, perms) {
 
 // ─── Create group ─────────────────────────────────────────────
 async function createGroup(userId, body) {
-  const { name, description, joinType, hideMemberList } = body;
+  const { name, description, joinType, hideMemberList, allowTakes } = body;
 
   if (typeof name !== 'string' || name.trim().length < 3) {
     return response(400, { error: 'Group name must be at least 3 characters.' });
@@ -233,6 +233,9 @@ async function createGroup(userId, body) {
   }
   if (joinType !== undefined && !JOIN_TYPES.includes(joinType)) {
     return response(400, { error: `joinType must be one of: ${JOIN_TYPES.join(', ')}.` });
+  }
+  if (allowTakes !== undefined && typeof allowTakes !== 'boolean') {
+    return response(400, { error: 'allowTakes must be true or false.' });
   }
 
   const owned = await queryAll({
@@ -259,6 +262,7 @@ async function createGroup(userId, body) {
     ownerId:        userId,
     joinType:       joinType ?? 'open',
     hideMemberList: !!hideMemberList,
+    allowTakes:     allowTakes ?? true,   // aura-aura refuses takes in the group when false
     momentsEnabled: false,
     bannerKey:      '',
     memberCount:    1,
@@ -387,8 +391,9 @@ async function updateGroup(groupId, userId, body) {
   const role = activeRole(group, await getMember(groupId, userId));
   if (role !== 'owner' && role !== 'moderator') return response(403, { error: 'Only owners and moderators can change settings.' });
 
-  const { description, joinType, hideMemberList, momentsEnabled } = body;
-  const ownerOnly = description !== undefined || joinType !== undefined || hideMemberList !== undefined;
+  const { description, joinType, hideMemberList, momentsEnabled, allowTakes } = body;
+  const ownerOnly = description !== undefined || joinType !== undefined || hideMemberList !== undefined
+    || allowTakes !== undefined;
   if (ownerOnly && role !== 'owner') return response(403, { error: 'Only the owner can change these settings.' });
 
   if (description !== undefined && (typeof description !== 'string' || description.length > MAX_DESCRIPTION)) {
@@ -397,7 +402,7 @@ async function updateGroup(groupId, userId, body) {
   if (joinType !== undefined && !JOIN_TYPES.includes(joinType)) {
     return response(400, { error: `joinType must be one of: ${JOIN_TYPES.join(', ')}.` });
   }
-  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled })) {
+  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled, allowTakes })) {
     if (value !== undefined && typeof value !== 'boolean') return response(400, { error: `${field} must be true or false.` });
   }
 
@@ -406,6 +411,7 @@ async function updateGroup(groupId, userId, body) {
   if (joinType       !== undefined) updates.joinType       = joinType;
   if (hideMemberList !== undefined) updates.hideMemberList = hideMemberList;
   if (momentsEnabled !== undefined) updates.momentsEnabled = momentsEnabled;
+  if (allowTakes     !== undefined) updates.allowTakes     = allowTakes;
 
   const fields = Object.keys(updates);
   const result = await dynamo.send(new UpdateCommand({

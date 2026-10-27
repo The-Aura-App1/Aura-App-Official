@@ -13,7 +13,7 @@ import { topicLabel } from '../../utils/topics';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
-export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
+export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff = false }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
   const tags      = post.tags ?? [];
@@ -201,8 +201,8 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
               {formatAura(auraScore)}
             </span>
 
-            {/* Take Aura */}
-            <button
+            {/* Take Aura, unless the author or the group turned taking off */}
+            {post.allowTakes !== false && !takesOff && <button
               onClick={() => openAura('take')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
                          bg-red-500/10 hover:bg-red-500/20
@@ -211,7 +211,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer }) {
                          transition-all duration-200"
             >
               Take
-            </button>
+            </button>}
           </div>
 
           {/* Right — Like, Comment, Share */}

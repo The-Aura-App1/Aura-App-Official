@@ -155,6 +155,7 @@ function Manage({ group, onChanged }) {
   const [username, setUsername] = useState('');
   const [settings, setSettings] = useState({
     description: group.description ?? '', joinType: group.joinType, hideMemberList: !!group.hideMemberList,
+    allowTakes: group.allowTakes !== false,
   });
   const [deleteName, setDeleteName] = useState('');
   const [busy, setBusy]       = useState(false);
@@ -243,6 +244,11 @@ function Manage({ group, onChanged }) {
             <input type="checkbox" checked={settings.hideMemberList} className="accent-[#7c3aed]"
               onChange={e => setSettings(s => ({ ...s, hideMemberList: e.target.checked }))} />
             Only owners and moderators can see the member list
+          </label>
+          <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+            <input type="checkbox" checked={settings.allowTakes} className="accent-[#7c3aed]"
+              onChange={e => setSettings(s => ({ ...s, allowTakes: e.target.checked }))} />
+            Members can take aura from posts in this group
           </label>
           <div>
             <button disabled={busy} onClick={() => act(() => api.updateGroup(group.groupId, settings))} className="btn-primary px-4 py-2">
@@ -420,7 +426,7 @@ export default function GroupPage() {
         </div>
       )}
 
-      {activeTab === 'posts'    && <GroupPosts key={group.groupId} groupId={group.groupId} />}
+      {activeTab === 'posts'    && <GroupPosts key={group.groupId} groupId={group.groupId} takesOff={group.allowTakes === false} />}
       {activeTab === 'members'  && <Members group={group} viewerId={user?.userId} onChanged={load} />}
       {activeTab === 'requests' && <Requests group={group} onChanged={load} />}
       {activeTab === 'manage'   && <Manage group={group} onChanged={load} />}

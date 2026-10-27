@@ -85,6 +85,11 @@ export default function AuraModal({ post, type, onSuccess, onClose }) {
             @{post.authorUsername}
           </span>
         </p>
+        {!isGive && (
+          <p className="text-xs text-red-300/90 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-4">
+            Taking costs you the same amount of your own aura. It's removed from the post and nobody gets it.
+          </p>
+        )}
 
         {/* Presets */}
         <div className="grid grid-cols-4 gap-2 mb-4">

@@ -230,6 +230,24 @@ async function checkGroupAccess(target, userId) {
     : response(404, { error: 'Post or comment not found.' });
 }
 
+// Authors choose at posting time whether a post (and its comments) can be taken
+// from, and group owners can turn taking off for the whole group.
+async function takeBlocked(target) {
+  const post = target.type === 'post'
+    ? target.item
+    : (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: target.item.postId } }))).Item;
+  if (post?.allowTakes === false) {
+    return response(403, { error: 'The author turned off taking aura on this post.' });
+  }
+  if (post?.groupId) {
+    const group = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId: post.groupId } }))).Item;
+    if (group?.allowTakes === false) {
+      return response(403, { error: 'Taking aura is turned off in this group.' });
+    }
+  }
+  return null;
+}
+
 function targetUpdate(target, scoreDelta, counterField, amount) {
   return {
     Update: {
@@ -355,13 +373,29 @@ async function giveAura(giver, target, amount) {
 }
 
 // ─── Take ─────────────────────────────────────────────────────
-// Moves aura from the author's spendable balance (which may go negative) to the
-// taker's spendable balance. Limited per day and per post or comment.
+// Removes aura from the author's spendable balance (which may go negative).
+// Taking costs the taker the same amount, paid from spendable and then earned
+// aura, and nobody receives it: both sides are destroyed, so taking is never
+// profitable and piling on costs the pile as much as the target. Limited per
+// day and per post or comment.
 async function takeAura(taker, target, amount) {
   const rules = rulesFor(taker);
   if (amount > MAX_TAKE_PER_TARGET) {
     return response(400, { error: `You can take at most ${MAX_TAKE_PER_TARGET} aura from one ${target.type}.` });
   }
+
+  const blocked = await takeBlocked(target);
+  if (blocked) return blocked;
+
+  const spendableAvailable = Math.max(0, taker.auraSpendable ?? 0);
+  const earnedAvailable    = Math.max(0, taker.auraEarned ?? 0);
+  if (amount > spendableAvailable + earnedAvailable) {
+    return response(400, {
+      error: `Taking costs the same amount of your own aura. You have ${spendableAvailable + earnedAvailable}.`,
+    });
+  }
+  const fromSpendable = Math.min(amount, spendableAvailable);
+  const fromEarned    = amount - fromSpendable;
 
   const day      = await getDay(taker.userId);
   const takeLeft = Math.max(0, rules.takeCap - day.takeUsed);
@@ -385,18 +419,27 @@ async function takeAura(taker, target, amount) {
     counterUpdate(`${taker.userId}#${today()}`, 'takeUsed', amount, rules.takeCap),
     counterUpdate(perTargetKey, 'taken', amount, MAX_TAKE_PER_TARGET),
     balanceUpdate(authorId, { auraSpendable: -amount, auraBalance: -amount, lifetimeLost: amount }),
-    balanceUpdate(taker.userId, { auraSpendable: amount, auraBalance: amount, lifetimeTaken: amount }),
+    balanceUpdate(
+      taker.userId,
+      { auraSpendable: -fromSpendable, auraEarned: -fromEarned, auraBalance: -amount, lifetimeTaken: amount },
+      [fromSpendable > 0 && 'auraSpendable >= :fromSpendable', fromEarned > 0 && 'auraEarned >= :fromEarned']
+        .filter(Boolean).join(' AND ') || null,
+      {
+        ...(fromSpendable > 0 && { ':fromSpendable': fromSpendable }),
+        ...(fromEarned > 0 && { ':fromEarned': fromEarned }),
+      },
+    ),
     targetUpdate(target, -amount, 'auraTaken', amount),
     transactionRecord({
-      type: 'take', fromUserId: authorId, toUserId: taker.userId, takenBy: taker.userId,
-      ...targetFields(target), amount: -amount,
+      type: 'take', fromUserId: authorId, takenBy: taker.userId,
+      ...targetFields(target), amount: -amount, takerCost: amount, fromSpendable, fromEarned,
     }),
   ];
   const messages = [
     'Daily take limit reached.',
     `Take limit for this ${target.type} reached.`,
     'Author not found.',
-    'Something changed while saving. Please try again.',
+    'Not enough aura.',
     'That post or comment is no longer available.',
   ];
 
@@ -404,8 +447,11 @@ async function takeAura(taker, target, amount) {
   if (error) return error;
 
   return response(200, {
-    message:   `Took ${amount} aura.`,
+    message:   `Took ${amount} aura. It cost you ${amount}.`,
     scoreDelta: -amount,
+    cost:       amount,
+    fromSpendable,
+    fromEarned,
   });
 }
 

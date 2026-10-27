@@ -193,7 +193,7 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, caption, mediaKeys, tags, hashtags, groupId, embedding } = body;
+  const { type, caption, mediaKeys, tags, hashtags, groupId, embedding, allowTakes } = body;
 
   let group = null;
   if (groupId !== undefined) {
@@ -222,6 +222,10 @@ async function createPost(userId, body) {
       || !hashtags.every(t => typeof t === 'string' && HASHTAG_PATTERN.test(t))
       || new Set(hashtags.map(t => t.toLowerCase())).size !== hashtags.length)) {
     return response(400, { error: `Up to ${MAX_HASHTAGS} different hashtags, using letters, numbers and _ (30 characters max).` });
+  }
+  // Set once here; there is no route that changes it after posting
+  if (allowTakes !== undefined && typeof allowTakes !== 'boolean') {
+    return response(400, { error: 'allowTakes must be true or false.' });
   }
   if (embedding !== undefined && !isValidEmbedding(embedding)) {
     return response(400, { error: 'Invalid embedding.' });
@@ -268,6 +272,7 @@ async function createPost(userId, body) {
     auraTaken:      0,
     viewCount:      0,
     likeCount:      0,
+    allowTakes:     allowTakes ?? true,
     status:         'active',
     reportCount:    0,
     createdAt:      now,

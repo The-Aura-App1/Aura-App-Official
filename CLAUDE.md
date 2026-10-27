@@ -59,8 +59,9 @@
 - Daily free aura: regular 250, premium 1,000 (login bonus plus free give quota).
 - 10,000 aura starts at $1. Only the dollar value of 10,000 aura floats with the treasury. The rate shifts gradually.
 - Treasury is seeded with $100. After that, 50% of net profit goes into the treasury and 50% to the owner.
-- Cashout: $20 minimum, verified creator account only ($20/year), 18+ only. Creator receives 75%, platform keeps 25%.
-- Earned aura (cashable) comes only from others giving to your posts or Moments. Earned can also be given once spendable runs out (giving uses free quota, then spendable, then earned); spendable is never cashable. Login bonus, free quota, aura taken from others, game winnings and power-up aura are spendable and never cashable.
+- Cashout is on the public Roadmap, not in the MVP (payments and money-transmission law come first). The app and About page say aura has no cash value. Planned terms: $20 minimum, verified creator account only ($20/year), 18+ only. Creator receives 75%, platform keeps 25%.
+- Earned aura (cashable) comes only from others giving to your posts or Moments. Earned can also be given once spendable runs out (giving uses free quota, then spendable, then earned); spendable is never cashable. Login bonus, free quota, game winnings and power-up aura are spendable and never cashable.
+- Taking (2026-10-27): costs the taker the same amount (spendable, then earned) and nobody receives it; the author's spendable drops by the amount. Authors set `allowTakes` per post at creation (locked; comments follow their post). Group owners can set `allowTakes` on a group. aura-aura enforces all of it. Blocking users is next on the roadmap.
 - Anti-exploit: max 500 earned aura/day from any one account. Gifts from accounts under 7 days old count as spendable. 30-day account age and 50 unique aura sources are required before the first cashout. Flag same-device or same-IP giving.
 - Carried over from earlier, not re-confirmed: give cap 500/day regular and 2,000/day premium, take cap 250/day regular and 1,000/day premium, max 50 taken per post.
 - Aura is never sold for money. Real money buys only subscriptions (premium $4.99/month) and cosmetics.

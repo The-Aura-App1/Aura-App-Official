@@ -24,7 +24,7 @@ export default function CreatePost() {
   useEffect(() => {
     if (!groupId) return;
     api.getGroup(groupId)
-      .then(group => setGroupName(group.name))
+      .then(group => { setGroupName(group.name); setGroupTakesOff(group.allowTakes === false); })
       .catch(() => setGroupName(''));
   }, [groupId]);
 
@@ -32,6 +32,8 @@ export default function CreatePost() {
   const [caption, setCaption]       = useState('');
   const [topics, setTopics]         = useState([]);
   const [hashtags, setHashtags]     = useState([]);
+  const [allowTakes, setAllowTakes] = useState(true);
+  const [groupTakesOff, setGroupTakesOff] = useState(false);
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtagError, setHashtagError] = useState('');
   const [files, setFiles]           = useState([]);
@@ -178,6 +180,7 @@ export default function CreatePost() {
         tags:      groupId ? [] : topics,
         hashtags:  tags,
         ...(embedding && { embedding }),
+        allowTakes: allowTakes && !groupTakesOff,
         ...(groupId && { groupId }),
       });
 
@@ -389,6 +392,31 @@ export default function CreatePost() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Taking aura: chosen once, locked after posting */}
+      <div className="card mb-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-[var(--text-primary)]">Allow others to take aura</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            {groupTakesOff
+              ? 'Taking is turned off in this group.'
+              : "You can't change this after posting."}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={allowTakes && !groupTakesOff}
+          aria-label="Allow others to take aura"
+          disabled={groupTakesOff}
+          onClick={() => setAllowTakes(v => !v)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      ${allowTakes && !groupTakesOff ? 'bg-aura-500' : 'bg-[var(--border)]'}`}>
+          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform
+                            ${allowTakes && !groupTakesOff ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
       </div>
 
       {/* Error */}

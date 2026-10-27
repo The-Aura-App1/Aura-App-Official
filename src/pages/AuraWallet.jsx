@@ -148,12 +148,12 @@ export default function AuraWallet() {
             amount={dbProfile.auraSpendable ?? 0}
             description={(dbProfile.auraSpendable ?? 0) < 0
               ? 'Below zero. Gifts come from your earned aura until it recovers.'
-              : 'Used first for giving, games and power-ups. Never cashable.'}
+              : 'Used first for giving and taking, games and power-ups.'}
           />
           <Balance
             label="Earned"
             amount={dbProfile.auraEarned ?? 0}
-            description="Given to you by others. Cashable once payouts launch, and used for giving when spendable runs out."
+            description="Given to you by others. Used for giving when spendable runs out."
           />
         </div>
       </Section>
@@ -223,7 +223,7 @@ export default function AuraWallet() {
       </Section>
 
       <p className="text-xs text-[var(--text-muted)] px-1">
-        Coming later: transaction history, the dollar value of aura, and creator payouts.
+        Aura has no cash value. Coming later: transaction history. Creator payouts are on the roadmap.
       </p>
     </div>
   );

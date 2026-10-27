@@ -17,7 +17,7 @@ const HIGHLIGHTS = [
   {
     icon: Sparkles,
     title: 'Get rewarded for what you share',
-    body: 'When people give aura to your posts, you earn it. Verified creators (18+) will be able to cash out the aura they earn.',
+    body: 'When people give aura to your posts, you earn it, and your best work rises to the top for everyone.',
   },
 ];
 
