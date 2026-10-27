@@ -186,6 +186,55 @@ export function SiteHeader() {
   );
 }
 
+// A pale daytime moon: a see-through disc with a few faint craters, so it
+// looks washed out by the daylight like the real moon in an afternoon sky.
+function DaytimeMoon({ className }) {
+  return (
+    <svg className={`aura-day-only aura-moon absolute ${className}`} viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="moon-face" cx="38%" cy="35%" r="70%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#ece6ff" />
+        </radialGradient>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill="url(#moon-face)" />
+      <g fill="#c9bdf0" opacity="0.45">
+        <circle cx="36" cy="38" r="9" />
+        <circle cx="62" cy="30" r="5" />
+        <circle cx="58" cy="62" r="11" />
+        <circle cx="32" cy="66" r="5.5" />
+        <circle cx="74" cy="50" r="3.5" />
+      </g>
+    </svg>
+  );
+}
+
+// Five birds in a loose V. Each one flaps on its own beat while the flock
+// glides across the sky now and then (see .aura-flock).
+const BIRDS = [
+  { x: 0,  y: 14, size: 1,    delay: '0s'    },
+  { x: 22, y: 6,  size: 0.85, delay: '0.15s' },
+  { x: 26, y: 24, size: 0.9,  delay: '0.3s'  },
+  { x: 46, y: 0,  size: 0.75, delay: '0.1s'  },
+  { x: 50, y: 30, size: 0.8,  delay: '0.25s' },
+];
+
+function BirdFlock({ className }) {
+  return (
+    <div className={`aura-day-only aura-flock absolute left-0 ${className}`} aria-hidden="true">
+      <svg viewBox="0 0 80 46" className="w-24 sm:w-28 overflow-visible">
+        {BIRDS.map((b, i) => (
+          <g key={i} transform={`translate(${b.x} ${b.y}) scale(${b.size})`}>
+            <path className="aura-bird" style={{ animationDelay: b.delay }}
+              d="M0 6 Q5 0 10 5 Q15 0 20 6" fill="none" stroke="currentColor" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 // The sky itself: a dawn sky with clouds in light mode, a galaxy in dark mode.
 // `page` is the full version for the public pages, with the sun and light
 // rays; `app` is the quieter version behind the signed-in app, without rays
@@ -200,6 +249,10 @@ export function SkyDecor({ variant = 'page' }) {
       <div className="aura-night-only absolute inset-0 aura-stars-2" />
       <span className="aura-night-only aura-shooting-star" />
       {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
+      {page
+        ? <DaytimeMoon className="aura-moon-page top-[84px] left-[22%] w-16" />
+        : <DaytimeMoon className="top-[9%] left-[6%] w-14" />}
+      <BirdFlock className={page ? 'top-[22%]' : 'top-[30%]'} />
       {page && <div className="aura-rays absolute inset-0" />}
       {page && <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />}
       {page ? (

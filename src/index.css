@@ -378,3 +378,45 @@ h1, h2, h3 {
 @media (min-width: 1440px) {
   .dark .aura-app-sky .aura-constellation { display: block; }
 }
+
+/* ── Daytime details: light mode only ──────────────────────────────── */
+
+.aura-day-only { display: block; }
+.dark .aura-day-only { display: none; }
+
+/* A faint, washed-out moon. On the public pages it's hidden on phones,
+   where it would crowd the halo. */
+.aura-moon { opacity: 0.55; filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.8)); }
+.aura-moon-page { display: none; }
+@media (min-width: 640px) {
+  .aura-moon-page { display: block; }
+}
+.dark .aura-moon-page { display: none; }
+
+/* A small flock that glides across the sky every 30 seconds or so, rising
+   a little as it goes. It spends most of the cycle off screen. */
+.aura-flock {
+  color: rgba(61, 36, 112, 0.45);
+  opacity: 0;
+  animation: flockFlight 30s linear 5s infinite;
+}
+@keyframes flockFlight {
+  0%   { opacity: 0; transform: translate(-160px, 0); }
+  2%   { opacity: 1; }
+  40%  { opacity: 1; transform: translate(calc(100vw + 40px), -60px); }
+  41%  { opacity: 0; transform: translate(calc(100vw + 40px), -60px); }
+  100% { opacity: 0; transform: translate(calc(100vw + 40px), -60px); }
+}
+/* Wings flap by squashing each bird's V up and down. */
+.aura-bird {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: birdFlap 0.5s ease-in-out infinite alternate;
+}
+@keyframes birdFlap { from { transform: scaleY(1); } to { transform: scaleY(-0.5); } }
+
+/* With reduced motion the flock stays still, resting in the sky. */
+@media (prefers-reduced-motion: reduce) {
+  .aura-flock { animation: none; opacity: 1; transform: translate(74vw, -110px); }
+  .aura-bird { animation: none; }
+}
