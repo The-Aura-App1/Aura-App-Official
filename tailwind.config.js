@@ -22,7 +22,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],
-        wordmark: ['"Shadows Into Light"','"Plus Jakarta Sans Variable"','sans-serif'],
+        wordmark: ['"Finger Paint"','"Plus Jakarta Sans Variable"','sans-serif'],
         heading: ['"Cormorant Garamond Variable"','Georgia','"Sora Variable"','sans-serif'],
         hand: ['"Caveat Variable"','cursive'],
         display: ['"Sora Variable"','"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','sans-serif'],

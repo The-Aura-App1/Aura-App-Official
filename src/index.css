@@ -107,15 +107,15 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* Hand-lettered marker script (Shadows Into Light) in the same gradient as the Create account button,
-     with a white glow to lift it off the sky. A transparent stroke thickens the
-     thin pen lines (the gradient fills the stroke too), and the extra letter
+  /* Chunky finger-painted letters (Finger Paint) in the same gradient as the Create account button,
+     with a white glow to lift it off the sky. A light transparent stroke softens the
+     brush edges (the gradient fills the stroke too), and the extra letter
      spacing and padding make room for it. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
     font-weight: 400;
-    letter-spacing: 0.04em;
-    -webkit-text-stroke: 0.045em transparent;
+    letter-spacing: 0.02em;
+    -webkit-text-stroke: 0.015em transparent;
     padding: 0.08em 0.1em 0.12em;
     background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
     -webkit-background-clip: text;
