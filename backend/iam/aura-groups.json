@@ -1,0 +1,35 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Groups",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
+        "dynamodb:Scan", "dynamodb:Query", "dynamodb:BatchGetItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups/index/ownerId-index"
+      ]
+    },
+    {
+      "Sid": "Memberships",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem", "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members/index/userId-index"
+      ]
+    },
+    {
+      "Sid": "MemberNamesAndInvites",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:BatchGetItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
+    }
+  ]
+}

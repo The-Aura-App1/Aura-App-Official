@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UsersAndUsernameReservations",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem", "dynamodb:Scan"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
+    },
+    {
+      "Sid": "TodaysAllowances",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-daily-budgets"
+    },
+    {
+      "Sid": "ProfilePictureUploadUrls",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "arn:aws:s3:::aura-app-media-570934198135/avatars/*",
+        "arn:aws:s3:::aura-app-media-570934198135/banners/*"
+      ]
+    }
+  ]
+}

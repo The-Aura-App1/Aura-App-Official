@@ -1,0 +1,31 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BalancesBudgetsAndScores",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-daily-budgets",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-posts",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-comments"
+      ]
+    },
+    {
+      "Sid": "TransactionLog",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-transactions"
+    },
+    {
+      "Sid": "GroupAccessChecks",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members"
+      ]
+    }
+  ]
+}

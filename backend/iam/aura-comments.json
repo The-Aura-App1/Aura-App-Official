@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Comments",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Scan"],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-comments"
+    },
+    {
+      "Sid": "PostCommentCounts",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-posts"
+    },
+    {
+      "Sid": "CommentersAndGroupAccessChecks",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members"
+      ]
+    }
+  ]
+}

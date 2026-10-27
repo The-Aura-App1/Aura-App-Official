@@ -14,6 +14,7 @@
   `aura-users`, `aura-posts`, `aura-aura`, `aura-groups`, `aura-comments`, `aura-notifications`.
 - Deploy one function with `.\deploy.ps1 -Name <name>`. The script only accepts the six names above. It builds the zip in a temp folder, deploys it, and prints the function's `LastModified` so you can confirm the deploy.
 - `*.zip` files are gitignored. Never commit deployment packages.
+- Each Lambda role's least-privilege IAM policy is in `backend/iam/<name>.json` (see its README). When a Lambda starts using a new table, index, action or S3 folder, update that file and tell the user to update the policy in IAM before deploying. Claude has no IAM access.
 
 ## Rollback
 

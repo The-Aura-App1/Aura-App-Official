@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Posts",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
+        "dynamodb:Scan", "dynamodb:Query", "dynamodb:BatchGetItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-posts",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-posts/index/groupId-index"
+      ]
+    },
+    {
+      "Sid": "Likes",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchGetItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-likes"
+    },
+    {
+      "Sid": "CommentLikeCounts",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-comments"
+    },
+    {
+      "Sid": "AuthorsAndGroupAccessChecks",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
+        "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members"
+      ]
+    },
+    {
+      "Sid": "PostMediaUploadUrls",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::aura-app-media-570934198135/posts/*"
+    }
+  ]
+}
