@@ -112,7 +112,7 @@ function FloatingCloud({ seed, className, style }) {
 // compact version used above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
   const text = (
-    <span className={`aura-wordmark ${size === 'lg' ? 'text-7xl sm:text-8xl md:text-[9.5rem]' : 'text-5xl sm:text-6xl'}`}>
+    <span className={`aura-wordmark ${size === 'lg' ? 'text-6xl sm:text-8xl md:text-9xl' : 'text-4xl sm:text-5xl'}`}>
       Aura App
     </span>
   );

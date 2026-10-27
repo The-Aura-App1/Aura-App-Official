@@ -244,9 +244,8 @@ export default function About() {
           <figure className="aura-glass-card !p-8 sm:!p-10 text-center">
             <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600 dark:text-fuchsia-300">a note from the founder</p>
             <blockquote className="mt-4 font-hand text-2xl sm:text-3xl leading-snug text-aura-950 dark:text-white">
-              "Social media should be about the people on it. I want a feed where your time isn't the
-              product, real creators get rewarded, and nobody is harvesting your data to keep you
-              hooked. That's what Aura is for."
+              "We're in the business of making a consumer centered social media platform, not a
+              cleverly designed data farm."
             </blockquote>
             <figcaption className="mt-5 text-sm text-aura-800/70 dark:text-aura-200/70">Founder of Aura</figcaption>
           </figure>

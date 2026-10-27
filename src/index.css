@@ -107,13 +107,16 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* Playful script in the same gradient as the Create account button, with a
-     white glow to lift it off the sky. The padding keeps the script's swashes
-     inside the gradient. */
+  /* Rounded, playful sans in the same gradient as the Create account button,
+     with a white glow to lift it off the sky. A transparent stroke puffs the
+     letters out (the gradient fills the stroke too), and the extra letter
+     spacing and padding make room for it. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
-    font-weight: 400;
-    padding: 0.08em 0.14em 0.16em;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    -webkit-text-stroke: 0.035em transparent;
+    padding: 0.08em 0.1em 0.12em;
     background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
     -webkit-background-clip: text;
     background-clip: text;
