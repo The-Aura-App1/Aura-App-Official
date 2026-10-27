@@ -4,7 +4,7 @@ import './amplifyConfigure';
 import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/sora';
 import '@fontsource-variable/cormorant-garamond';
-import '@fontsource-variable/fredoka';
+import '@fontsource/shadows-into-light';
 import '@fontsource-variable/caveat';
 import './index.css';
 import App from './App';
