@@ -107,7 +107,7 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* Flowing connected script (Great Vibes) in the same gradient as the Create account button,
+  /* Loose hand-written script (Zeyada) in the same gradient as the Create account button,
      with a white glow to lift it off the sky. A transparent stroke thickens the
      hairline strokes (the gradient fills the stroke too), and the padding
      makes room for it and the swashes. */
@@ -115,7 +115,7 @@ h1, h2, h3 {
     @apply font-wordmark leading-none;
     font-weight: 400;
     letter-spacing: 0;
-    -webkit-text-stroke: 0.03em transparent;
+    -webkit-text-stroke: 0.04em transparent;
     padding: 0.08em 0.2em 0.18em;
     background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
     -webkit-background-clip: text;
