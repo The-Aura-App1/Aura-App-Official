@@ -18,6 +18,15 @@ const RULES = {
 };
 const AURA_VERSION   = 2;
 const AD_COOLDOWN_MS = 60 * 60 * 1000;
+const MAX_DISPLAY_NAME = 50;
+const MAX_TAG_LENGTH   = 30;
+// Profile pictures and banners (see src/pages/Profile.jsx)
+const UPLOAD_TYPES = {
+  'image/jpeg': 10 * 1024 * 1024,
+  'image/png':  10 * 1024 * 1024,
+  'image/webp': 10 * 1024 * 1024,
+  'image/gif':  10 * 1024 * 1024,
+};
 const AURA_FIELDS = [
   'auraBalance', 'auraEarned', 'auraSpendable', 'lifetimeEarned', 'lifetimeReceived',
   'lifetimeGiven', 'lifetimeTaken', 'lifetimeLost',
@@ -45,16 +54,60 @@ const PRIVATE_FIELDS = [
   'lifetimeGiven', 'lifetimeTaken', 'lifetimeLost', 'lastAdAt', 'auraVersion',
 ];
 
-function response(statusCode, body) {
+// ─── Rate limits ──────────────────────────────────────────────
+// Fixed-window counters in aura-rate-limits (partition key limitKey, TTL on
+// expiresAt). Fails open: if the table is missing or unreachable, requests are
+// allowed and the limiter rests for a minute, so it can never take the API down.
+const RATE_TABLE = 'aura-rate-limits';
+let rateLimitsOffUntil = 0;
+
+function response(statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
+}
+
+// Returns a 429 response once `who` has made `limit` requests in this window
+async function rateLimited(who, bucket, limit, windowSeconds) {
+  if (Date.now() < rateLimitsOffUntil) return null;
+  const now    = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / windowSeconds);
+  try {
+    await db.send(new UpdateCommand({
+      TableName:                 RATE_TABLE,
+      Key:                       { limitKey: `${who}#${bucket}#${windowSeconds}#${window}` },
+      UpdateExpression:          'SET expiresAt = :exp ADD #count :one',
+      ConditionExpression:       'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames:  { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':limit': limit, ':exp': (window + 1) * windowSeconds + 60 },
+    }));
+    return null;
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      const retryAfter = (window + 1) * windowSeconds - now;
+      return response(429, { error: 'Too many requests. Please slow down and try again shortly.' },
+        { 'Retry-After': String(retryAfter) });
+    }
+    console.warn(`Rate limiter unavailable (${err.name}); allowing requests for a minute.`);
+    rateLimitsOffUntil = Date.now() + 60_000;
+    return null;
+  }
+}
+
+// Runs several limits in order and returns the first 429, if any
+async function firstLimit(...checks) {
+  for (const [who, bucket, limit, windowSeconds] of checks) {
+    const limited = await rateLimited(who, bucket, limit, windowSeconds);
+    if (limited) return limited;
+  }
+  return null;
 }
 
 function today() {
@@ -381,13 +434,20 @@ async function updateProfile(userId, body) {
     return response(400, { error: 'Username must be 3-30 characters, letters, numbers, and underscores only.' });
   }
 
-  if (bio && bio.length > 160) {
+  if (displayName !== undefined && (typeof displayName !== 'string' || !displayName.trim()
+      || displayName.trim().length > MAX_DISPLAY_NAME)) {
+    return response(400, { error: `Display name must be 1-${MAX_DISPLAY_NAME} characters.` });
+  }
+
+  if (bio !== undefined && (typeof bio !== 'string' || bio.length > 160)) {
     return response(400, { error: 'Bio must be under 160 characters.' });
   }
 
-  if (tags && tags.length > 10) {
-    return response(400, { error: 'Maximum 10 tags.' });
+  if (tags !== undefined && (!Array.isArray(tags) || tags.length > 10
+      || !tags.every(t => typeof t === 'string' && t.length <= MAX_TAG_LENGTH))) {
+    return response(400, { error: `Up to 10 tags, ${MAX_TAG_LENGTH} characters each.` });
   }
+
 
   for (const [name, value] of Object.entries({ isPrivate, hideAuraRank })) {
     if (value !== undefined && typeof value !== 'boolean') {
@@ -405,6 +465,15 @@ async function updateProfile(userId, body) {
 
   const current = await getUser(userId, true);
   if (!current) return response(404, { error: 'User not found.' });
+
+  // New pictures must be ones this user uploaded through /users/me/upload-urls.
+  // Keeping the current picture is always allowed.
+  for (const [name, value, folder] of [['profilePicKey', profilePicKey, 'avatars'], ['bannerKey', bannerKey, 'banners']]) {
+    if (value === undefined || value === '' || value === current[name]) continue;
+    if (typeof value !== 'string' || !value.startsWith(`${folder}/${userId}/`) || value.includes('..')) {
+      return response(400, { error: `Invalid ${name}.` });
+    }
+  }
 
   if (newUsername !== undefined && newUsername !== current.username) {
     const error = await changeUsername(current, newUsername);
@@ -448,21 +517,41 @@ async function updateProfile(userId, body) {
   return response(200, { ...result.Item, usernameStatus: usernameStatus(result.Item) });
 }
 
+// Keeps letters, digits, dot, dash and underscore, with no runs of dots, so
+// keys stay predictable and pass the `..` check when the post is created
+function safeFileName(name) {
+  const cleaned = String(name ?? '').replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.{2,}/g, '.').slice(-60);
+  return cleaned || 'file';
+}
+
+// The size is signed into the URL, so S3 refuses an upload of any other size
+async function signedUpload(key, contentType, size) {
+  const command = new PutObjectCommand({
+    Bucket:        BUCKET_NAME,
+    Key:           key,
+    ContentType:   contentType,
+    ContentLength: size,
+  });
+  return getSignedUrl(s3, command, { expiresIn: 600 });
+}
+
 async function getProfileUploadUrls(userId, body) {
   const { files } = body;
-  if (!files?.length) return response(400, { error: 'No files specified.' });
+  if (!Array.isArray(files) || !files.length) return response(400, { error: 'No files specified.' });
+  if (files.length > 2) return response(400, { error: 'Too many files.' });
+  for (const file of files) {
+    const maxSize = UPLOAD_TYPES[file?.contentType];
+    if (!maxSize) return response(400, { error: 'Only JPEG, PNG, WEBP or GIF images can be uploaded.' });
+    if (!Number.isInteger(file.size) || file.size < 1 || file.size > maxSize) {
+      return response(400, { error: `Images must be under ${maxSize / 1024 / 1024}MB.` });
+    }
+  }
 
   const urls = [];
   for (const file of files) {
-    const folder  = file.type === 'banner' ? 'banners' : 'avatars';
-    const key     = `${folder}/${userId}/${Date.now()}-${file.name}`;
-    const command = new PutObjectCommand({
-      Bucket:      BUCKET_NAME,
-      Key:         key,
-      ContentType: file.contentType,
-    });
-    const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
-    urls.push({ key, url, type: file.type });
+    const folder = file.type === 'banner' ? 'banners' : 'avatars';
+    const key    = `${folder}/${userId}/${Date.now()}-${safeFileName(file.name)}`;
+    urls.push({ key, url: await signedUpload(key, file.contentType, file.size), type: file.type });
   }
 
   return response(200, { urls });
@@ -473,8 +562,19 @@ export const handler = async (event) => {
   const path     = event.requestContext?.http?.path   ?? event.path;
   const segments = path.split('/').filter(Boolean);
   const userId   = event.requestContext?.authorizer?.jwt?.claims?.sub;
+  // Logged-out requests are limited per IP address
+  const who      = userId ?? `ip:${event.requestContext?.http?.sourceIp ?? 'unknown'}`;
 
   try {
+    const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
+    if (limited) return limited;
+
+    // Profile edits and uploads
+    if (userId && (method === 'PUT' || method === 'POST')) {
+      const actionLimited = await firstLimit([userId, 'profile', 10, 60]);
+      if (actionLimited) return actionLimited;
+    }
+
     // POST /users — create user
     if (method === 'POST' && path === '/users') {
       if (!userId) return response(401, { error: 'Unauthorized' });

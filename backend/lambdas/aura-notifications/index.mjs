@@ -1,27 +1,56 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient, GetCommand, PutCommand,
-  UpdateCommand, ScanCommand, TransactWriteCommand
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
 const NOTIFICATIONS_TABLE = 'aura-notifications';
+const MAX_LIMIT           = 100;
 
-function response(statusCode, body) {
+// ─── Rate limits ──────────────────────────────────────────────
+// Fixed-window counters in aura-rate-limits (partition key limitKey, TTL on
+// expiresAt). Fails open: if the table is missing or unreachable, requests are
+// allowed and the limiter rests for a minute, so it can never take the API down.
+const RATE_TABLE = 'aura-rate-limits';
+let rateLimitsOffUntil = 0;
+
+function response(statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
 }
 
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+// Returns a 429 response once `who` has made `limit` requests in this window
+async function rateLimited(who, bucket, limit, windowSeconds) {
+  if (Date.now() < rateLimitsOffUntil) return null;
+  const now    = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / windowSeconds);
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 RATE_TABLE,
+      Key:                       { limitKey: `${who}#${bucket}#${windowSeconds}#${window}` },
+      UpdateExpression:          'SET expiresAt = :exp ADD #count :one',
+      ConditionExpression:       'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames:  { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':limit': limit, ':exp': (window + 1) * windowSeconds + 60 },
+    }));
+    return null;
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      const retryAfter = (window + 1) * windowSeconds - now;
+      return response(429, { error: 'Too many requests. Please slow down and try again shortly.' },
+        { 'Retry-After': String(retryAfter) });
+    }
+    console.warn(`Rate limiter unavailable (${err.name}); allowing requests for a minute.`);
+    rateLimitsOffUntil = Date.now() + 60_000;
+    return null;
+  }
 }
 
 // ─── Notification types ───────────────────────────────────────
@@ -35,38 +64,39 @@ function generateId() {
 // group_approved  — your join request was approved
 // mention         — someone mentioned you in a comment
 // cashout_ready   — creator has reached cashout threshold
+//
+// Notifications are written by the backend directly. There is deliberately no
+// public route for creating them, so nobody can send fake ones to other users.
 
-// ─── Create notification ──────────────────────────────────────
-async function createNotification(userId, type, data) {
-  const notificationId = generateId();
-  const now            = new Date().toISOString();
-
-  const notification = {
-    userId,          // who receives it
-    notificationId,
-    type,
-    data,            // flexible payload depending on type
-    read:     false,
-    createdAt: now,
-  };
-
-  await dynamo.send(new PutCommand({
-    TableName: NOTIFICATIONS_TABLE,
-    Item:      notification,
-  }));
-
-  return notification;
+// The user's notifications, newest first. notificationId starts with the
+// creation time in milliseconds, so it sorts by age within the user's partition.
+async function queryNotifications(userId, extra = {}) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const result = await dynamo.send(new QueryCommand({
+      TableName:                 NOTIFICATIONS_TABLE,
+      KeyConditionExpression:    'userId = :uid',
+      ScanIndexForward:          false,
+      ExclusiveStartKey,
+      ...extra,
+      ExpressionAttributeValues: { ':uid': userId, ...extra.ExpressionAttributeValues },
+    }));
+    items.push(...(result.Items ?? []));
+    ExclusiveStartKey = result.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
 }
 
 // ─── Get notifications for user ───────────────────────────────
 async function getNotifications(userId, limit = 30) {
-  const result = await dynamo.send(new ScanCommand({
-    TableName:        NOTIFICATIONS_TABLE,
-    FilterExpression: 'userId = :uid',
-    ExpressionAttributeValues: { ':uid': userId },
-  }));
+  const all = await queryNotifications(userId, {
+    FilterExpression:          'attribute_not_exists(#status) OR #status <> :deleted',
+    ExpressionAttributeNames:  { '#status': 'status' },
+    ExpressionAttributeValues: { ':deleted': 'deleted' },
+  });
 
-  const notifications = (result.Items ?? [])
+  const notifications = all
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, limit);
 
@@ -76,28 +106,32 @@ async function getNotifications(userId, limit = 30) {
 }
 
 // ─── Mark notification as read ────────────────────────────────
+// The condition stops these updates from creating empty notifications
 async function markRead(userId, notificationId) {
-  await dynamo.send(new UpdateCommand({
-    TableName:                 NOTIFICATIONS_TABLE,
-    Key:                       { userId, notificationId },
-    UpdateExpression:          'SET #read = :true',
-    ExpressionAttributeNames:  { '#read': 'read' },
-    ExpressionAttributeValues: { ':true': true },
-  }));
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 NOTIFICATIONS_TABLE,
+      Key:                       { userId, notificationId },
+      UpdateExpression:          'SET #read = :true',
+      ConditionExpression:       'attribute_exists(notificationId)',
+      ExpressionAttributeNames:  { '#read': 'read' },
+      ExpressionAttributeValues: { ':true': true },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+    return response(404, { error: 'Notification not found.' });
+  }
 
   return response(200, { message: 'Marked as read.' });
 }
 
 // ─── Mark all notifications as read ──────────────────────────
 async function markAllRead(userId) {
-  const result = await dynamo.send(new ScanCommand({
-    TableName:        NOTIFICATIONS_TABLE,
-    FilterExpression: 'userId = :uid AND #read = :false',
+  const unread = await queryNotifications(userId, {
+    FilterExpression:          '#read = :false',
     ExpressionAttributeNames:  { '#read': 'read' },
-    ExpressionAttributeValues: { ':uid': userId, ':false': false },
-  }));
-
-  const unread = result.Items ?? [];
+    ExpressionAttributeValues: { ':false': false },
+  });
 
   // Update all unread in parallel
   await Promise.all(unread.map(n =>
@@ -115,31 +149,21 @@ async function markAllRead(userId) {
 
 // ─── Delete notification ──────────────────────────────────────
 async function deleteNotification(userId, notificationId) {
-  await dynamo.send(new UpdateCommand({
-    TableName:                 NOTIFICATIONS_TABLE,
-    Key:                       { userId, notificationId },
-    UpdateExpression:          'SET #status = :deleted',
-    ExpressionAttributeNames:  { '#status': 'status' },
-    ExpressionAttributeValues: { ':deleted': 'deleted' },
-  }));
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 NOTIFICATIONS_TABLE,
+      Key:                       { userId, notificationId },
+      UpdateExpression:          'SET #status = :deleted',
+      ConditionExpression:       'attribute_exists(notificationId)',
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':deleted': 'deleted' },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+    return response(404, { error: 'Notification not found.' });
+  }
 
   return response(200, { message: 'Notification deleted.' });
-}
-
-// ─── Send notification (internal — called by other Lambdas) ───
-async function sendNotification(body) {
-  const { userId, type, data } = body;
-  if (!userId || !type) {
-    return response(400, { error: 'userId and type are required.' });
-  }
-
-  // Don't notify yourself
-  if (data?.fromUserId === userId) {
-    return response(200, { message: 'Self-notification skipped.' });
-  }
-
-  const notification = await createNotification(userId, type, data);
-  return response(201, notification);
 }
 
 // ─── Main handler ─────────────────────────────────────────────
@@ -150,35 +174,30 @@ export const handler = async (event) => {
   const segments = path.split('/').filter(Boolean);
 
   try {
-    const body = JSON.parse(event.body ?? '{}');
+    if (!userId) return response(401, { error: 'Unauthorized' });
+
+    const limited = await rateLimited(userId, 'notifications', 60, 60);
+    if (limited) return limited;
 
     // GET /notifications — get my notifications
     if (method === 'GET' && path === '/notifications') {
-      if (!userId) return response(401, { error: 'Unauthorized' });
-      const limit = parseInt(event.queryStringParameters?.limit ?? '30');
+      const requested = parseInt(event.queryStringParameters?.limit ?? '30', 10);
+      const limit     = Math.min(Math.max(requested || 30, 1), MAX_LIMIT);
       return await getNotifications(userId, limit);
-    }
-
-    // POST /notifications/send — internal use, send a notification
-    if (method === 'POST' && path === '/notifications/send') {
-      return await sendNotification(body);
-    }
-
-    // PUT /notifications/{id}/read — mark one as read
-    if (method === 'PUT' && segments[0] === 'notifications' && segments[2] === 'read') {
-      if (!userId) return response(401, { error: 'Unauthorized' });
-      return await markRead(userId, segments[1]);
     }
 
     // PUT /notifications/read-all — mark all as read
     if (method === 'PUT' && path === '/notifications/read-all') {
-      if (!userId) return response(401, { error: 'Unauthorized' });
       return await markAllRead(userId);
+    }
+
+    // PUT /notifications/{id}/read — mark one as read
+    if (method === 'PUT' && segments[0] === 'notifications' && segments.length === 3 && segments[2] === 'read') {
+      return await markRead(userId, segments[1]);
     }
 
     // DELETE /notifications/{id} — delete notification
     if (method === 'DELETE' && segments[0] === 'notifications' && segments.length === 2) {
-      if (!userId) return response(401, { error: 'Unauthorized' });
       return await deleteNotification(userId, segments[1]);
     }
 

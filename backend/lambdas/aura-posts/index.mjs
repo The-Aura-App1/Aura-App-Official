@@ -20,6 +20,17 @@ const BUCKET_NAME    = 'aura-app-media-570934198135';
 
 const MAX_IMAGES_PER_POST = 10;
 const LIKED_PAGE_SIZE     = 20;
+const CAPTION_LIMIT_GLOBAL = 2200;    // same limits as comments
+const CAPTION_LIMIT_GROUP  = 10000;
+
+// Media types and sizes the app accepts (see src/pages/CreatePost.jsx)
+const UPLOAD_TYPES = {
+  'image/jpeg':      20 * 1024 * 1024,
+  'image/png':       20 * 1024 * 1024,
+  'image/webp':      20 * 1024 * 1024,
+  'video/mp4':       500 * 1024 * 1024,
+  'video/quicktime': 500 * 1024 * 1024,
+};
 
 // aura-likes is keyed by userId + postId; postId holds `<type>#<id>` so one
 // table covers likes on posts, comments and (later) Moments
@@ -53,16 +64,60 @@ const EMBED_DIM   = 384;
 const FEED_ALL_SIZE   = 100;
 const FEED_TOPIC_SIZE = 20;
 
-function response(statusCode, body) {
+// ─── Rate limits ──────────────────────────────────────────────
+// Fixed-window counters in aura-rate-limits (partition key limitKey, TTL on
+// expiresAt). Fails open: if the table is missing or unreachable, requests are
+// allowed and the limiter rests for a minute, so it can never take the API down.
+const RATE_TABLE = 'aura-rate-limits';
+let rateLimitsOffUntil = 0;
+
+function response(statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
+}
+
+// Returns a 429 response once `who` has made `limit` requests in this window
+async function rateLimited(who, bucket, limit, windowSeconds) {
+  if (Date.now() < rateLimitsOffUntil) return null;
+  const now    = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / windowSeconds);
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 RATE_TABLE,
+      Key:                       { limitKey: `${who}#${bucket}#${windowSeconds}#${window}` },
+      UpdateExpression:          'SET expiresAt = :exp ADD #count :one',
+      ConditionExpression:       'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames:  { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':limit': limit, ':exp': (window + 1) * windowSeconds + 60 },
+    }));
+    return null;
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      const retryAfter = (window + 1) * windowSeconds - now;
+      return response(429, { error: 'Too many requests. Please slow down and try again shortly.' },
+        { 'Retry-After': String(retryAfter) });
+    }
+    console.warn(`Rate limiter unavailable (${err.name}); allowing requests for a minute.`);
+    rateLimitsOffUntil = Date.now() + 60_000;
+    return null;
+  }
+}
+
+// Runs several limits in order and returns the first 429, if any
+async function firstLimit(...checks) {
+  for (const [who, bucket, limit, windowSeconds] of checks) {
+    const limited = await rateLimited(who, bucket, limit, windowSeconds);
+    if (limited) return limited;
+  }
+  return null;
 }
 
 // A normalized vector stays close to length 1 after rounding to bytes
@@ -79,17 +134,29 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Keeps letters, digits, dot, dash and underscore, with no runs of dots, so
+// keys stay predictable and pass the `..` check when the post is created
+function safeFileName(name) {
+  const cleaned = String(name ?? '').replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.{2,}/g, '.').slice(-60);
+  return cleaned || 'file';
+}
+
+// The size is signed into the URL, so S3 refuses an upload of any other size
+async function signedUpload(key, contentType, size) {
+  const command = new PutObjectCommand({
+    Bucket:        BUCKET_NAME,
+    Key:           key,
+    ContentType:   contentType,
+    ContentLength: size,
+  });
+  return getSignedUrl(s3, command, { expiresIn: 600 });
+}
+
 async function getUploadUrls(userId, files) {
   const urls = [];
   for (const file of files) {
-    const key     = `posts/${userId}/${generateId()}-${file.name}`;
-    const command = new PutObjectCommand({
-      Bucket:      BUCKET_NAME,
-      Key:         key,
-      ContentType: file.contentType,
-    });
-    const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
-    urls.push({ key, url });
+    const key = `posts/${userId}/${generateId()}-${safeFileName(file.name)}`;
+    urls.push({ key, url: await signedUpload(key, file.contentType, file.size) });
   }
   return urls;
 }
@@ -158,6 +225,19 @@ async function createPost(userId, body) {
   }
   if (embedding !== undefined && !isValidEmbedding(embedding)) {
     return response(400, { error: 'Invalid embedding.' });
+  }
+
+  const captionLimit = group ? CAPTION_LIMIT_GROUP : CAPTION_LIMIT_GLOBAL;
+  if (caption !== undefined && (typeof caption !== 'string' || caption.length > captionLimit)) {
+    return response(400, { error: `Caption must be under ${captionLimit} characters.` });
+  }
+  // Media must be files this user uploaded through /posts/upload-urls
+  if (mediaKeys !== undefined && (!Array.isArray(mediaKeys)
+      || !mediaKeys.every(k => typeof k === 'string' && k.startsWith(`posts/${userId}/`) && !k.includes('..')))) {
+    return response(400, { error: 'Invalid media.' });
+  }
+  if (type === 'text' && mediaKeys?.length) {
+    return response(400, { error: 'Text posts cannot have media.' });
   }
 
   const userResult = await dynamo.send(new GetCommand({
@@ -516,26 +596,36 @@ async function deletePost(postId, userId) {
 
 async function handleUploadUrls(userId, body) {
   const { files } = body;
-  if (!files?.length) return response(400, { error: 'No files specified.' });
+  if (!Array.isArray(files) || !files.length) return response(400, { error: 'No files specified.' });
   if (files.length > MAX_IMAGES_PER_POST) return response(400, { error: 'Too many files.' });
+  for (const file of files) {
+    const maxSize = UPLOAD_TYPES[file?.contentType];
+    if (!maxSize) return response(400, { error: 'Only JPEG, PNG and WEBP images or MP4 and MOV videos can be uploaded.' });
+    if (!Number.isInteger(file.size) || file.size < 1 || file.size > maxSize) {
+      return response(400, { error: `Each file must be under ${maxSize / 1024 / 1024}MB.` });
+    }
+  }
 
   const urls = await getUploadUrls(userId, files);
   return response(200, { urls });
 }
 
-async function fixAuthorNames(userId, body) {
-  const { newUsername, newDisplayName, newProfilePicKey } = body;
-  if (!newUsername || !newDisplayName) {
-    return response(400, { error: 'newUsername and newDisplayName required.' });
-  }
+// Copies the author's current username, display name and picture onto their
+// posts. The values come from the user record, never from the request, so
+// nobody can make their posts show someone else's name.
+async function fixAuthorNames(userId) {
+  const userResult = await dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId } }));
+  const author = userResult.Item;
+  if (!author) return response(404, { error: 'User not found.' });
+  const newUsername      = author.username;
+  const newDisplayName   = author.displayName ?? author.username;
+  const newProfilePicKey = author.profilePicKey;
 
-  const result = await dynamo.send(new ScanCommand({
+  const posts = await scanAll({
     TableName:        POSTS_TABLE,
     FilterExpression: 'authorId = :uid',
     ExpressionAttributeValues: { ':uid': userId },
-  }));
-
-  const posts = result.Items ?? [];
+  });
 
   await Promise.all(posts.map(post =>
     dynamo.send(new UpdateCommand({
@@ -558,22 +648,32 @@ export const handler = async (event) => {
   const path     = event.requestContext?.http?.path   ?? event.path;
   const userId   = event.requestContext?.authorizer?.jwt?.claims?.sub;
   const segments = path.split('/').filter(Boolean);
+  // Logged-out requests are limited per IP address
+  const who      = userId ?? `ip:${event.requestContext?.http?.sourceIp ?? 'unknown'}`;
 
   try {
+    const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
+    if (limited) return limited;
+
     if (method === 'POST' && path === '/posts/upload-urls') {
       if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'upload', 10, 60]);
+      if (actionLimited) return actionLimited;
       const body = JSON.parse(event.body ?? '{}');
       return await handleUploadUrls(userId, body);
     }
 
     if (method === 'POST' && path === '/posts/fix-author') {
       if (!userId) return response(401, { error: 'Unauthorized' });
-      const body = JSON.parse(event.body ?? '{}');
-      return await fixAuthorNames(userId, body);
+      const actionLimited = await firstLimit([userId, 'fixauthor', 10, 3600]);
+      if (actionLimited) return actionLimited;
+      return await fixAuthorNames(userId);
     }
 
     if (method === 'POST' && path === '/posts') {
       if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'post', 5, 60], [userId, 'post', 30, 3600]);
+      if (actionLimited) return actionLimited;
       const body = JSON.parse(event.body ?? '{}');
       return await createPost(userId, body);
     }
@@ -583,6 +683,8 @@ export const handler = async (event) => {
     if ((method === 'POST' || method === 'DELETE') && LIKE_TARGETS[segments[0]]
         && segments.length === 3 && segments[2] === 'like') {
       if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'like', 60, 60]);
+      if (actionLimited) return actionLimited;
       return await setLike(userId, segments[0], segments[1], method === 'POST');
     }
 

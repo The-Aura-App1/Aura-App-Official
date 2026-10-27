@@ -29,16 +29,60 @@ const TARGETS = {
   comments: { table: COMMENTS_TABLE, key: 'commentId', type: 'comment' },
 };
 
-function response(statusCode, body) {
+// ─── Rate limits ──────────────────────────────────────────────
+// Fixed-window counters in aura-rate-limits (partition key limitKey, TTL on
+// expiresAt). Fails open: if the table is missing or unreachable, requests are
+// allowed and the limiter rests for a minute, so it can never take the API down.
+const RATE_TABLE = 'aura-rate-limits';
+let rateLimitsOffUntil = 0;
+
+function response(statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
+}
+
+// Returns a 429 response once `who` has made `limit` requests in this window
+async function rateLimited(who, bucket, limit, windowSeconds) {
+  if (Date.now() < rateLimitsOffUntil) return null;
+  const now    = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / windowSeconds);
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 RATE_TABLE,
+      Key:                       { limitKey: `${who}#${bucket}#${windowSeconds}#${window}` },
+      UpdateExpression:          'SET expiresAt = :exp ADD #count :one',
+      ConditionExpression:       'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames:  { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':limit': limit, ':exp': (window + 1) * windowSeconds + 60 },
+    }));
+    return null;
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      const retryAfter = (window + 1) * windowSeconds - now;
+      return response(429, { error: 'Too many requests. Please slow down and try again shortly.' },
+        { 'Retry-After': String(retryAfter) });
+    }
+    console.warn(`Rate limiter unavailable (${err.name}); allowing requests for a minute.`);
+    rateLimitsOffUntil = Date.now() + 60_000;
+    return null;
+  }
+}
+
+// Runs several limits in order and returns the first 429, if any
+async function firstLimit(...checks) {
+  for (const [who, bucket, limit, windowSeconds] of checks) {
+    const limited = await rateLimited(who, bucket, limit, windowSeconds);
+    if (limited) return limited;
+  }
+  return null;
 }
 
 function today() {
@@ -433,6 +477,9 @@ export const handler = async (event) => {
   if (!userId) return response(401, { error: 'Unauthorized' });
 
   try {
+    const limited = await firstLimit([userId, 'api', 120, 60]);
+    if (limited) return limited;
+
     const body     = JSON.parse(event.body ?? '{}');
     const segments = path.split('/').filter(Boolean);
 
@@ -443,6 +490,9 @@ export const handler = async (event) => {
     // POST /posts/{id}/aura/{give|take} and POST /comments/{id}/aura/{give|take}
     if (method === 'POST' && TARGETS[segments[0]] && segments[2] === 'aura'
         && (segments[3] === 'give' || segments[3] === 'take') && segments.length === 4) {
+      const actionLimited = await firstLimit([userId, 'aura', 30, 60], [userId, 'aura', 300, 3600]);
+      if (actionLimited) return actionLimited;
+
       const amount = body.amount === undefined ? 1 : body.amount;
       if (!Number.isInteger(amount) || amount < 1) {
         return response(400, { error: 'Amount must be a whole number of at least 1.' });

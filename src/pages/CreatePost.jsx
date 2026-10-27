@@ -149,6 +149,7 @@ export default function CreatePost() {
         const fileInfos = files.map(f => ({
           name:        f.name,
           contentType: f.type,
+          size:        f.size,
         }));
 
         const { urls } = await api.getUploadUrls(fileInfos);

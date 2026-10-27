@@ -21,16 +21,60 @@ const RESERVED_WORDS = /\b(aura|admin|official|moderator)\b/i;
 // and the ownerId index never see it.
 const NAME_PREFIX = 'NAME#';
 
-function response(statusCode, body) {
+// ─── Rate limits ──────────────────────────────────────────────
+// Fixed-window counters in aura-rate-limits (partition key limitKey, TTL on
+// expiresAt). Fails open: if the table is missing or unreachable, requests are
+// allowed and the limiter rests for a minute, so it can never take the API down.
+const RATE_TABLE = 'aura-rate-limits';
+let rateLimitsOffUntil = 0;
+
+function response(statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
+}
+
+// Returns a 429 response once `who` has made `limit` requests in this window
+async function rateLimited(who, bucket, limit, windowSeconds) {
+  if (Date.now() < rateLimitsOffUntil) return null;
+  const now    = Math.floor(Date.now() / 1000);
+  const window = Math.floor(now / windowSeconds);
+  try {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 RATE_TABLE,
+      Key:                       { limitKey: `${who}#${bucket}#${windowSeconds}#${window}` },
+      UpdateExpression:          'SET expiresAt = :exp ADD #count :one',
+      ConditionExpression:       'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames:  { '#count': 'count' },
+      ExpressionAttributeValues: { ':one': 1, ':limit': limit, ':exp': (window + 1) * windowSeconds + 60 },
+    }));
+    return null;
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      const retryAfter = (window + 1) * windowSeconds - now;
+      return response(429, { error: 'Too many requests. Please slow down and try again shortly.' },
+        { 'Retry-After': String(retryAfter) });
+    }
+    console.warn(`Rate limiter unavailable (${err.name}); allowing requests for a minute.`);
+    rateLimitsOffUntil = Date.now() + 60_000;
+    return null;
+  }
+}
+
+// Runs several limits in order and returns the first 429, if any
+async function firstLimit(...checks) {
+  for (const [who, bucket, limit, windowSeconds] of checks) {
+    const limited = await rateLimited(who, bucket, limit, windowSeconds);
+    if (limited) return limited;
+  }
+  return null;
 }
 
 function generateId() {
@@ -651,8 +695,13 @@ export const handler = async (event) => {
   const segments = path.split('/').filter(Boolean);
   const query    = event.queryStringParameters ?? {};
 
+  // Logged-out requests are limited per IP address
+  const who      = userId ?? `ip:${event.requestContext?.http?.sourceIp ?? 'unknown'}`;
+
   try {
     if (segments[0] !== 'groups') return response(404, { error: 'Route not found.' });
+    const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
+    if (limited) return limited;
     const body = JSON.parse(event.body ?? '{}');
 
     // GET /groups — browse
@@ -662,7 +711,17 @@ export const handler = async (event) => {
     if (!userId) return response(401, { error: 'Unauthorized' });
 
     // POST /groups — create
-    if (method === 'POST' && segments.length === 1) return await createGroup(userId, body);
+    if (method === 'POST' && segments.length === 1) {
+      const actionLimited = await firstLimit([userId, 'groupcreate', 5, 3600]);
+      if (actionLimited) return actionLimited;
+      return await createGroup(userId, body);
+    }
+
+    // Joining, inviting and moderating
+    if (method === 'POST') {
+      const actionLimited = await firstLimit([userId, 'groupaction', 30, 60]);
+      if (actionLimited) return actionLimited;
+    }
 
     // GET /groups/mine — my groups, requests and invites
     if (method === 'GET' && segments.length === 2 && segments[1] === 'mine') return await getMyGroups(userId);

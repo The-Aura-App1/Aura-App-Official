@@ -168,7 +168,7 @@ export default function Profile() {
       // Upload avatar if changed
       if (avatarFile) {
         const { urls } = await api.getProfileUploadUrls([
-          { name: avatarFile.name, contentType: avatarFile.type, type: 'avatar' }
+          { name: avatarFile.name, contentType: avatarFile.type, size: avatarFile.size, type: 'avatar' }
         ]);
         await fetch(urls[0].url, {
           method: 'PUT', body: avatarFile,
@@ -180,7 +180,7 @@ export default function Profile() {
       // Upload banner if changed
       if (bannerFile) {
         const { urls } = await api.getProfileUploadUrls([
-          { name: bannerFile.name, contentType: bannerFile.type, type: 'banner' }
+          { name: bannerFile.name, contentType: bannerFile.type, size: bannerFile.size, type: 'banner' }
         ]);
         await fetch(urls[0].url, {
           method: 'PUT', body: bannerFile,
