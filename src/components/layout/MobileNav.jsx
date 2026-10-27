@@ -13,12 +13,12 @@ const NAV = [
 export default function MobileNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40
-                    bg-[var(--bg-secondary)] border-t border-[var(--border)]
-                    flex items-center justify-around px-2 py-1">
+                    bg-[var(--bg-secondary)]/95 backdrop-blur-md border-t border-[var(--border)]
+                    flex items-center justify-around px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
       {NAV.map(({ to, icon: Icon, label }) => (
         <NavLink key={to} to={to} end={to === '/'}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 ${
+            `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 ${
               isActive ? 'text-aura-400' : 'text-[var(--text-muted)]'
             }`
           }>

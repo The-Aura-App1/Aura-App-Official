@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut } from 'lucide-react';
 import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -131,7 +131,8 @@ function PasswordForm() {
 }
 
 export default function Settings() {
-  const { dbProfile, username, refreshUser } = useAuth();
+  const { dbProfile, username, refreshUser, logout } = useAuth();
+  const navigate = useNavigate();
   const { theme, toggleTheme, skyDetails, setSkyDetails } = useTheme();
 
   const [settings, setSettings] = useState(null);
@@ -203,6 +204,12 @@ export default function Settings() {
         <p className="text-xs text-[var(--text-muted)]">
           Email changes and two-factor authentication are coming soon.
         </p>
+        <div className="divider" />
+        <button type="button"
+          onClick={async () => { await logout(); navigate('/welcome'); }}
+          className="btn-secondary self-start text-red-400 hover:bg-red-400/10">
+          <LogOut size={16} /> Sign out
+        </button>
       </Section>
 
       {/* ── Appearance (saved on this device, not the account) ── */}

@@ -6,41 +6,34 @@ import Topbar    from './Topbar';
 import { SkyDecor } from '../auth/AuthBackdrop';
 import { useTheme } from '../../context/ThemeContext';
 
+// Large screens: fixed sidebar on the left. Phones and tablets: a top bar and
+// a bottom tab bar instead, so the content gets the full width.
 export default function AppShell() {
   const { skyDetails } = useTheme();
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
 
       {/* Sky details behind the content (Settings > Appearance turns them off) */}
       {skyDetails && (
-        <div aria-hidden="true" className="aura-app-sky pointer-events-none fixed inset-y-0 right-0 left-[256px] overflow-hidden">
+        <div aria-hidden="true" className="aura-app-sky pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden">
           <SkyDecor variant="app" />
         </div>
       )}
 
-      {/* Sidebar — always visible on desktop */}
-      <aside style={{
-        width: '256px',
-        flexShrink: 0,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        borderRight: '1px solid var(--border)',
-        backgroundColor: 'var(--bg-secondary)',
-        zIndex: 30,
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
+      <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-30
+                        border-r border-[var(--border)] bg-[var(--bg-secondary)]">
         <Sidebar />
       </aside>
 
-      {/* Main content */}
-      <div style={{ marginLeft: '256px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative', zIndex: 10 }}>
-        <main style={{ flex: 1, width: '100%', maxWidth: '672px', margin: '0 auto', padding: '16px 16px 64px' }}>
+      <div className="relative z-10 flex flex-col min-h-screen lg:ml-64">
+        <Topbar />
+        {/* Bottom padding clears the phone tab bar */}
+        <main className="flex-1 w-full max-w-[672px] mx-auto px-4 pt-4 pb-28 lg:pb-16">
           <Outlet />
         </main>
       </div>
+
+      <MobileNav />
     </div>
   );
 }

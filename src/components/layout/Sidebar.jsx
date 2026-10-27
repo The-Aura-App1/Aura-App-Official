@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, PlusSquare, Wallet, Settings,
@@ -6,29 +6,13 @@ import {
 } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { api }      from '../../api';
+import useUnreadCount from '../../hooks/useUnreadCount';
 
 export default function Sidebar() {
   const { displayName, username, logout } = useAuth();
   const { theme, toggleTheme }            = useTheme();
   const navigate                          = useNavigate();
-  const [unreadCount, setUnreadCount]     = useState(0);
-
-  useEffect(() => {
-    loadUnreadCount();
-    // Poll every 30 seconds
-    const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function loadUnreadCount() {
-    try {
-      const data = await api.getNotifications(30);
-      setUnreadCount(data.unreadCount ?? 0);
-    } catch (err) {
-      // Silent fail — don't break the UI if notifications fail
-    }
-  }
+  const unreadCount                       = useUnreadCount();
 
   const NAV = [
     { to: '/',                           icon: Home,       label: 'Feed'          },
