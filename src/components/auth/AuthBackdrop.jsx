@@ -186,48 +186,61 @@ export function SiteHeader() {
   );
 }
 
-// A pale daytime moon: a see-through disc with a few faint craters, so it
-// looks washed out by the daylight like the real moon in an afternoon sky.
-function DaytimeMoon({ className }) {
+// A soft crescent moon: a glowing disc with a second, offset disc masked out
+// of it, tilted a little like a real waxing crescent.
+function CrescentMoon({ className }) {
   return (
     <svg className={`aura-day-only aura-moon absolute ${className}`} viewBox="0 0 100 100" aria-hidden="true">
       <defs>
-        <radialGradient id="moon-face" cx="38%" cy="35%" r="70%">
+        <radialGradient id="moon-glow" cx="40%" cy="45%" r="65%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#ece6ff" />
+          <stop offset="100%" stopColor="#efe9ff" />
         </radialGradient>
+        <mask id="moon-cut">
+          <rect width="100" height="100" fill="white" />
+          <circle cx="66" cy="40" r="35" fill="black" />
+        </mask>
       </defs>
-      <circle cx="50" cy="50" r="46" fill="url(#moon-face)" />
-      <g fill="#c9bdf0" opacity="0.45">
-        <circle cx="36" cy="38" r="9" />
-        <circle cx="62" cy="30" r="5" />
-        <circle cx="58" cy="62" r="11" />
-        <circle cx="32" cy="66" r="5.5" />
-        <circle cx="74" cy="50" r="3.5" />
+      <g transform="rotate(-18 50 50)">
+        <circle cx="50" cy="50" r="40" fill="url(#moon-glow)" mask="url(#moon-cut)" />
       </g>
     </svg>
   );
 }
 
-// Five birds in a loose V. Each one flaps on its own beat while the flock
-// glides across the sky now and then (see .aura-flock).
+// Wing positions for one flap, drawn as a filled silhouette (wing tips, body
+// in the middle). Every frame uses the same commands, so the browser can
+// morph smoothly between them.
+const WINGS_UP   = 'M-12 -7 C-8 -4 -4 -1 0 1 C4 -1 8 -4 12 -7 C8 -2.5 4 0.5 0 3 C-4 0.5 -8 -2.5 -12 -7 Z';
+const WINGS_MID  = 'M-12 0 C-8 -2 -4 -1 0 1 C4 -1 8 -2 12 0 C8 0.5 4 1.5 0 3 C-4 1.5 -8 0.5 -12 0 Z';
+const WINGS_DOWN = 'M-11 5 C-8 1 -4 0 0 1 C4 0 8 1 11 5 C8 2.5 4 2 0 3 C-4 2 -8 2.5 -11 5 Z';
+const FLAP = [WINGS_UP, WINGS_MID, WINGS_DOWN, WINGS_MID, WINGS_UP].join(';');
+
+// A loose flock seen from far away: smaller, hazier birds read as further
+// back. Each one flaps at its own speed and bobs a little on its own.
 const BIRDS = [
-  { x: 0,  y: 14, size: 1,    delay: '0s'    },
-  { x: 22, y: 6,  size: 0.85, delay: '0.15s' },
-  { x: 26, y: 24, size: 0.9,  delay: '0.3s'  },
-  { x: 46, y: 0,  size: 0.75, delay: '0.1s'  },
-  { x: 50, y: 30, size: 0.8,  delay: '0.25s' },
+  { x: 0,   y: 22, scale: 1,    flap: 0.62, begin: 0,    opacity: 0.85 },
+  { x: 26,  y: 10, scale: 0.85, flap: 0.7,  begin: 0.2,  opacity: 0.75 },
+  { x: 30,  y: 36, scale: 0.9,  flap: 0.58, begin: 0.35, opacity: 0.8  },
+  { x: 54,  y: 2,  scale: 0.7,  flap: 0.75, begin: 0.1,  opacity: 0.6  },
+  { x: 58,  y: 46, scale: 0.75, flap: 0.66, begin: 0.45, opacity: 0.65 },
+  { x: 84,  y: 18, scale: 0.6,  flap: 0.8,  begin: 0.3,  opacity: 0.5  },
+  { x: 100, y: 34, scale: 0.55, flap: 0.72, begin: 0.15, opacity: 0.45 },
 ];
 
 function BirdFlock({ className }) {
   return (
     <div className={`aura-day-only aura-flock absolute left-0 ${className}`} aria-hidden="true">
-      <svg viewBox="0 0 80 46" className="w-24 sm:w-28 overflow-visible">
+      <svg viewBox="-14 -10 130 66" className="w-32 sm:w-40 overflow-visible">
         {BIRDS.map((b, i) => (
-          <g key={i} transform={`translate(${b.x} ${b.y}) scale(${b.size})`}>
-            <path className="aura-bird" style={{ animationDelay: b.delay }}
-              d="M0 6 Q5 0 10 5 Q15 0 20 6" fill="none" stroke="currentColor" strokeWidth="1.8"
-              strokeLinecap="round" strokeLinejoin="round" />
+          <g key={i} transform={`translate(${b.x} ${b.y})`}>
+            <g className="aura-bird-bob" style={{ animationDelay: `${-i * 0.7}s`, animationDuration: `${2.6 + (i % 3) * 0.5}s` }}>
+              <path transform={`scale(${b.scale})`} d={WINGS_MID} fill="currentColor" opacity={b.opacity}>
+                <animate attributeName="d" values={FLAP} dur={`${b.flap}s`} begin={`${b.begin}s`}
+                  repeatCount="indefinite" calcMode="spline"
+                  keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1" />
+              </path>
+            </g>
           </g>
         ))}
       </svg>
@@ -250,9 +263,9 @@ export function SkyDecor({ variant = 'page' }) {
       <span className="aura-night-only aura-shooting-star" />
       {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
       {page
-        ? <DaytimeMoon className="aura-moon-page top-[84px] left-[22%] w-16" />
-        : <DaytimeMoon className="top-[9%] left-[6%] w-14" />}
-      <BirdFlock className={page ? 'top-[22%]' : 'top-[30%]'} />
+        ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
+        : <CrescentMoon className="top-[9%] left-[6%] w-12" />}
+      <BirdFlock className={page ? 'top-[96px]' : 'top-[22%]'} />
       {page && <div className="aura-rays absolute inset-0" />}
       {page && <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />}
       {page ? (

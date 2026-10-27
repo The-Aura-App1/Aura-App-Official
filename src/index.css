@@ -384,39 +384,32 @@ h1, h2, h3 {
 .aura-day-only { display: block; }
 .dark .aura-day-only { display: none; }
 
-/* A faint, washed-out moon. On the public pages it's hidden on phones,
+/* A soft, glowing crescent. On the public pages it's hidden on phones,
    where it would crowd the halo. */
-.aura-moon { opacity: 0.55; filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.8)); }
+.aura-moon { opacity: 0.8; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 22px rgba(255, 247, 230, 0.7)); }
 .aura-moon-page { display: none; }
 @media (min-width: 640px) {
   .aura-moon-page { display: block; }
 }
 .dark .aura-moon-page { display: none; }
 
-/* A small flock that glides across the sky every 30 seconds or so, rising
-   a little as it goes. It spends most of the cycle off screen. */
+/* A flock far off in the distance that flies across the sky now and then,
+   the daytime counterpart to the shooting star. It rises gently and drifts
+   up and down as it goes, then spends the rest of the cycle off screen.
+   It keeps flying with reduced motion on: it's small, slow and occasional. */
 .aura-flock {
-  color: rgba(61, 36, 112, 0.45);
+  color: rgb(76, 58, 120);
   opacity: 0;
-  animation: flockFlight 30s linear 5s infinite;
+  animation: flockFlight 36s linear 4s infinite;
 }
 @keyframes flockFlight {
-  0%   { opacity: 0; transform: translate(-160px, 0); }
-  2%   { opacity: 1; }
-  40%  { opacity: 1; transform: translate(calc(100vw + 40px), -60px); }
-  41%  { opacity: 0; transform: translate(calc(100vw + 40px), -60px); }
-  100% { opacity: 0; transform: translate(calc(100vw + 40px), -60px); }
+  0%   { opacity: 0;   transform: translate(-180px, 40px); }
+  3%   { opacity: 0.9; }
+  12%  { transform: translate(calc(25vw - 180px), 10px); }
+  24%  { transform: translate(calc(55vw - 180px), 20px); }
+  37%  { opacity: 0.9; }
+  40%  { opacity: 0;   transform: translate(calc(100vw + 40px), -30px); }
+  100% { opacity: 0;   transform: translate(calc(100vw + 40px), -30px); }
 }
-/* Wings flap by squashing each bird's V up and down. */
-.aura-bird {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: birdFlap 0.5s ease-in-out infinite alternate;
-}
-@keyframes birdFlap { from { transform: scaleY(1); } to { transform: scaleY(-0.5); } }
-
-/* With reduced motion the flock stays still, resting in the sky. */
-@media (prefers-reduced-motion: reduce) {
-  .aura-flock { animation: none; opacity: 1; transform: translate(74vw, -110px); }
-  .aura-bird { animation: none; }
-}
+.aura-bird-bob { animation: birdBob 3s ease-in-out infinite; }
+@keyframes birdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
