@@ -4,7 +4,7 @@
 
 **Live app: https://master.d81n9jit8j6my.amplifyapp.com**
 
-A social app where reputation is the currency. Instead of likes, people give (or take) **aura** on posts. Aura is earned, capped and audited on the server, and creators will be able to cash out what others give them. The feed is ranked by what *you* ask to see, with no tracking.
+A social app where reputation is the currency. Instead of likes, people give **aura** to posts they value. Aura is free, earned, capped and audited on the server, and it can never be bought. The feed is ranked by what *you* ask to see, with no tracking. Aura has no cash value; creator payouts are on the [roadmap](#roadmap).
 
 **Tech stack:** React 18 · Tailwind CSS 3 · AWS Amplify (hosting + auth) · Amazon Cognito · API Gateway (HTTP API) · AWS Lambda (Node.js 24, ESM) · DynamoDB · S3 · Transformers.js (on-device AI) · Jest · GitHub Actions
 
@@ -31,13 +31,13 @@ A social app where reputation is the currency. Instead of likes, people give (or
 |---|---|
 | **Accounts** | Email sign-up and sign-in via Cognito, onboarding, unique usernames, editable profile, light and dark themes |
 | **Posts** | Photo, video and text posts with up to 3 preset topics and up to 10 custom hashtags; media uploads go straight to S3 with pre-signed URLs |
-| **Aura** | Give or take aura on posts. Daily free aura, daily give/take caps and per-post limits, all enforced by the server |
-| **Aura Wallet** | Balance split into *earned* (cashable later) and *spendable*, lifetime stats; aura timeline graph on profiles |
+| **Aura** | Give aura to posts you value. Taking aura is opt-in per post and per group, and costs the taker the same amount (nobody profits from it). Daily free aura, caps and per-post limits, all enforced by the server |
+| **Aura Wallet** | Balance split into *earned* (from others) and *spendable*, lifetime stats; aura timeline graph on profiles |
 | **Feed** | Ranked on your device by your explicit choices: topic chips, free-text keywords, "show more/less like this" |
 | **Groups** | Open, request-to-join and invite-only groups, moderators, muting and group-only posts |
 | **Comments and likes** | Comments with reporting. Likes are a private bookmark: only the author sees the count |
 | **Notifications** | In-app notifications with read/unread state |
-| **Post deletion** | Authors delete from their profile; moderators can remove group posts. Deleted posts disappear from every feed |
+| **Moderation** | Authors delete their own posts; group moderators remove group posts; the site moderator account can remove any post or comment and ban accounts (hides their profile and content, reversible). Every check runs on the server |
 
 ## Architecture
 
@@ -92,8 +92,9 @@ Most social feeds learn from everything you do. Aura's feed only uses what you e
 | Give cap per day | 500 | 2,000 |
 | Take cap per day | 250 | 1,000 |
 
-- **Earned** aura (cashable) only comes from other people giving to your posts. Everything else is **spendable** and never cashable.
-- **Anti-exploit:** max 500 earned per giver per day, gifts from accounts under 7 days old count as spendable, max 50 taken per post.
+- **Earned** aura only comes from other people giving to your posts. Everything else is **spendable**.
+- **Taking is a costly signal, not a weapon:** authors choose at posting time whether a post can be taken from (locked afterwards), group owners can make a group take-free, and taking costs the taker the same amount, which is destroyed rather than transferred. Ganging up on someone costs the group as much as it costs the target.
+- **Anti-exploit:** max 500 earned per giver per day, gifts from accounts under 7 days old count as spendable, max 50 taken per post, per-user rate limits on every action.
 - Aura is never sold for money. Real money only buys subscriptions and cosmetics.
 
 ## API routes
@@ -102,12 +103,12 @@ All routes require a Cognito JWT except where the gateway allows otherwise.
 
 | Lambda | Routes |
 |---|---|
-| `aura-users` | `POST /users` · `GET/PUT /users/me` · `POST /users/me/upload-urls` · `GET /users/{username}` |
+| `aura-users` | `POST /users` · `GET/PUT /users/me` · `POST /users/me/upload-urls` · `GET /users/{username}` · `POST /admin/ban` (moderator only) |
 | `aura-posts` | `GET /posts` (feed pools) · `POST /posts` · `GET/DELETE /posts/{id}` · `POST /posts/upload-urls` · `POST /posts/fix-author` · `POST/DELETE /{posts\|comments}/{id}/like` · `GET /users/{id}/posts` · `GET /users/me/likes` · `GET /groups/{id}/posts` |
 | `aura-aura` | `POST /{target}/{id}/aura/give` · `POST /{target}/{id}/aura/take` · `POST /aura/daily-bonus` · `POST /ads/watch` |
 | `aura-groups` | `GET/POST /groups` · `GET /groups/mine` · `GET/PUT/DELETE /groups/{id}` · `GET /groups/{id}/members` · `POST /groups/{id}/{join\|leave\|invite\|mute}` · member moderation |
 | `aura-comments` | `GET/POST /posts/{id}/comments` · `DELETE /comments/{id}` · `POST /comments/{id}/report` |
-| `aura-notifications` | `GET /notifications` · `POST /notifications/send` · `PUT /notifications/{id}/read` · `PUT /notifications/read-all` · `DELETE /notifications/{id}` |
+| `aura-notifications` | `GET /notifications` · `PUT /notifications/{id}/read` · `PUT /notifications/read-all` · `DELETE /notifications/{id}` |
 
 ## Data model
 
@@ -179,21 +180,43 @@ Every push and pull request runs [GitHub Actions](.github/workflows/ci.yml): Lam
 | **AI Feature Innovation & Integration** | **20** | **Sentence-embedding model running entirely in the browser (web worker, self-hosted) · meaning-based keyword matching · vectors computed on the author's device and validated by the server · private on-device re-ranking with exploration slots** |
 | Technical Execution & Code Quality | 20 | Serverless AWS (6 Lambdas, 10 DynamoDB tables) · every limit enforced server-side · soft deletes · pure, unit-tested ranking logic · contract tests that catch app/server drift · CI green |
 | User Experience & Design | 10 | Light and dark themes · responsive layout with mobile nav · "Tune your feed" panel · infinite scroll · two-tap delete confirmation |
-| Business Impact & Scalability | 10 | Creator cashouts funded by subscriptions, never aura sales · anti-exploit rules · feed requests are the same for every user, so the client's work stays constant as posts grow |
+| Business Impact & Scalability | 10 | Revenue from subscriptions, cosmetics and non-personalized ads, never aura sales or user data · creator payouts deferred to the roadmap until payments and money-transmission rules are handled · anti-exploit rules · feed requests are the same for every user, so the client's work stays constant as posts grow |
 | GitHub Transparency | 10 | Small, focused commits with descriptive messages · iterative build visible in history · CI on every push |
 | Documentation & Communication | 10 | This README · architecture diagram · API and data model tables · in-app privacy notice ("Saved only on this device") |
 | Deployment & Live Demo | 10 | Live on AWS Amplify at https://master.d81n9jit8j6my.amplifyapp.com, HTTPS, auto-deploys on push |
 
 ## Roadmap
 
+The same roadmap is shown to users on the About page.
+
+**Done**
+
 - [x] Posts, aura give/take, earned/spendable split, daily limits
 - [x] Aura Wallet, Settings, groups, comments, likes, notifications
-- [x] Post deletion
 - [x] Private, preference-based feed with on-device AI keywords
+- [x] Security pass, part 1: rate limits, upload type/size limits, input validation, least-privilege IAM policies
+- [x] Take-aura safeguards: opt-in per post (locked once posted), take-free groups, and taking costs the taker the same amount
+- [x] Site moderation: remove any post or comment, ban and unban accounts
+- [x] Seeded demo accounts and posts (no real user data needed to try the app)
+
+**Next up**
+
+- [ ] Blocking: stop someone from interacting with your posts or your account
+- [ ] Following, with private accounts and follow requests
+- [ ] Report buttons on posts and profiles, and a moderation queue
 - [ ] Custom domain
-- [ ] Follow system and private accounts
-- [ ] Indexed per-topic feed lists (replace table scans)
-- [ ] Post customization, group games, Moments, search, leaderboard
-- [ ] Payments (Stripe), creator verification and cashouts
-- [ ] Security pass: WAF, rate limits, signed media URLs
-- [ ] React Native app for iOS and Android
+
+**Soon**
+
+- [ ] iOS and Android apps (React Native)
+- [ ] Moments: group-only photos that disappear after 24 hours
+- [ ] Group games like Connect 4, played for aura, never money
+- [ ] Aura Premium: ad-free, custom post styles, higher limits
+- [ ] Indexed per-topic feed lists (replace table scans) and search
+- [ ] Security pass, part 2: WAF, signed media URLs, stricter CORS
+
+**Later**
+
+- [ ] Creator payouts, once payment and money-transmission compliance is in place
+- [ ] Badges, leaderboards and a global aura rank you can hide
+- [ ] Direct messages
