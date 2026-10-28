@@ -2,7 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Themes (src/themes): Day is the default below, Night is `.dark`, and the
+   other themes override both by `data-theme` further down. */
 :root {
+  /* The purple palette behind Tailwind's aura-* colors, as RGB channels so
+     opacity modifiers like bg-aura-500/10 work. A theme can recolor it. */
+  --aura-950: 13 6 24;
+  --aura-900: 26 10 46;
+  --aura-850: 34 13 58;
+  --aura-800: 45 27 78;
+  --aura-700: 61 36 112;
+  --aura-600: 91 53 158;
+  --aura-500: 124 58 237;
+  --aura-400: 167 139 250;
+  --aura-300: 196 181 253;
+  --aura-200: 221 214 254;
+  --aura-100: 237 233 254;
+  --aura-50:  248 247 255;
+
   --bg-primary:    #f8f7ff;
   --bg-secondary:  #ffffff;
   --bg-elevated:   #ede9fe;
@@ -28,6 +45,36 @@
   --accent:        #7c3aed;
   --accent-hover:  #8b5cf6;
   --accent-subtle: #2d1b4e;
+}
+
+/* Light: pure white with neutral greys, no scenery. */
+[data-theme="light"] {
+  --bg-primary:    #ffffff;
+  --bg-secondary:  #ffffff;
+  --bg-elevated:   #f4f4f5;
+  --bg-card:       #ffffff;
+  --border:        #e4e4e7;
+  --text-primary:  #09090b;
+  --text-secondary:#5b359e;
+  --text-muted:    #71717a;
+  --accent:        #7c3aed;
+  --accent-hover:  #6d28d9;
+  --accent-subtle: #f3f0ff;
+}
+
+/* Dark: pure black (pixels switch off on OLED screens), no scenery. */
+[data-theme="dark"] {
+  --bg-primary:    #000000;
+  --bg-secondary:  #000000;
+  --bg-elevated:   #121214;
+  --bg-card:       #0a0a0b;
+  --border:        #26262b;
+  --text-primary:  #fafafa;
+  --text-secondary:#a78bfa;
+  --text-muted:    #a1a1aa;
+  --accent:        #8b5cf6;
+  --accent-hover:  #a78bfa;
+  --accent-subtle: #1a1426;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

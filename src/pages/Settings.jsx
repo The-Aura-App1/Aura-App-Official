@@ -5,6 +5,7 @@ import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api';
+import { ThemeCards } from '../components/theme/ThemePicker';
 import { usernameStatusText } from '../utils/format';
 
 const NOTIFICATION_OPTIONS = [
@@ -23,9 +24,9 @@ function defaultNotificationPrefs(saved) {
   return Object.fromEntries(NOTIFICATION_OPTIONS.map(({ key }) => [key, saved?.[key] !== false]));
 }
 
-function Section({ icon: Icon, title, children }) {
+function Section({ id, icon: Icon, title, children }) {
   return (
-    <section className="card flex flex-col gap-4">
+    <section id={id} className="card flex flex-col gap-4 scroll-mt-20">
       <div className="flex items-center gap-2">
         <Icon size={18} className="text-aura-400" />
         <h2 className="font-semibold text-[var(--text-primary)]">{title}</h2>
@@ -132,11 +133,17 @@ function PasswordForm() {
 export default function Settings() {
   const { dbProfile, username, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
-  const { theme, toggleTheme, skyDetails, setSkyDetails } = useTheme();
+  const { skyDetails, setSkyDetails } = useTheme();
 
   const [settings, setSettings] = useState(null);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
+
+  // Links such as /settings#appearance open at that section
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     if (!dbProfile) return;
@@ -217,16 +224,16 @@ export default function Settings() {
         </button>
       </Section>
 
-      {/* ── Appearance (saved on this device, not the account) ── */}
-      <Section icon={Palette} title="Appearance">
+      {/* ── Appearance (the theme is saved to the account, scenery per device) ── */}
+      <Section id="appearance" icon={Palette} title="Appearance">
+        <div>
+          <p className="text-sm text-[var(--text-primary)]">Theme</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5 mb-3">Saved to your account, so it follows you to other devices.</p>
+          <ThemeCards />
+        </div>
         <Toggle
-          label="Dark mode"
-          checked={theme === 'dark'}
-          onChange={toggleTheme}
-        />
-        <Toggle
-          label="Background details"
-          description="Clouds and sparkles in light mode, stars and galaxies in dark mode. Saved on this device."
+          label="Animated scenery"
+          description="Clouds and birds in Day, stars and galaxies in Night. Saved on this device."
           checked={skyDetails}
           onChange={setSkyDetails}
         />

@@ -13,6 +13,7 @@ import Profile       from './pages/Profile';
 import CreatePost    from './pages/CreatePost';
 import Settings      from './pages/Settings';
 import Moderation from './pages/Moderation';
+import { ThemeSync } from './hooks/useChooseTheme';
 import AuraWallet    from './pages/AuraWallet';
 import PostView from './components/post/PostView';
 import Onboarding from './pages/Onboarding';
@@ -67,6 +68,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <ThemeSync />
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>

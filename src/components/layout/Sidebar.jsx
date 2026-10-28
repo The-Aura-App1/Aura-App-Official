@@ -6,11 +6,12 @@ import {
 } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { ThemeMenu } from '../theme/ThemePicker';
 import useUnreadCount from '../../hooks/useUnreadCount';
 
 export default function Sidebar() {
   const { displayName, username, logout, dbProfile } = useAuth();
-  const { theme, toggleTheme }            = useTheme();
+  const { theme, themeInfo }             = useTheme();
   const navigate                          = useNavigate();
   const unreadCount                       = useUnreadCount();
 
@@ -65,11 +66,10 @@ export default function Sidebar() {
       </nav>
 
       <div className="flex flex-col gap-2 mt-auto">
-        <button onClick={toggleTheme}
-          className="btn-ghost w-full justify-start gap-3 text-sm">
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        </button>
+        <ThemeMenu placement="above" align="left" buttonClassName="btn-ghost w-full justify-start gap-3 text-sm">
+          {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+          Theme: {themeInfo.name}
+        </ThemeMenu>
         <div className="flex items-center justify-between px-2
                         border-t border-[var(--border)] pt-4 mt-2">
           <span className="text-sm font-medium text-[var(--text-primary)] truncate">

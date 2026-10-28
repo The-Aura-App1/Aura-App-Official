@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import { TOPIC_IDS, MAX_POST_TOPICS } from './utils/topics';
 import { EMBED_MODEL, EMBED_DIM, encodeVector } from './utils/embeddings';
 import { MAX_HASHTAGS, HASHTAG_PATTERN } from './utils/hashtags';
+import { THEMES, THEME_IDS } from './themes';
 
 const LAMBDAS = path.join(__dirname, '..', 'backend', 'lambdas');
 const MODEL   = path.join(__dirname, '..', 'public', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
@@ -46,6 +47,12 @@ test('aura-posts expects the same embedding model and size as the app', () => {
 test('aura-aura and aura-users use the same daily limits', () => {
   const rules = source => constant(source, 'RULES').replace(/\s+/g, '');
   expect(rules(lambdaSource('aura-users'))).toBe(rules(lambdaSource('aura-aura')));
+});
+
+test('aura-users saves exactly the themes the app knows about', () => {
+  const serverThemes = [...constant(lambdaSource('aura-users'), 'THEME_IDS').matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
+  expect(serverThemes).toEqual(THEME_IDS);
+  for (const theme of THEMES) expect(THEME_IDS).toContain(theme.id);
 });
 
 test('aura-posts accepts vectors the app produces and rejects bad ones', () => {

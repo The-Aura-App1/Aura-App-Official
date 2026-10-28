@@ -50,11 +50,13 @@ const NOTIFICATION_TYPES = [
   'groupInvite', 'groupRequestApproved', 'cashoutProcessed', 'dailyBonus',
 ];
 const COMMENT_VISIBILITY = ['anyone', 'followers'];
+// App themes an account can save. Keep in sync with THEME_IDS in src/themes/index.js.
+const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'custom'];
 
 // Fields only the owner may see
 const PRIVATE_FIELDS = [
   'email', 'followerCount', 'followingCount', 'totalPostViews',
-  'notificationPrefs', 'commentVisibilityDefault',
+  'notificationPrefs', 'commentVisibilityDefault', 'theme',
   'usernameChangeCount', 'usernameChangedAt', 'usernameReserved',
   'usernamePlaceholder', 'usernameConflict',
   'auraEarned', 'auraSpendable', 'lifetimeEarned', 'lifetimeReceived',
@@ -507,7 +509,7 @@ async function getToday(user) {
 async function updateProfile(userId, body) {
   const {
     displayName, bio, username, tags, profilePicKey, bannerKey,
-    isPrivate, hideAuraRank, commentVisibilityDefault, notificationPrefs,
+    isPrivate, hideAuraRank, commentVisibilityDefault, notificationPrefs, theme,
   } = body;
 
   const newUsername = typeof username === 'string' ? username.trim().toLowerCase() : username;
@@ -540,6 +542,10 @@ async function updateProfile(userId, body) {
     return response(400, { error: `commentVisibilityDefault must be one of: ${COMMENT_VISIBILITY.join(', ')}.` });
   }
 
+  if (theme !== undefined && !THEME_IDS.includes(theme)) {
+    return response(400, { error: `theme must be one of: ${THEME_IDS.join(', ')}.` });
+  }
+
   if (notificationPrefs !== undefined && (typeof notificationPrefs !== 'object' || notificationPrefs === null)) {
     return response(400, { error: 'notificationPrefs must be an object.' });
   }
@@ -570,6 +576,7 @@ async function updateProfile(userId, body) {
   if (isPrivate      !== undefined) updates.isPrivate      = isPrivate;
   if (hideAuraRank   !== undefined) updates.hideAuraRank   = hideAuraRank;
   if (commentVisibilityDefault !== undefined) updates.commentVisibilityDefault = commentVisibilityDefault;
+  if (theme          !== undefined) updates.theme          = theme;
   // Unknown keys are dropped; every known type defaults to on
   if (notificationPrefs !== undefined) {
     updates.notificationPrefs = Object.fromEntries(

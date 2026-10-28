@@ -5,20 +5,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        aura: {
-          950: '#0d0618',
-          900: '#1a0a2e',
-          850: '#220d3a',
-          800: '#2d1b4e',
-          700: '#3d2470',
-          600: '#5b359e',
-          500: '#7c3aed',
-          400: '#a78bfa',
-          300: '#c4b5fd',
-          200: '#ddd6fe',
-          100: '#ede9fe',
-          50:  '#f8f7ff',
-        },
+        // Defined as CSS variables in index.css, so themes can recolor them
+        aura: Object.fromEntries(
+          [950, 900, 850, 800, 700, 600, 500, 400, 300, 200, 100, 50]
+            .map(shade => [shade, `rgb(var(--aura-${shade}) / <alpha-value>)`])
+        ),
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"','-apple-system','BlinkMacSystemFont','"Segoe UI"','Roboto','"Helvetica Neue"','Arial','sans-serif'],

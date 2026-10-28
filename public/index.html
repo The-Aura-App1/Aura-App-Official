@@ -7,6 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#ede9fe" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f0a1f" media="(prefers-color-scheme: dark)" />
+    <script>
+      // Apply the saved theme before the app loads, so the page never flashes
+      // the wrong colors. ThemeContext.jsx keeps these keys up to date.
+      try {
+        var themeId = localStorage.getItem('aura-theme-id');
+        var base = localStorage.getItem('aura-theme-base');
+        if (!themeId) {
+          var legacy = localStorage.getItem('aura-theme');
+          var dark = legacy ? legacy === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          themeId = dark ? 'night' : 'day';
+          base = dark ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', themeId);
+        if (base === 'dark') document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
     <meta
       name="description"
       content="Aura: a consumer-centered approach to social media. Your feed follows the choices you make, and aura rewards the posts people genuinely value."

@@ -2,12 +2,13 @@ import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Moon, Sun, Bell, User } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { ThemeMenu } from '../theme/ThemePicker';
 import { useAuth } from '../../context/AuthContext';
 import useUnreadCount from '../../hooks/useUnreadCount';
 
 // Top bar on phones and tablets (the sidebar takes over on large screens).
 export default function Topbar() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { displayName, username } = useAuth();
   const unreadCount = useUnreadCount();
 
@@ -40,10 +41,9 @@ export default function Topbar() {
         <NavLink to={`/profile/${username || displayName}`} aria-label="Profile" className={iconClass}>
           <User size={20} />
         </NavLink>
-        <button onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200">
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
+        <ThemeMenu buttonClassName="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200">
+          {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+        </ThemeMenu>
       </div>
     </header>
   );

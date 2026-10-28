@@ -9,12 +9,12 @@ import { useTheme } from '../../context/ThemeContext';
 // Large screens: fixed sidebar on the left. Phones and tablets: a top bar and
 // a bottom tab bar instead, so the content gets the full width.
 export default function AppShell() {
-  const { skyDetails } = useTheme();
+  const { skyDetails, themeInfo } = useTheme();
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
 
-      {/* Sky details behind the content (Settings > Appearance turns them off) */}
-      {skyDetails && (
+      {/* Scenery behind the content (Settings > Appearance turns it off) */}
+      {skyDetails && themeInfo.scene === 'sky' && (
         <div aria-hidden="true" className="aura-app-sky pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden">
           <SkyDecor variant="app" />
         </div>

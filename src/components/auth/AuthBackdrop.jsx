@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import useChooseTheme from '../../hooks/useChooseTheme';
 
 // Fixed positions so the sparkles don't jump around between renders.
 const SPARKLES = [
@@ -164,11 +165,13 @@ export function Wordmark({ size = 'lg', linked = false }) {
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
 
-// Top bar for the public pages: logo home, About, Sign in and the light/dark
-// toggle (shared with the app's own theme setting).
+// Top bar for the public pages: logo home, About, Sign in and a light/dark
+// switch that flips to the current theme's pair (Day and Night, Light and Dark).
 export function SiteHeader() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, themeInfo } = useTheme();
+  const chooseTheme = useChooseTheme();
   const dark = theme === 'dark';
+  const toggleTheme = () => chooseTheme(themeInfo.pair);
   return (
     <header className="flex items-center justify-between px-5 sm:px-10 py-6">
       <Link to="/welcome" aria-label="Aura App home">
