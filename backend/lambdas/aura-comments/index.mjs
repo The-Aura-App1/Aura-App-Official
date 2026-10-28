@@ -7,6 +7,11 @@ import {
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
 const COMMENTS_TABLE = 'aura-comments';
+
+// Site moderators (the aura_app account). Keep in sync across aura-users,
+// aura-posts and aura-comments. IDs come from the verified Cognito token, so
+// nobody else can act as a moderator.
+const ADMIN_IDS = new Set(['74081408-8031-706d-70d9-e1fa81428cb1']);
 const POSTS_TABLE    = 'aura-posts';
 const USERS_TABLE    = 'aura-users';
 const GROUPS_TABLE   = 'aura-groups';
@@ -261,8 +266,8 @@ async function deleteComment(commentId, userId) {
 
   if (!result.Item) return response(404, { error: 'Comment not found.' });
 
-  // Only author can delete their own comment
-  if (result.Item.authorId !== userId) {
+  // Authors can delete their own comments; site moderators can remove any
+  if (result.Item.authorId !== userId && !ADMIN_IDS.has(userId)) {
     return response(403, { error: 'Not your comment.' });
   }
 

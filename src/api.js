@@ -59,6 +59,7 @@ export const api = {
   createComment:  (postId, text, parentCommentId = null) =>
     request('POST', `/posts/${postId}/comments`, { text, parentCommentId }),
   deleteComment:  (commentId)            => request('DELETE', `/comments/${commentId}`),
+  setBanned:      (username, banned, reason) => request('POST', '/admin/ban', { username, banned, reason }),
   reportComment:  (commentId, reason)    => request('POST', `/comments/${commentId}/report`, { reason }),
 
   // ─── Groups ───────────────────────────────────────────────

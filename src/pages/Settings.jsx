@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut, ShieldAlert } from 'lucide-react';
 import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -177,6 +177,12 @@ export default function Settings() {
       </div>
 
       <Message error={error} />
+
+      {dbProfile?.isAdmin && (
+        <Link to="/moderation" className="card mb-4 flex items-center gap-3 text-sm font-semibold text-[var(--text-primary)] hover:border-aura-500/40">
+          <ShieldAlert size={18} className="text-aura-400" /> Moderation tools
+        </Link>
+      )}
 
       {/* ── Account ── */}
       <Section icon={User} title="Account">

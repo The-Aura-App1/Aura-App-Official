@@ -10,7 +10,7 @@ import { rankFeed } from '../utils/feedRanking';
 const PAGE_SIZE = 20;
 
 export default function Feed() {
-  const { user }  = useAuth();
+  const { user, dbProfile } = useAuth();
   const userId    = user?.userId;
   const [posts, setPosts]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +69,11 @@ export default function Feed() {
     setShown(PAGE_SIZE);
   }
 
+  async function moderatorRemove(post) {
+    await api.deletePost(post.postId);
+    setPosts(prev => prev.filter(p => p.postId !== post.postId));
+  }
+
   function preferPost(post, choice) {
     storePrefs(current => setTopics(current, post.tags ?? [], choice));
   }
@@ -92,7 +97,8 @@ export default function Feed() {
       )}
 
       {ranked.slice(0, shown).map(post => (
-        <PostCard key={post.postId} post={post} onUpdate={loadFeed} onPrefer={preferPost} />
+        <PostCard key={post.postId} post={post} onUpdate={loadFeed} onPrefer={preferPost}
+          onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
       ))}
 
       {shown < ranked.length && <div ref={sentinelRef} aria-hidden="true" />}

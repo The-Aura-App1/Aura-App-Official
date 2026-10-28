@@ -10,6 +10,13 @@ const s3     = new S3Client({ region: 'us-east-1' });
 const USERS_TABLE         = 'aura-users';
 const DAILY_BUDGETS_TABLE = 'aura-daily-budgets';
 const BUCKET_NAME         = 'aura-app-media-570934198135';
+const POSTS_TABLE         = 'aura-posts';
+const COMMENTS_TABLE      = 'aura-comments';
+
+// Site moderators (the aura_app account). Keep in sync across aura-users,
+// aura-posts and aura-comments. IDs come from the verified Cognito token, so
+// nobody else can act as a moderator.
+const ADMIN_IDS = new Set(['74081408-8031-706d-70d9-e1fa81428cb1']);
 
 // Keep RULES, AURA_VERSION and AD_COOLDOWN_MS in sync with aura-aura, which enforces them
 const RULES = {
@@ -403,6 +410,80 @@ async function createUser(userId, email, requestedUsername, fallbackOnConflict =
   return { user };
 }
 
+// ─── Moderation ───────────────────────────────────────────────
+// Every item in `table` written by `authorId` whose status matches.
+async function scanByAuthor(table, authorId, filter, values) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const page = await db.send(new ScanCommand({
+      TableName:                 table,
+      FilterExpression:          `authorId = :a AND ${filter}`,
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':a': authorId, ...values },
+      ExclusiveStartKey,
+    }));
+    items.push(...(page.Items ?? []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+// Banning hides the account's profile, posts and comments; unbanning brings
+// back only what the ban hid (not posts the user or a moderator removed).
+async function setBanned(moderatorId, body) {
+  const { username, banned, reason } = body;
+  if (typeof username !== 'string' || !username.trim()) return response(400, { error: 'username is required.' });
+  if (typeof banned !== 'boolean') return response(400, { error: 'banned must be true or false.' });
+  if (reason !== undefined && (typeof reason !== 'string' || reason.length > 300)) {
+    return response(400, { error: 'Reason must be under 300 characters.' });
+  }
+
+  const target = await findUserByUsername(username.trim().toLowerCase().replace(/^@/, ''));
+  if (!target) return response(404, { error: 'User not found.' });
+  if (ADMIN_IDS.has(target.userId)) return response(400, { error: 'Moderator accounts cannot be banned.' });
+
+  const now = new Date().toISOString();
+  await db.send(new UpdateCommand({
+    TableName: USERS_TABLE,
+    Key:       { userId: target.userId },
+    UpdateExpression: banned
+      ? 'SET isBanned = :t, bannedAt = :now, bannedBy = :mod, banReason = :reason'
+      : 'SET isBanned = :f REMOVE bannedAt, bannedBy, banReason',
+    ExpressionAttributeValues: banned
+      ? { ':t': true, ':now': now, ':mod': moderatorId, ':reason': reason ?? '' }
+      : { ':f': false },
+  }));
+
+  const tables = [[POSTS_TABLE, 'postId'], [COMMENTS_TABLE, 'commentId']];
+  let changed = 0;
+  for (const [table, key] of tables) {
+    const items = banned
+      ? await scanByAuthor(table, target.userId, '#status = :active', { ':active': 'active' })
+      : await scanByAuthor(table, target.userId, '#status = :removed AND removedBy = :ban', { ':removed': 'removed', ':ban': 'ban' });
+    for (const item of items) {
+      await db.send(new UpdateCommand({
+        TableName:                 table,
+        Key:                       { [key]: item[key] },
+        UpdateExpression:          banned ? 'SET #status = :removed, removedBy = :ban, removedAt = :now'
+                                          : 'SET #status = :active REMOVE removedBy, removedAt',
+        ExpressionAttributeNames:  { '#status': 'status' },
+        ExpressionAttributeValues: banned ? { ':removed': 'removed', ':ban': 'ban', ':now': now } : { ':active': 'active' },
+      }));
+      changed++;
+    }
+  }
+
+  console.log(`Moderation: ${moderatorId} set banned=${banned} on ${target.userId} (@${target.username}), ${changed} items`);
+  return response(200, {
+    message: banned
+      ? `Banned @${target.username} and hid ${changed} posts and comments.`
+      : `Unbanned @${target.username} and restored ${changed} posts and comments.`,
+    username: target.username,
+    isBanned: banned,
+  });
+}
+
 // Today's allowances for the wallet. Read-only: aura-aura writes the daily record.
 async function getToday(user) {
   const result = await db.send(new GetCommand({
@@ -621,7 +702,10 @@ export const handler = async (event) => {
       }
 
       const todayStatus = await getToday(user);
-      return response(200, { ...user, today: todayStatus, usernameStatus: usernameStatus(user) });
+      return response(200, {
+        ...user, today: todayStatus, usernameStatus: usernameStatus(user),
+        ...(ADMIN_IDS.has(userId) && { isAdmin: true }),
+      });
     }
 
     // GET /users/{username} — get public profile
@@ -633,11 +717,18 @@ export const handler = async (event) => {
       }
 
       const user = await findUserByUsername(username, asTyped);
-      if (!user) {
+      // Banned profiles are hidden from everyone except moderators
+      if (!user || (user.isBanned && !ADMIN_IDS.has(userId))) {
         return response(404, { error: 'User not found.' });
       }
 
       return response(200, stripPrivate(user));
+    }
+
+    // POST /admin/ban — ban or unban an account (site moderators only)
+    if (method === 'POST' && path === '/admin/ban') {
+      if (!userId || !ADMIN_IDS.has(userId)) return response(403, { error: 'Moderators only.' });
+      return await setBanned(userId, JSON.parse(event.body ?? '{}'));
     }
 
     return response(404, { error: 'Route not found.' });

@@ -542,7 +542,7 @@ export default function Profile() {
                 No posts yet.
               </p>
             ) : posts.map(post => (
-              <PostCard key={post.postId} post={post} onRemove={isOwner ? deletePost : undefined} />
+              <PostCard key={post.postId} post={post} onRemove={isOwner || dbProfile?.isAdmin ? deletePost : undefined} />
             ))}
           </div>
         )}

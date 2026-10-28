@@ -18,6 +18,11 @@ const MEMBERS_TABLE  = 'aura-group-members';
 const GROUP_PAGE_SIZE = 20;
 const BUCKET_NAME    = 'aura-app-media-570934198135';
 
+// Site moderators (the aura_app account). Keep in sync across aura-users,
+// aura-posts and aura-comments. IDs come from the verified Cognito token, so
+// nobody else can act as a moderator.
+const ADMIN_IDS = new Set(['74081408-8031-706d-70d9-e1fa81428cb1']);
+
 const MAX_IMAGES_PER_POST = 10;
 const LIKED_PAGE_SIZE     = 20;
 const CAPTION_LIMIT_GLOBAL = 2200;    // same limits as comments
@@ -582,8 +587,9 @@ async function deletePost(postId, userId) {
   }));
 
   if (!result.Item) return response(404, { error: 'Post not found.' });
-  // Group owners and moderators can remove any post in their group
-  if (result.Item.authorId !== userId) {
+  // Site moderators can remove any post; group owners and moderators any post in their group
+  const isSiteMod = ADMIN_IDS.has(userId) && result.Item.authorId !== userId;
+  if (result.Item.authorId !== userId && !isSiteMod) {
     const canModerate = result.Item.groupId && (await groupAccess(result.Item.groupId, userId)).canModerate;
     if (!canModerate) return response(403, { error: 'Not your post.' });
   }
@@ -591,9 +597,12 @@ async function deletePost(postId, userId) {
   await dynamo.send(new UpdateCommand({
     TableName:                 POSTS_TABLE,
     Key:                       { postId },
-    UpdateExpression:          'SET #status = :removed',
+    UpdateExpression:          `SET #status = :removed${isSiteMod ? ', removedBy = :mod, removedAt = :now' : ''}`,
     ExpressionAttributeNames:  { '#status': 'status' },
-    ExpressionAttributeValues: { ':removed': 'removed' },
+    ExpressionAttributeValues: {
+      ':removed': 'removed',
+      ...(isSiteMod && { ':mod': 'moderator', ':now': new Date().toISOString() }),
+    },
   }));
 
   return response(200, { message: 'Post deleted.' });

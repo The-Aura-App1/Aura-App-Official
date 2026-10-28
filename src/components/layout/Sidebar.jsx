@@ -2,14 +2,14 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, PlusSquare, Wallet, Settings,
-  LogOut, Moon, Sun, User, Bell, Users
+  LogOut, Moon, Sun, User, Bell, Users, ShieldAlert
 } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import useUnreadCount from '../../hooks/useUnreadCount';
 
 export default function Sidebar() {
-  const { displayName, username, logout } = useAuth();
+  const { displayName, username, logout, dbProfile } = useAuth();
   const { theme, toggleTheme }            = useTheme();
   const navigate                          = useNavigate();
   const unreadCount                       = useUnreadCount();
@@ -22,6 +22,7 @@ export default function Sidebar() {
     { to: `/profile/${username || displayName}`, icon: User, label: 'Profile'    },
     { to: '/wallet',                     icon: Wallet,     label: 'Aura Wallet'  },
     { to: '/settings',                   icon: Settings,   label: 'Settings'     },
+    ...(dbProfile?.isAdmin ? [{ to: '/moderation', icon: ShieldAlert, label: 'Moderation' }] : []),
   ];
 
   async function handleLogout() {

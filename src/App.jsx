@@ -12,6 +12,7 @@ import Feed          from './pages/Feed';
 import Profile       from './pages/Profile';
 import CreatePost    from './pages/CreatePost';
 import Settings      from './pages/Settings';
+import Moderation from './pages/Moderation';
 import AuraWallet    from './pages/AuraWallet';
 import PostView from './components/post/PostView';
 import Onboarding from './pages/Onboarding';
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="create"             element={<CreatePost />} />
         <Route path="wallet"             element={<AuraWallet />} />
         <Route path="settings"           element={<Settings />} />
+        <Route path="moderation"         element={<Moderation />} />
         <Route path="notifications"      element={<Notifications />} />
         <Route path="groups"             element={<Groups />} />
         <Route path="groups/:groupId"    element={<GroupPage />} />

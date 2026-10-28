@@ -40,6 +40,7 @@
 - Usernames are stored lowercase. Posts denormalize authorUsername, authorDisplay and authorPicKey. Changing a profile calls POST /posts/fix-author to backfill them.
 - Several handlers use ScanCommand. Replace them with GSIs before launch.
 - Never enforce limits only on the frontend. Lambdas must enforce all aura limits.
+- Site moderation: `ADMIN_IDS` (only the owner's `aura_app` account) is defined in aura-users, aura-posts and aura-comments. Change all three together. Moderators can remove any post or comment (existing DELETE routes) and ban/unban via POST /admin/ban (aura-users), which hides or restores the user's posts and comments (`removedBy: 'ban'`) and hides their profile. The /moderation page shows only when GET /users/me returns `isAdmin`.
 - Balances: `auraEarned` (cashable) and `auraSpendable` on the user record; `auraBalance` is kept equal to their sum for display. Lifetime counters: `lifetimeEarned`, `lifetimeReceived`, `lifetimeGiven`, `lifetimeTaken`, `lifetimeLost`. Records without `auraVersion: 2` predate the split and are reset to 0 on first use.
 - aura-aura is the only writer of balances. It logs every change to aura-transactions with its earned/spendable split. Daily usage lives in aura-daily-budgets under `<userId>#<UTC date>`; per-source and per-post counters use other keys in the same table.
 - The daily limits (`RULES`) are defined in both aura-aura (enforces) and aura-users (reports `today` on GET /users/me). Change both together.
