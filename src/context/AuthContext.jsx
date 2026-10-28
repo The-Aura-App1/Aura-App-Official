@@ -73,7 +73,16 @@ export function AuthProvider({ children }) {
   }
 
   async function login({ email, password }) {
-    const result = await signIn({ username: email, password });
+    let result;
+    try {
+      result = await signIn({ username: email, password });
+    } catch (err) {
+      // A leftover session (e.g. another account in the same browser) blocks
+      // signing in; replace it with the account being signed into.
+      if (err.name !== 'UserAlreadyAuthenticatedException') throw err;
+      await signOut();
+      result = await signIn({ username: email, password });
+    }
     await loadUser();
     return result;
   }
