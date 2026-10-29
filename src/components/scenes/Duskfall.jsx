@@ -44,29 +44,54 @@ const GLINTS = (() => {
   });
 })();
 
-// Small waves breaking out at sea: short pale crests scattered across the
-// water. Each one appears, rolls slowly forward towards the shore for
-// several seconds with a ripple running through it, then fades and rests
-// briefly before breaking again.
-// Short near the horizon and much longer towards the shore.
-const WHITECAPS = (() => {
+// Waves out at sea. Each one forms gradually somewhere out on the water
+// (mostly far out), is carried in towards the shore, growing longer and
+// thicker as it comes closer, and breaks up partway. Fewer make it far in,
+// so they thin out towards the beach. Once a wave fades, the next one forms
+// somewhere new. The line itself is drawn once at a base size (BASE_WAVE
+// wide) and scaled, and it ripples the whole time.
+const BASE_WAVE = 60;
+const WAVE_SHAPE = crest(BASE_WAVE, 0);
+const WAVE_RIPPLE = rippleShapes(BASE_WAVE, 0.8);
+
+// How far from the horizon (0) to the shore (1) a depth is, on screen.
+const depthY = depth => HORIZON + 8 + depth * (SHORE - 40);
+// How wide a wave looks at a depth, as a scale of the base line.
+const depthScale = depth => (14 + depth * 95) / BASE_WAVE;
+
+function randomWave() {
+  const from = Math.random() ** 1.6 * 0.65;
+  const to = Math.min(1, from + (1 - from) * (0.3 + Math.random() * 0.7));
+  const length = 0.8 + Math.random() * 0.6;
+  return { x: -40 + Math.random() * (WIDTH + 80), from, to, length };
+}
+
+function Wave({ duration, delay, rippleDur }) {
+  const [wave, setWave] = useState(randomWave);
+  return (
+    <g transform={`translate(${wave.x.toFixed(1)} ${depthY(wave.from).toFixed(1)})`}>
+      <path className="aura-dusk-whitecap" d={WAVE_SHAPE} fill="none" stroke="#efe6ff" strokeWidth="1.8" strokeLinecap="round"
+        onAnimationIteration={() => setWave(randomWave())}
+        style={{
+          '--travel': `${(depthY(wave.to) - depthY(wave.from)).toFixed(1)}px`,
+          '--s0': (depthScale(wave.from) * wave.length).toFixed(3),
+          '--s1': (depthScale(wave.to) * wave.length).toFixed(3),
+          animationDuration: `${duration}s`,
+          animationDelay: `${delay}s`,
+        }}>
+        <animate attributeName="d" values={WAVE_RIPPLE} dur={`${rippleDur}s`} repeatCount="indefinite" />
+      </path>
+    </g>
+  );
+}
+
+// Each wave keeps its own pace; the negative delays start them part-way
+// through, so the sea is already busy when the scene appears.
+const WAVES = (() => {
   const rand = seeded(21);
-  return Array.from({ length: 95 }, () => {
-    const depth = rand() ** 1.3;
-    const w = 14 + depth * 95 + rand() * (6 + depth * 35);
-    const h = 1.3 + depth * 1.6;
-    const a = h * 0.3;
-    return {
-      x: -40 + rand() * (WIDTH + 80),
-      y: HORIZON + 8 + depth * (SHORE - 40),
-      h,
-      flat: crest(w, 0),
-      ripple: rippleShapes(w, a),
-      rippleDur: 1.2 + rand() * 0.8,
-      roll: 6 + depth * 22,
-      dur: 10 + rand() * 6,
-      delay: -rand() * 16,
-    };
+  return Array.from({ length: 70 }, () => {
+    const duration = 9 + rand() * 7;
+    return { duration: +duration.toFixed(2), delay: -(rand() * duration).toFixed(2), rippleDur: +(1.1 + rand() * 0.8).toFixed(2) };
   });
 })();
 
@@ -149,7 +174,7 @@ const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 
 
 // A dark beach just after sunset: a violet sky with the last orange glow on
 // the horizon, early stars twinkling, the afterglow glinting on the water,
-// small waves breaking out at sea and the odd dolphin leaping. `page` is the full version for the
+// waves forming out at sea and rolling in, and the odd dolphin leaping. `page` is the full version for the
 // public pages; `app` sits lower behind the signed-in app.
 export default function Duskfall({ variant = 'page' }) {
   const page = variant === 'page';
@@ -202,14 +227,7 @@ export default function Duskfall({ variant = 'page' }) {
           <rect x="-100" y={HORIZON} width={WIDTH + 200} height={SHORE + 40} fill="url(#dusk-sea)" />
           <line x1="-100" y1={HORIZON} x2={WIDTH + 100} y2={HORIZON} stroke="#ffb48a" strokeOpacity="0.55" strokeWidth="1.5" />
 
-          {WHITECAPS.map((c, i) => (
-            <g key={i} transform={`translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})`}>
-              <path className="aura-dusk-whitecap" d={c.flat} fill="none" stroke="#efe6ff" strokeWidth={c.h} strokeLinecap="round"
-                style={{ '--roll': `${c.roll.toFixed(1)}px`, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}>
-                <animate attributeName="d" values={c.ripple} dur={`${c.rippleDur.toFixed(2)}s`} repeatCount="indefinite" />
-              </path>
-            </g>
-          ))}
+          {WAVES.map((wave, i) => <Wave key={i} {...wave} />)}
 
           {GLINTS.map((g, i) => (
             <g key={i} transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)})`}>

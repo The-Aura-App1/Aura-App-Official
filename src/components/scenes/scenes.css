@@ -85,20 +85,21 @@
 @keyframes duskGlint { from { opacity: 0.12; } to { opacity: 0.85; } }
 
 
-/* A small wave breaking out at sea: it appears, rolls slowly forward towards
-   the shore by --roll for most of its cycle while it stretches (its ripple
-   comes from the SVG <animate>), then fades and rests briefly. */
+/* A wave's life (Duskfall.jsx's Wave): it gathers out of nothing, starting
+   short and faint, is carried --travel towards the shore while it grows
+   from --s0 to --s1 (further in looks bigger), and breaks up at the end.
+   Its ripple comes from the SVG <animate>. */
 .aura-dusk-whitecap {
   opacity: 0;
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: duskWhitecap 6s ease-in-out infinite;
+  animation: duskWave 12s linear infinite;
 }
-@keyframes duskWhitecap {
-  0%        { opacity: 0;    transform: translateY(0) scaleX(0.3); }
-  6%        { opacity: 0.9;  transform: translateY(0) scaleX(1); }
-  62%       { opacity: 0.8;  transform: translateY(var(--roll)) scaleX(1.2); }
-  72%, 100% { opacity: 0;    transform: translateY(calc(var(--roll) * 1.15)) scaleX(1.3); }
+@keyframes duskWave {
+  0%   { opacity: 0;    transform: translateY(0) scale(calc(var(--s0) * 0.25), var(--s0)); }
+  20%  { opacity: 0.85; transform: translateY(calc(var(--travel) * 0.14)) scale(var(--s0)); }
+  80%  { opacity: 0.8;  transform: translateY(calc(var(--travel) * 0.86)) scale(var(--s1)); }
+  100% { opacity: 0;    transform: translateY(var(--travel)) scale(calc(var(--s1) * 1.05)); }
 }
 
 /* A dolphin's leap, in the first eighth of its cycle: it follows a real
