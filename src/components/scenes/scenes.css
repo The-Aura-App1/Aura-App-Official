@@ -142,10 +142,6 @@
   93%                { opacity: 0.9; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .aura-star, .aura-star-flare::before, .aura-star-flare::after { animation: none; }
-}
-
 /* ── Public pages: one scene fading in over another (AuthBackdrop) ── */
 @keyframes sceneFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -156,8 +152,3 @@
 .aura-app-sky .aura-snow-near { opacity: 0.6; }
 .aura-app-sky .aura-snow-close { opacity: 0.5; }
 .aura-app-sky .aura-dusk-sea { transform: translateY(12%); }
-
-@media (prefers-reduced-motion: reduce) {
-  .aura-snow, .aura-dusk-glint, .aura-dusk-roll, .aura-dusk-bob { animation: none !important; }
-  .aura-dusk-wave { animation: none; opacity: 0.8; transform: translateY(30px); }
-}

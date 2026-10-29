@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Pause, Play } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
@@ -314,13 +314,36 @@ export function SkyDecor({ variant = 'page' }) {
   );
 }
 
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// Devices that ask for less motion still get moving scenery (Aura's own
+// "Animated scenery" setting is what turns it off), just played slower.
+function useGentleMotion(ref) {
+  useEffect(() => {
+    if (!prefersReducedMotion()) return undefined;
+    const slow = () => ref.current?.getAnimations?.({ subtree: true })
+      .forEach(animation => { animation.playbackRate = 0.6; });
+    slow();
+    // Catch anything that starts a moment after the scene mounts
+    const timer = setTimeout(slow, 500);
+    return () => clearTimeout(timer);
+  }, [ref]);
+}
+
+const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall };
+
 // The scenery for a theme: Day and Night share the sky (styled by the
 // `dark` class), Snowy Peaks and Duskfall have their own.
 export function SceneDecor({ scene, variant = 'page' }) {
-  if (scene === 'sky')   return <SkyDecor variant={variant} />;
-  if (scene === 'peaks') return <SnowyPeaks variant={variant} />;
-  if (scene === 'beach') return <Duskfall variant={variant} />;
-  return null;
+  const ref = useRef(null);
+  useGentleMotion(ref);
+  const Scene = SCENES[scene];
+  if (!Scene) return null;
+  return (
+    <div ref={ref} className="absolute inset-0">
+      <Scene variant={variant} />
+    </div>
+  );
 }
 
 // ── Rotating scenery on the public pages ────────────────────────────
@@ -345,8 +368,6 @@ function writePaused(id) {
   } catch { /* just not remembered */ }
 }
 
-const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
 // Starts on the scene someone paused on, else where they left off, else the
 // scene closest to their own theme (Light shows Day, Dark shows Night).
 function startingScene(themeInfo) {
@@ -364,7 +385,7 @@ function useSceneRotation() {
   // Text and buttons switch light/dark halfway through the fade, when the
   // new scene is about as visible as the old one.
   const [foreground, setForeground] = useState(index);
-  const [paused, setPaused] = useState(() => readPaused() >= 0 || prefersReducedMotion());
+  const [paused, setPaused] = useState(() => readPaused() >= 0);
 
   useEffect(() => {
     setPublicScenes(true);

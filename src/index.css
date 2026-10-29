@@ -324,9 +324,11 @@ h1, h2, h3 {
 @keyframes twinkle     { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
 @keyframes haloFloat   { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
 
+/* Page content stays still for people who ask their device for less motion.
+   The scenery keeps moving, just slower (see SceneDecor); Aura's own
+   "Animated scenery" setting is what turns it off. */
 @media (prefers-reduced-motion: reduce) {
-  .aura-rays, .aura-cloud-layer, .aura-float-cloud, .aura-twinkle, .aura-float { animation: none !important; }
-  .aura-twinkle { opacity: 0.8; }
+  .aura-float { animation: none !important; }
   .aura-rise { animation: none; opacity: 1; }
   .aura-scribble { animation: none; stroke-dashoffset: 0; }
 }
@@ -470,12 +472,6 @@ h1, h2, h3 {
 .aura-constellation-star { animation: constellationTwinkle 3.5s ease-in-out infinite; }
 @keyframes constellationDraw    { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
 @keyframes constellationTwinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .aura-constellation-line { animation: none; stroke-dashoffset: 0; }
-  .aura-constellation-star { animation: none; }
-  .aura-shooting-star { display: none; }
-}
 
 /* ── Sky details behind the signed-in app ──────────────────────────── */
 /* A softer version of the public pages' sky, so it never competes with posts. */

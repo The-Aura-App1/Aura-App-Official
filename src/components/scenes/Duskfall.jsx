@@ -84,8 +84,6 @@ const GLINTS = (() => {
 
 const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 -54 C 1450 -56 1480 -40 1530 -36 C 1580 -32 1640 -28 1700 -26 L 1700 0 Z';
 
-const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
 // A dark beach just after sunset: a violet sky with the last orange glow on
 // the horizon, early stars twinkling, swells rolling across the sea with the
 // afterglow glinting on them, and waves washing up the sand and slipping
@@ -94,8 +92,6 @@ const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion:
 // signed-in app.
 export default function Duskfall({ variant = 'page' }) {
   const page = variant === 'page';
-  // SVG <animate> ignores the CSS reduced-motion rules, so leave it out.
-  const still = prefersReducedMotion();
   return (
     <>
       <div className="aura-dusk-sky absolute inset-0" />
@@ -170,18 +166,14 @@ export default function Duskfall({ variant = 'page' }) {
             <g key={i} transform={`translate(0 ${SHORE})`}>
               <g className="aura-dusk-wave" style={{ animationDelay: `${-i * 4}s` }}>
                 <path d={w.sheet} fill="url(#dusk-water)">
-                  {!still && <animate attributeName="d" values={w.sheets} dur={`${4 + i}s`} repeatCount="indefinite" />}
+                  <animate attributeName="d" values={w.sheets} dur={`${4 + i}s`} repeatCount="indefinite" />
                 </path>
                 <path d={w.foam} fill="none" stroke="#efe9ff" strokeOpacity="0.75" strokeWidth="3" strokeLinecap="round">
-                  {!still && <animate attributeName="d" values={w.foams} dur={`${4 + i}s`} repeatCount="indefinite" />}
+                  <animate attributeName="d" values={w.foams} dur={`${4 + i}s`} repeatCount="indefinite" />
                 </path>
                 <path d={w.lace} fill="none" stroke="#efe9ff" strokeOpacity="0.35" strokeWidth="1.6" strokeDasharray="10 7 3 9">
-                  {!still && (
-                    <>
-                      <animate attributeName="d" values={w.laces} dur={`${3 + i}s`} repeatCount="indefinite" />
-                      <animate attributeName="stroke-dashoffset" from="0" to="-29" dur="2.5s" repeatCount="indefinite" />
-                    </>
-                  )}
+                  <animate attributeName="d" values={w.laces} dur={`${3 + i}s`} repeatCount="indefinite" />
+                  <animate attributeName="stroke-dashoffset" from="0" to="-29" dur="2.5s" repeatCount="indefinite" />
                 </path>
               </g>
             </g>
