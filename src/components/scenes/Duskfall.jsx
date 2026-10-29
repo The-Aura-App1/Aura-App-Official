@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import seeded from './seeded';
 import TwinklingStars from './TwinklingStars';
 
@@ -26,39 +26,106 @@ const GLINTS = (() => {
   });
 })();
 
-// Small waves breaking out at sea: short pale dashes scattered across the
-// water that each appear, stretch as the wave tips over, and fade away, then
-// rest a while before breaking again. Tiny and close together near the
-// horizon, a little bigger towards the shore.
+// A short line centred on 0,0 with three small humps. `a` is the hump
+// height; the same command list at any height lets the browser morph it.
+const crest = (w, a) =>
+  `M ${-w / 2} 0 Q ${(-3 * w) / 8} ${-2 * a} ${-w / 4} 0 T 0 0 T ${w / 4} 0 T ${w / 2} 0`;
+
+// Small waves breaking out at sea: short pale crests scattered across the
+// water. Each one appears, rolls forward a little towards the shore with a
+// ripple running through it, then fades, and rests before breaking again.
+// Tiny and close together near the horizon, bigger towards the shore.
 const WHITECAPS = (() => {
   const rand = seeded(21);
   return Array.from({ length: 95 }, () => {
     const depth = rand() ** 1.3;
+    const w = 6 + depth * 38 + rand() * 12;
+    const h = 1.3 + depth * 1.6;
+    const a = h * 0.3;
     return {
       x: -40 + rand() * (WIDTH + 80),
       y: HORIZON + 8 + depth * (SHORE - 40),
-      w: 6 + depth * 38 + rand() * 12,
-      h: 1.3 + depth * 1.6,
-      dur: 4 + rand() * 4,
+      h,
+      flat: crest(w, 0),
+      ripple: [crest(w, 0), crest(w, a), crest(w, 0), crest(w, -a), crest(w, 0)].join(';'),
+      rippleDur: 1.2 + rand() * 0.8,
+      roll: 2 + depth * 9,
+      dur: 4.5 + rand() * 4,
       delay: -rand() * 8,
     };
   });
 })();
 
-// A small dolphin facing right, centred on its middle: back, beak, belly,
-// tail flukes, dorsal and pectoral fins.
-const DOLPHIN = 'M -30 2 C -20 -6 4 -11 21 -5 L 31 -2.5 L 22 1 C 12 6 -10 7 -24 4 L -33 10 L -30 2.5 L -37 -3 Z' +
-  ' M -3 -8 L 3 -16 L 8 -7 Z M 8 3 L 3 10 L 13 4 Z';
+// A bottlenose dolphin in profile, facing right and centred on its middle:
+// a short beak, a rounded forehead (melon), a long tapering body and a
+// forked tail, with a swept-back dorsal fin and two flippers.
+const DOLPHIN_BODY = 'M 51 1.6 C 49 0.2 45 -0.4 41 -0.6 C 39.5 -5.5 34 -9 26 -9.8 C 12 -10.8 -8 -9.6 -22 -6.4' +
+  ' C -30 -4.6 -37 -2.6 -44 -1.2 C -48 -3.6 -52.5 -7.6 -59 -10.2 C -57 -5.6 -55.2 -2.4 -53 0' +
+  ' C -55.2 2.4 -57 6 -59 10 C -52.5 7.2 -48 3.8 -44 1.6 C -36 3.4 -24 7.2 -8 7.8 C 8 8.4 22 7 32 4.4' +
+  ' C 39 3 46 2.8 51 1.6 Z';
+const DOLPHIN_FIN = 'M 8 -10.2 C 3 -14 -2 -20 -11 -23.5 C -8.5 -19 -8.8 -13.5 -12 -8.6 Z';
+const DOLPHIN_FLIPPER_NEAR = 'M 25 4.8 C 22 9.5 17 13 11.5 15 C 14 10.5 17 7.5 19 5.8 Z';
+const DOLPHIN_FLIPPER_FAR = 'M 23 4.6 C 20.5 8.5 17 11.4 13 13 C 15 9.6 17.4 7 18.6 5.6 Z';
+// Sunset light catching the back and the fin's leading edge
+const DOLPHIN_RIM = 'M 41 -0.6 C 39.5 -5.5 34 -9 26 -9.8 C 12 -10.8 -8 -9.6 -22 -6.4 C -30 -4.6 -37 -2.6 -44 -1.2' +
+  ' M 8 -10.2 C 3 -14 -2 -20 -11 -23.5';
 
-// Dolphins that leap out of the water now and then. Each arcs up and over
-// and dives back in, with a splash where it leaves and re-enters the water;
-// the rest of its cycle it's out of sight. Two swim as a pair, a beat apart.
-// `flip` sends one leaping the other way.
-const DOLPHINS = [
-  { x: 690,  y: 64,  scale: 0.5,  dur: 17, delay: 2 },
-  { x: 728,  y: 70,  scale: 0.45, dur: 17, delay: 2.35 },
-  { x: 1080, y: 118, scale: 0.65, dur: 23, delay: 10, flip: true },
-  { x: 320,  y: 165, scale: 0.8,  dur: 29, delay: 17 },
+function Dolphin({ timing, onLeapDone }) {
+  return (
+    <g className="aura-dolphin" style={timing} onAnimationIteration={onLeapDone}>
+      <path d={DOLPHIN_FIN} fill="#1b1230" />
+      <path d={DOLPHIN_FLIPPER_FAR} fill="#140c24" />
+      <path d={DOLPHIN_BODY} fill="url(#dolphin-skin)" />
+      <path d={DOLPHIN_FLIPPER_NEAR} fill="#1f1536" />
+      <path d="M 50 1.8 C 46 2.2 42 2.5 39 2.3" fill="none" stroke="#120a20" strokeWidth="0.5" strokeLinecap="round" />
+      <circle cx="35.5" cy="-2.4" r="0.9" fill="#0c0616" />
+      <path d={DOLPHIN_RIM} fill="none" stroke="#ffb48a" strokeOpacity="0.6" strokeWidth="0.9" strokeLinecap="round" />
+    </g>
+  );
+}
+
+// Somewhere new for a pod to surface: anywhere across the sea from just
+// below the horizon to about halfway to the shore, smaller further away,
+// leaping either way.
+function randomSpot() {
+  const depth = Math.random();
+  return {
+    x: 150 + Math.random() * (WIDTH - 300),
+    y: HORIZON + 25 + depth * 130,
+    scale: 0.3 + depth * 0.3,
+    flip: Math.random() < 0.5,
+  };
+}
+
+// A few dolphins leaping together, each a beat behind the last. They arc up
+// and over with a splash where they leave and re-enter the water, then stay
+// under (clipped at the surface) for the rest of the cycle. Every time the
+// lead dolphin's cycle starts over, while they're all underwater, the pod
+// moves somewhere new.
+function DolphinPod({ size, dur, delay }) {
+  const [spot, setSpot] = useState(randomSpot);
+  const timing = i => ({ animationDuration: `${dur}s`, animationDelay: `${delay + i * 0.45}s` });
+  return (
+    <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) scale(${spot.flip ? -spot.scale : spot.scale} ${spot.scale})`}>
+      {Array.from({ length: size }, (_, i) => (
+        <g key={i} transform={`translate(${-i * 55} ${i * 7})`}>
+          <g clipPath="url(#dusk-above-water)">
+            <Dolphin timing={timing(i)} onLeapDone={i === 0 ? () => setSpot(randomSpot()) : undefined} />
+          </g>
+          <rect className="aura-dolphin-splash" x="-2" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
+          <ellipse className="aura-dolphin-splash aura-dolphin-spray" cx="12" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
+          <rect className="aura-dolphin-splash aura-dolphin-splash-in" x="76" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
+          <ellipse className="aura-dolphin-splash aura-dolphin-splash-in aura-dolphin-spray" cx="90" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+const PODS = [
+  { size: 2, dur: 15, delay: 2 },
+  { size: 1, dur: 19, delay: 8 },
+  { size: 3, dur: 26, delay: 14 },
 ];
 
 const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 -54 C 1450 -56 1480 -40 1530 -36 C 1580 -32 1640 -28 1700 -26 L 1700 0 Z';
@@ -97,8 +164,14 @@ export default function Duskfall({ variant = 'page' }) {
               <stop offset="100%" stopColor="#ff8a5c" stopOpacity="0.7" />
             </linearGradient>
             <clipPath id="dusk-above-water">
-              <rect x="-120" y="-200" width="300" height="200" />
+              <rect x="-200" y="-200" width="500" height="200" />
             </clipPath>
+            {/* Dark back, lighter belly */}
+            <linearGradient id="dolphin-skin" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#1b1230" />
+              <stop offset="55%" stopColor="#2a1d44" />
+              <stop offset="100%" stopColor="#5a4a78" />
+            </linearGradient>
             <radialGradient id="dusk-sun">
               <stop offset="0%" stopColor="#ffd2a8" stopOpacity="0.95" />
               <stop offset="25%" stopColor="#ff9a6a" stopOpacity="0.6" />
@@ -113,8 +186,12 @@ export default function Duskfall({ variant = 'page' }) {
           <line x1="-100" y1={HORIZON} x2={WIDTH + 100} y2={HORIZON} stroke="#ffb48a" strokeOpacity="0.55" strokeWidth="1.5" />
 
           {WHITECAPS.map((c, i) => (
-            <rect key={i} className="aura-dusk-whitecap" x={c.x - c.w / 2} y={c.y} width={c.w} height={c.h} rx={c.h / 2}
-              fill="#efe6ff" style={{ animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }} />
+            <g key={i} transform={`translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})`}>
+              <path className="aura-dusk-whitecap" d={c.flat} fill="none" stroke="#efe6ff" strokeWidth={c.h} strokeLinecap="round"
+                style={{ '--roll': `${c.roll.toFixed(1)}px`, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}>
+                <animate attributeName="d" values={c.ripple} dur={`${c.rippleDur.toFixed(2)}s`} repeatCount="indefinite" />
+              </path>
+            </g>
           ))}
 
           {GLINTS.map((g, i) => (
@@ -123,19 +200,8 @@ export default function Duskfall({ variant = 'page' }) {
           ))}
 
           {/* The water's surface is y = 0 in each dolphin's own space, so
-              this hides whatever part of it is still underwater. */}
-          {DOLPHINS.map((d, i) => {
-            const timing = { animationDuration: `${d.dur}s`, animationDelay: `${d.delay}s` };
-            return (
-              <g key={i} transform={`translate(${d.x} ${d.y}) scale(${d.flip ? -d.scale : d.scale} ${d.scale})`}>
-                <g clipPath="url(#dusk-above-water)">
-                  <path className="aura-dolphin" d={DOLPHIN} fill="#160d24" stroke="#ffb48a" strokeOpacity="0.45" strokeWidth="0.8" style={timing} />
-                </g>
-                <rect className="aura-dolphin-splash" x="-8" y="-1" width="22" height="2.4" rx="1.2" fill="#efe6ff" style={timing} />
-                <rect className="aura-dolphin-splash aura-dolphin-splash-in" x="56" y="-1" width="22" height="2.4" rx="1.2" fill="#efe6ff" style={timing} />
-              </g>
-            );
-          })}
+              the clip hides whatever part of it is still underwater. */}
+          {PODS.map((pod, i) => <DolphinPod key={i} {...pod} />)}
 
           {/* The beach, with a darker damp band along the water's edge */}
           <path d={`M -100 ${SHORE} C 400 ${SHORE - 12} 1100 ${SHORE + 10} ${WIDTH + 100} ${SHORE - 6} L ${WIDTH + 100} ${BOTTOM} L -100 ${BOTTOM} Z`} fill="url(#dusk-sand)" />
