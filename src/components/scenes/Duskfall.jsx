@@ -23,77 +23,84 @@ function crest(w, a) {
 // The shapes a crest ripples through: flat, humped, flat, humps flipped.
 const rippleShapes = (w, a) => [0, a, 0, -a, 0].map(h => crest(w, h)).join(';');
 
-// Glints of the afterglow on the water, in a column under the sunset that
-// widens towards the shore. Each shimmers and ripples gently in place.
-const GLINTS = (() => {
-  const rand = seeded(9);
-  return Array.from({ length: 40 }, () => {
-    const y = HORIZON + 6 + rand() ** 1.4 * (SHORE - 30);
-    const spread = 30 + (y / SHORE) * 220;
-    const near = y / SHORE;
-    const w = 16 + near * 110 + rand() * (10 + near * 60);
-    return {
-      x: WIDTH / 2 + (rand() - 0.5) * spread * 2,
-      y,
-      flat: crest(w, 0),
-      ripple: rippleShapes(w, 0.8),
-      rippleDur: 1.4 + rand() * 1,
-      delay: rand() * 4,
-      dur: 2.5 + rand() * 2.5,
-    };
-  });
-})();
-
 // Waves out at sea. Each one forms gradually somewhere out on the water
 // (mostly far out), is carried in towards the shore, growing longer and
 // thicker as it comes closer, and breaks up partway. Fewer make it far in,
 // so they thin out towards the beach. Once a wave fades, the next one forms
-// somewhere new. The line itself is drawn once at a base size (BASE_WAVE
-// wide) and scaled, and it ripples the whole time.
+// somewhere new. Every wave moves at the same speed (WAVE_SPEED), so none
+// ever overtakes another; a wave's lifetime just decides how far it gets.
+// The line is drawn once at a base size (BASE_WAVE wide), scaled, and
+// ripples the whole time.
+//
+// Sunlit waves work the same way but catch the afterglow: they're orange,
+// form inside the column of light under the sunset, which widens towards
+// the shore, and shimmer as they go.
 const BASE_WAVE = 60;
 const WAVE_SHAPE = crest(BASE_WAVE, 0);
 const WAVE_RIPPLE = rippleShapes(BASE_WAVE, 0.8);
+const WAVE_SPEED = 0.028;   // depth (horizon 0 to shore 1) per second
 
-// How far from the horizon (0) to the shore (1) a depth is, on screen.
+// Where a depth (horizon 0 to shore 1) sits on screen.
 const depthY = depth => HORIZON + 8 + depth * (SHORE - 40);
 // How wide a wave looks at a depth, as a scale of the base line.
 const depthScale = depth => (14 + depth * 95) / BASE_WAVE;
+// Half the width of the column of sunlight on the water at a depth.
+const sunColumn = depth => 30 + depth * 230;
 
-function randomWave() {
-  const from = Math.random() ** 1.6 * 0.65;
-  const to = Math.min(1, from + (1 - from) * (0.3 + Math.random() * 0.7));
-  const length = 0.8 + Math.random() * 0.6;
-  return { x: -40 + Math.random() * (WIDTH + 80), from, to, length };
+function randomWave(duration, sunlit) {
+  const travel = WAVE_SPEED * duration;
+  const from = Math.random() ** 1.6 * (1 - travel);
+  const x = sunlit
+    ? WIDTH / 2 + (Math.random() - 0.5) * 2 * sunColumn(from)
+    : -40 + Math.random() * (WIDTH + 80);
+  const length = sunlit ? 0.5 + Math.random() * 0.7 : 0.8 + Math.random() * 0.6;
+  return { x, from, to: from + travel, length };
 }
 
-function Wave({ duration, delay, rippleDur }) {
-  const [wave, setWave] = useState(randomWave);
+function Wave({ duration, delay, rippleDur, sunlit }) {
+  const [wave, setWave] = useState(() => randomWave(duration, sunlit));
   return (
     <g transform={`translate(${wave.x.toFixed(1)} ${depthY(wave.from).toFixed(1)})`}>
-      <path className="aura-dusk-whitecap" d={WAVE_SHAPE} fill="none" stroke="#efe6ff" strokeWidth="1.8" strokeLinecap="round"
-        onAnimationIteration={() => setWave(randomWave())}
-        style={{
-          '--travel': `${(depthY(wave.to) - depthY(wave.from)).toFixed(1)}px`,
-          '--s0': (depthScale(wave.from) * wave.length).toFixed(3),
-          '--s1': (depthScale(wave.to) * wave.length).toFixed(3),
-          animationDuration: `${duration}s`,
-          animationDelay: `${delay}s`,
-        }}>
-        <animate attributeName="d" values={WAVE_RIPPLE} dur={`${rippleDur}s`} repeatCount="indefinite" />
-      </path>
+      <g className={sunlit ? 'aura-dusk-glint' : undefined} style={sunlit ? { animationDelay: `${delay}s` } : undefined}>
+        <path className="aura-dusk-whitecap" d={WAVE_SHAPE} fill="none" stroke={sunlit ? '#ffc29e' : '#efe6ff'}
+          strokeWidth="1.8" strokeLinecap="round"
+          onAnimationIteration={e => { if (e.target === e.currentTarget) setWave(randomWave(duration, sunlit)); }}
+          style={{
+            '--travel': `${(depthY(wave.to) - depthY(wave.from)).toFixed(1)}px`,
+            '--s0': (depthScale(wave.from) * wave.length).toFixed(3),
+            '--s1': (depthScale(wave.to) * wave.length).toFixed(3),
+            animationDuration: `${duration}s`,
+            animationDelay: `${delay}s`,
+          }}>
+          <animate attributeName="d" values={WAVE_RIPPLE} dur={`${rippleDur}s`} repeatCount="indefinite" />
+        </path>
+      </g>
     </g>
   );
 }
 
-// Each wave keeps its own pace; the negative delays start them part-way
+// Each wave keeps its own lifetime; the negative delays start them part-way
 // through, so the sea is already busy when the scene appears.
-const WAVES = (() => {
-  const rand = seeded(21);
-  return Array.from({ length: 70 }, () => {
+const makeWaves = (seed, count, sunlit) => {
+  const rand = seeded(seed);
+  return Array.from({ length: count }, () => {
     const duration = 9 + rand() * 7;
-    return { duration: +duration.toFixed(2), delay: -(rand() * duration).toFixed(2), rippleDur: +(1.1 + rand() * 0.8).toFixed(2) };
+    return {
+      duration: +duration.toFixed(2),
+      delay: -(rand() * duration).toFixed(2),
+      rippleDur: +(1.1 + rand() * 0.8).toFixed(2),
+      sunlit,
+    };
   });
-})();
+};
+const WAVES = [...makeWaves(21, 70, false), ...makeWaves(9, 40, true)];
+
+// A small sailboat seen side-on, far out on the horizon (its waterline is
+// y = 0): hull, mast, mainsail and jib.
+const SAILBOAT_HULL = 'M -15 -3 L 15 -3 L 11 1 L -12 1 Z';
+const SAILBOAT_SAILS = 'M -1.5 -30 L -1.5 -4.5 L -15 -4.5 Q -9 -17 -1.5 -30 Z' +
+  ' M 0.8 -27 L 0.8 -5 L 13 -4.8 Q 8 -15 0.8 -27 Z';
+const SAILBOAT_RIM = 'M -15 -4.5 Q -9 -17 -1.5 -30 M 13 -4.8 Q 8 -15 0.8 -27';
 
 // A bottlenose dolphin in profile, facing right and centred on its middle:
 // a short beak, a rounded forehead (melon), a back that arches over and a
@@ -173,8 +180,9 @@ const PODS = [
 const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 -54 C 1450 -56 1480 -40 1530 -36 C 1580 -32 1640 -28 1700 -26 L 1700 0 Z';
 
 // A dark beach just after sunset: a violet sky with the last orange glow on
-// the horizon, early stars twinkling, the afterglow glinting on the water,
-// waves forming out at sea and rolling in, and the odd dolphin leaping. `page` is the full version for the
+// the horizon, early stars twinkling, waves forming out at sea and rolling
+// in (some catching the afterglow), the odd dolphin leaping and now and
+// then a sailboat passing on the horizon. `page` is the full version for the
 // public pages; `app` sits lower behind the signed-in app.
 export default function Duskfall({ variant = 'page' }) {
   const page = variant === 'page';
@@ -223,20 +231,23 @@ export default function Duskfall({ variant = 'page' }) {
 
           <rect x="-100" y={HORIZON - 420} width={WIDTH + 200} height="420" fill="url(#dusk-glow-band)" />
           <ellipse cx={WIDTH / 2} cy={HORIZON} rx="520" ry="190" fill="url(#dusk-sun)" />
+          {/* Every so often a sailboat drifts slowly along the horizon,
+              rocking gently, and passes behind the headland. */}
+          <g className="aura-sailboat">
+            <g transform={`translate(0 ${HORIZON + 1}) scale(0.75)`}>
+              <g className="aura-sailboat-rock">
+                <path d={SAILBOAT_SAILS} fill="#1d1230" />
+                <path d={SAILBOAT_RIM} fill="none" stroke="#ffb48a" strokeOpacity="0.5" strokeWidth="0.8" strokeLinecap="round" />
+                <line x1="-0.4" y1="-31" x2="-0.4" y2="-3" stroke="#140c22" strokeWidth="1" />
+                <path d={SAILBOAT_HULL} fill="#140c22" />
+              </g>
+            </g>
+          </g>
           <path d={HEADLAND} fill="#140c22" />
           <rect x="-100" y={HORIZON} width={WIDTH + 200} height={SHORE + 40} fill="url(#dusk-sea)" />
           <line x1="-100" y1={HORIZON} x2={WIDTH + 100} y2={HORIZON} stroke="#ffb48a" strokeOpacity="0.55" strokeWidth="1.5" />
 
           {WAVES.map((wave, i) => <Wave key={i} {...wave} />)}
-
-          {GLINTS.map((g, i) => (
-            <g key={i} transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)})`}>
-              <path className="aura-dusk-glint" d={g.flat} fill="none" stroke="#ffc29e" strokeWidth="2.2" strokeLinecap="round"
-                style={{ animationDelay: `${g.delay}s`, animationDuration: `${g.dur}s` }}>
-                <animate attributeName="d" values={g.ripple} dur={`${g.rippleDur.toFixed(2)}s`} repeatCount="indefinite" />
-              </path>
-            </g>
-          ))}
 
           {/* The water's surface is y = 0 in each dolphin's own space, so
               the clip hides whatever part of it is still underwater. */}
