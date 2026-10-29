@@ -55,6 +55,33 @@
 /* `translate` is separate from `transform`, so the sway adds to the fall. */
 @keyframes snowSway     { from { translate: -14px 0; } to { translate: 14px 0; } }
 
+/* Mist drifting slowly through the valleys. */
+.aura-mist-drift { animation: mistDrift 50s ease-in-out infinite alternate; }
+@keyframes mistDrift { from { transform: translateX(-140px); } to { transform: translateX(140px); } }
+
+/* Now and then the wind lifts a plume of powder off a summit and it blows
+   away to the right. */
+.aura-spindrift {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+  animation: spindrift 18s ease-out infinite;
+}
+@keyframes spindrift {
+  0%   { opacity: 0;    transform: translateX(-50px) scaleX(0.3); }
+  6%   { opacity: 0.85; }
+  22%  { opacity: 0;    transform: translateX(60px) scaleX(1.5) translateY(-6px); }
+  100% { opacity: 0;    transform: translateX(60px) scaleX(1.5) translateY(-6px); }
+}
+
+/* The front pines lean gently with the wind, from their base. */
+.aura-pines-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: pineSway 9s ease-in-out infinite alternate;
+}
+@keyframes pineSway { from { transform: skewX(-0.8deg); } to { transform: skewX(0.8deg); } }
+
 /* ── Duskfall ──────────────────────────────────────────────────────── */
 
 /* Deep night overhead, warming to violet towards the sea. The orange
@@ -73,8 +100,6 @@
 .aura-dusk-glint { opacity: 0.2; animation: duskGlint 3s ease-in-out infinite alternate; }
 @keyframes duskGlint { from { opacity: 0.12; } to { opacity: 0.85; } }
 
-.aura-dusk-swell { animation: duskSwell 22s ease-in-out infinite alternate; }
-@keyframes duskSwell { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
 
 /* Each wave rolls in from out at sea, washes up the sand, then slips back
    out and fades while the next one arrives. */
@@ -85,6 +110,49 @@
   55%  { transform: translateY(58px);   opacity: 1; }
   68%  { transform: translateY(52px);   opacity: 0.85; }
   100% { transform: translateY(0);      opacity: 0; }
+}
+
+/* ── Twinkling stars (TwinklingStars.jsx) ─────────────────────────── */
+
+/* Each star rests dim, then for a moment near the end of its own cycle it
+   brightens and swells, and the brightest flash a small cross of light. */
+.aura-star {
+  position: absolute;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 4px 0.5px currentColor;
+  opacity: var(--star-base);
+  animation-name: starGlint;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes starGlint {
+  0%, 88%, 100% { opacity: var(--star-base); transform: scale(1); }
+  93%           { opacity: 1;                transform: scale(1.9); }
+  96%           { opacity: var(--star-base); transform: scale(1); }
+}
+.aura-star-flare::before,
+.aura-star-flare::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 1px;
+  margin: -0.5px 0 0 -7px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0;
+  animation: inherit;
+  animation-name: starFlare;
+}
+.aura-star-flare::after { transform: rotate(90deg); }
+@keyframes starFlare {
+  0%, 89%, 97%, 100% { opacity: 0; }
+  93%                { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-star, .aura-star-flare::before, .aura-star-flare::after { animation: none; }
 }
 
 /* ── Public pages: one scene fading in over another (AuthBackdrop) ── */
@@ -98,6 +166,7 @@
 .aura-app-sky .aura-dusk-sea { transform: translateY(12%); }
 
 @media (prefers-reduced-motion: reduce) {
-  .aura-snow, .aura-dusk-glint, .aura-dusk-swell { animation: none !important; }
+  .aura-snow, .aura-dusk-glint, .aura-mist-drift, .aura-pines-sway { animation: none !important; }
+  .aura-spindrift { animation: none; opacity: 0; }
   .aura-dusk-wave { animation: none; opacity: 0.8; transform: translateY(30px); }
 }

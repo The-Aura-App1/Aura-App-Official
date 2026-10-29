@@ -378,8 +378,8 @@ h1, h2, h3 {
   filter: blur(24px);
 }
 
-/* Star fields: small tiles of dots repeated across the sky, two layers that
-   twinkle out of step. */
+/* Star fields: small tiles of dots repeated across the sky, as a still, dim
+   backdrop. The twinkling comes from individual stars (TwinklingStars.jsx). */
 .aura-stars-1, .aura-stars-2 { background-repeat: repeat; }
 .aura-stars-1 {
   background-image:
@@ -392,7 +392,7 @@ h1, h2, h3 {
     radial-gradient(circle at 168px 262px,rgba(255, 255, 255, 0.8) 0 1px, transparent 1.6px),
     radial-gradient(circle at 252px 23px, rgba(255, 255, 255, 0.6) 0 1px, transparent 1.6px);
   background-size: 300px 300px;
-  animation: starTwinkle 6s ease-in-out infinite alternate;
+  opacity: 0.75;
 }
 .aura-stars-2 {
   background-image:
@@ -402,9 +402,8 @@ h1, h2, h3 {
     radial-gradient(circle at 470px 430px,rgba(196, 181, 253, 0.9) 0 1.4px, transparent 2.2px),
     radial-gradient(circle at 30px 470px, rgba(255, 255, 255, 0.9) 0 1.4px, transparent 2.2px);
   background-size: 520px 520px;
-  animation: starTwinkle 4.5s ease-in-out 1.5s infinite alternate-reverse;
+  opacity: 0.6;
 }
-@keyframes starTwinkle { from { opacity: 0.45; } to { opacity: 1; } }
 
 /* An occasional shooting star. */
 .aura-shooting-star {
@@ -475,7 +474,6 @@ h1, h2, h3 {
 @media (prefers-reduced-motion: reduce) {
   .aura-constellation-line { animation: none; stroke-dashoffset: 0; }
   .aura-constellation-star { animation: none; }
-  .aura-stars-1, .aura-stars-2 { animation: none; }
   .aura-shooting-star { display: none; }
 }
 

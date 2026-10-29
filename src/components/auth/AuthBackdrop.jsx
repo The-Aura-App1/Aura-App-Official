@@ -6,6 +6,7 @@ import { getTheme, PUBLIC_ROTATION } from '../../themes';
 import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
+import TwinklingStars from '../scenes/TwinklingStars';
 import '../scenes/scenes.css';
 
 // Fixed positions so the sparkles don't jump around between renders.
@@ -280,6 +281,9 @@ export function SkyDecor({ variant = 'page' }) {
       <div className="aura-night-only absolute inset-0 aura-galaxy-band" />
       <div className="aura-night-only absolute inset-0 aura-stars-1" />
       <div className="aura-night-only absolute inset-0 aura-stars-2" />
+      <div className="aura-night-only absolute inset-0">
+        <TwinklingStars seed={page ? 3 : 4} count={page ? 70 : 55} />
+      </div>
       <span className="aura-night-only aura-shooting-star" />
       {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
       {page
