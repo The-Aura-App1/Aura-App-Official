@@ -32,24 +32,40 @@ const GLINTS = (() => {
 // horizon, a little bigger towards the shore.
 const WHITECAPS = (() => {
   const rand = seeded(21);
-  return Array.from({ length: 46 }, () => {
+  return Array.from({ length: 95 }, () => {
     const depth = rand() ** 1.3;
     return {
       x: -40 + rand() * (WIDTH + 80),
       y: HORIZON + 8 + depth * (SHORE - 40),
-      w: 6 + depth * 34 + rand() * 10,
-      h: 1.2 + depth * 1.4,
-      dur: 6 + rand() * 6,
-      delay: -rand() * 12,
+      w: 6 + depth * 38 + rand() * 12,
+      h: 1.3 + depth * 1.6,
+      dur: 4 + rand() * 4,
+      delay: -rand() * 8,
     };
   });
 })();
 
+// A small dolphin facing right, centred on its middle: back, beak, belly,
+// tail flukes, dorsal and pectoral fins.
+const DOLPHIN = 'M -30 2 C -20 -6 4 -11 21 -5 L 31 -2.5 L 22 1 C 12 6 -10 7 -24 4 L -33 10 L -30 2.5 L -37 -3 Z' +
+  ' M -3 -8 L 3 -16 L 8 -7 Z M 8 3 L 3 10 L 13 4 Z';
+
+// Dolphins that leap out of the water now and then. Each arcs up and over
+// and dives back in, with a splash where it leaves and re-enters the water;
+// the rest of its cycle it's out of sight. Two swim as a pair, a beat apart.
+// `flip` sends one leaping the other way.
+const DOLPHINS = [
+  { x: 690,  y: 64,  scale: 0.5,  dur: 17, delay: 2 },
+  { x: 728,  y: 70,  scale: 0.45, dur: 17, delay: 2.35 },
+  { x: 1080, y: 118, scale: 0.65, dur: 23, delay: 10, flip: true },
+  { x: 320,  y: 165, scale: 0.8,  dur: 29, delay: 17 },
+];
+
 const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 -54 C 1450 -56 1480 -40 1530 -36 C 1580 -32 1640 -28 1700 -26 L 1700 0 Z';
 
 // A dark beach just after sunset: a violet sky with the last orange glow on
-// the horizon, early stars twinkling, the afterglow glinting on the water
-// and small waves breaking out at sea. `page` is the full version for the
+// the horizon, early stars twinkling, the afterglow glinting on the water,
+// small waves breaking out at sea and the odd dolphin leaping. `page` is the full version for the
 // public pages; `app` sits lower behind the signed-in app.
 export default function Duskfall({ variant = 'page' }) {
   const page = variant === 'page';
@@ -80,6 +96,9 @@ export default function Duskfall({ variant = 'page' }) {
               <stop offset="70%" stopColor="#a8456b" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#ff8a5c" stopOpacity="0.7" />
             </linearGradient>
+            <clipPath id="dusk-above-water">
+              <rect x="-120" y="-200" width="300" height="200" />
+            </clipPath>
             <radialGradient id="dusk-sun">
               <stop offset="0%" stopColor="#ffd2a8" stopOpacity="0.95" />
               <stop offset="25%" stopColor="#ff9a6a" stopOpacity="0.6" />
@@ -102,6 +121,21 @@ export default function Duskfall({ variant = 'page' }) {
             <rect key={i} className="aura-dusk-glint" x={g.x - g.w / 2} y={g.y} width={g.w} height="2.2" rx="1.1"
               fill="#ffc29e" style={{ animationDelay: `${g.delay}s`, animationDuration: `${g.dur}s` }} />
           ))}
+
+          {/* The water's surface is y = 0 in each dolphin's own space, so
+              this hides whatever part of it is still underwater. */}
+          {DOLPHINS.map((d, i) => {
+            const timing = { animationDuration: `${d.dur}s`, animationDelay: `${d.delay}s` };
+            return (
+              <g key={i} transform={`translate(${d.x} ${d.y}) scale(${d.flip ? -d.scale : d.scale} ${d.scale})`}>
+                <g clipPath="url(#dusk-above-water)">
+                  <path className="aura-dolphin" d={DOLPHIN} fill="#160d24" stroke="#ffb48a" strokeOpacity="0.45" strokeWidth="0.8" style={timing} />
+                </g>
+                <rect className="aura-dolphin-splash" x="-8" y="-1" width="22" height="2.4" rx="1.2" fill="#efe6ff" style={timing} />
+                <rect className="aura-dolphin-splash aura-dolphin-splash-in" x="56" y="-1" width="22" height="2.4" rx="1.2" fill="#efe6ff" style={timing} />
+              </g>
+            );
+          })}
 
           {/* The beach, with a darker damp band along the water's edge */}
           <path d={`M -100 ${SHORE} C 400 ${SHORE - 12} 1100 ${SHORE + 10} ${WIDTH + 100} ${SHORE - 6} L ${WIDTH + 100} ${BOTTOM} L -100 ${BOTTOM} Z`} fill="url(#dusk-sand)" />
