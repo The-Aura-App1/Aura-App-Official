@@ -9,10 +9,16 @@ const HORIZON = 0;
 const SHORE = 290;
 const BOTTOM = 520;
 
-// A short line centred on 0,0 with three small humps. `a` is the hump
-// height; the same command list at any height lets the browser morph it.
-const crest = (w, a) =>
-  `M ${-w / 2} 0 Q ${(-3 * w) / 8} ${-2 * a} ${-w / 4} 0 T 0 0 T ${w / 4} 0 T ${w / 2} 0`;
+// A line centred on 0,0 made of small alternating humps, about one every
+// 12 units (at least four). `a` is the hump height; the same command list
+// at any height lets the browser morph between them.
+function crest(w, a) {
+  const count = Math.max(4, Math.round(w / 12));
+  const half = w / count;
+  let d = `M ${(-w / 2).toFixed(1)} 0 Q ${(-w / 2 + half / 2).toFixed(1)} ${(-2 * a).toFixed(2)} ${(-w / 2 + half).toFixed(1)} 0`;
+  for (let k = 2; k <= count; k++) d += ` T ${(-w / 2 + k * half).toFixed(1)} 0`;
+  return d;
+}
 
 // The shapes a crest ripples through: flat, humped, flat, humps flipped.
 const rippleShapes = (w, a) => [0, a, 0, -a, 0].map(h => crest(w, h)).join(';');
@@ -24,7 +30,8 @@ const GLINTS = (() => {
   return Array.from({ length: 40 }, () => {
     const y = HORIZON + 6 + rand() ** 1.4 * (SHORE - 30);
     const spread = 30 + (y / SHORE) * 220;
-    const w = 10 + rand() * (20 + (y / SHORE) * 70);
+    const near = y / SHORE;
+    const w = 16 + near * 110 + rand() * (10 + near * 60);
     return {
       x: WIDTH / 2 + (rand() - 0.5) * spread * 2,
       y,
@@ -41,12 +48,12 @@ const GLINTS = (() => {
 // water. Each one appears, rolls slowly forward towards the shore for
 // several seconds with a ripple running through it, then fades and rests
 // briefly before breaking again.
-// Tiny and close together near the horizon, bigger towards the shore.
+// Short near the horizon and much longer towards the shore.
 const WHITECAPS = (() => {
   const rand = seeded(21);
   return Array.from({ length: 95 }, () => {
     const depth = rand() ** 1.3;
-    const w = 6 + depth * 38 + rand() * 12;
+    const w = 14 + depth * 95 + rand() * (6 + depth * 35);
     const h = 1.3 + depth * 1.6;
     const a = h * 0.3;
     return {
@@ -64,18 +71,21 @@ const WHITECAPS = (() => {
 })();
 
 // A bottlenose dolphin in profile, facing right and centred on its middle:
-// a short beak, a rounded forehead (melon), a long tapering body and a
-// forked tail, with a swept-back dorsal fin and two flippers.
-const DOLPHIN_BODY = 'M 51 1.6 C 49 0.2 45 -0.4 41 -0.6 C 39.5 -5.5 34 -9 26 -9.8 C 12 -10.8 -8 -9.6 -22 -6.4' +
-  ' C -30 -4.6 -37 -2.6 -44 -1.2 C -48 -3.6 -52.5 -7.6 -59 -10.2 C -57 -5.6 -55.2 -2.4 -53 0' +
-  ' C -55.2 2.4 -57 6 -59 10 C -52.5 7.2 -48 3.8 -44 1.6 C -36 3.4 -24 7.2 -8 7.8 C 8 8.4 22 7 32 4.4' +
-  ' C 39 3 46 2.8 51 1.6 Z';
-const DOLPHIN_FIN = 'M 8 -10.2 C 3 -14 -2 -20 -11 -23.5 C -8.5 -19 -8.8 -13.5 -12 -8.6 Z';
-const DOLPHIN_FLIPPER_NEAR = 'M 25 4.8 C 22 9.5 17 13 11.5 15 C 14 10.5 17 7.5 19 5.8 Z';
-const DOLPHIN_FLIPPER_FAR = 'M 23 4.6 C 20.5 8.5 17 11.4 13 13 C 15 9.6 17.4 7 18.6 5.6 Z';
-// Sunset light catching the back and the fin's leading edge
-const DOLPHIN_RIM = 'M 41 -0.6 C 39.5 -5.5 34 -9 26 -9.8 C 12 -10.8 -8 -9.6 -22 -6.4 C -30 -4.6 -37 -2.6 -44 -1.2' +
-  ' M 8 -10.2 C 3 -14 -2 -20 -11 -23.5';
+// a short beak, a rounded forehead (melon), a back that arches over and a
+// slender tail stock curving down into crescent flukes, with a hooked
+// dorsal fin and curved flippers.
+const DOLPHIN_BODY = 'M 52 4.2 C 50 2.6 46 1.6 42 1 C 41 -4.5 35 -9 26 -10.6 C 12 -13 -4 -13 -18 -10' +
+  ' C -28 -7.6 -35 -3.6 -41 0.2 C -43.5 1.6 -45.5 2.6 -47.5 3' +
+  ' C -51.5 0.4 -56 -4 -62.5 -7.4 C -59.5 -2.6 -56.4 1 -53.6 3.6' +
+  ' C -57 6.4 -61.6 10.8 -66.5 14.6 C -58.6 13.6 -52 9.6 -47 6' +
+  ' C -41 4 -33 5.6 -24 7.6 C -10 10 8 10.4 22 8 C 32 6.4 40 5.6 44 5' +
+  ' C 47.5 4.8 50.5 4.8 52 4.2 Z';
+const DOLPHIN_FIN = 'M 7 -12.4 C 2 -19 -4 -24.5 -15.5 -26.2 C -11 -22 -10 -16 -12.5 -10.2 Z';
+const DOLPHIN_FLIPPER_NEAR = 'M 26 6.8 C 23.5 10.8 19.5 14.6 13 17.4 C 15.5 13.8 18 10.8 19.8 8 Z';
+const DOLPHIN_FLIPPER_FAR = 'M 24 6.4 C 21.6 9.8 18.4 12.6 14.6 14.6 C 16.6 11.4 18.8 9 20.2 7.2 Z';
+// Sunset light catching the back, the fin's leading edge and the upper fluke
+const DOLPHIN_RIM = 'M 42 1 C 41 -4.5 35 -9 26 -10.6 C 12 -13 -4 -13 -18 -10 C -28 -7.6 -35 -3.6 -41 0.2' +
+  ' M 7 -12.4 C 2 -19 -4 -24.5 -15.5 -26.2 M -47.5 3 C -51.5 0.4 -56 -4 -62.5 -7.4';
 
 function Dolphin({ timing, onLeapDone }) {
   return (
@@ -84,8 +94,8 @@ function Dolphin({ timing, onLeapDone }) {
       <path d={DOLPHIN_FLIPPER_FAR} fill="#140c24" />
       <path d={DOLPHIN_BODY} fill="url(#dolphin-skin)" />
       <path d={DOLPHIN_FLIPPER_NEAR} fill="#1f1536" />
-      <path d="M 50 1.8 C 46 2.2 42 2.5 39 2.3" fill="none" stroke="#120a20" strokeWidth="0.5" strokeLinecap="round" />
-      <circle cx="35.5" cy="-2.4" r="0.9" fill="#0c0616" />
+      <path d="M 51.5 4.3 C 47 4.4 43 4.2 39.5 3.4" fill="none" stroke="#120a20" strokeWidth="0.5" strokeLinecap="round" />
+      <circle cx="36" cy="-1.6" r="0.9" fill="#0c0616" />
       <path d={DOLPHIN_RIM} fill="none" stroke="#ffb48a" strokeOpacity="0.6" strokeWidth="0.9" strokeLinecap="round" />
     </g>
   );
