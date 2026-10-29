@@ -34,14 +34,19 @@ export function ThemeProvider({ children }) {
   // Clouds, stars and other scenery behind the app. On unless turned off.
   const [skyDetails, setSkyDetails] = useState(() => readStorage('aura-sky-details') !== 'off');
 
+  // The public pages rotate through scenes of both brightnesses, and each
+  // scene sets its own light or dark styling. While they're showing, the page
+  // itself must not be `dark`, or Day's scenery would pick up Night's styles.
+  const [publicScenes, setPublicScenes] = useState(false);
+
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = themeInfo.id;
-    root.classList.toggle('dark', themeInfo.base === 'dark');
+    root.classList.toggle('dark', themeInfo.base === 'dark' && !publicScenes);
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute('content', themeInfo.bar));
     writeStorage(THEME_KEY, themeInfo.id);
     writeStorage(BASE_KEY, themeInfo.base);
-  }, [themeInfo]);
+  }, [themeInfo, publicScenes]);
 
   useEffect(() => {
     writeStorage('aura-sky-details', skyDetails ? 'on' : 'off');
@@ -53,6 +58,7 @@ export function ThemeProvider({ children }) {
       // 'light' or 'dark', for styling that only cares about the base
       theme: themeInfo.base,
       skyDetails, setSkyDetails,
+      setPublicScenes,
     }}>
       {children}
     </ThemeContext.Provider>

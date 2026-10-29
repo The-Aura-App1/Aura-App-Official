@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar   from './Sidebar';
 import MobileNav from './MobileNav';
 import Topbar    from './Topbar';
-import { SkyDecor } from '../auth/AuthBackdrop';
+import { SceneDecor } from '../auth/AuthBackdrop';
 import { useTheme } from '../../context/ThemeContext';
 
 // Large screens: fixed sidebar on the left. Phones and tablets: a top bar and
@@ -14,9 +14,9 @@ export default function AppShell() {
     <div className="min-h-screen bg-[var(--bg-primary)]">
 
       {/* Scenery behind the content (Settings > Appearance turns it off) */}
-      {skyDetails && themeInfo.scene === 'sky' && (
+      {skyDetails && themeInfo.scene && (
         <div aria-hidden="true" className="aura-app-sky pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden">
-          <SkyDecor variant="app" />
+          <SceneDecor scene={themeInfo.scene} variant="app" />
         </div>
       )}
 

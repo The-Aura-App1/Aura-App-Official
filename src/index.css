@@ -77,6 +77,60 @@
   --accent-subtle: #1a1426;
 }
 
+/* Snowy Peaks: icy blues, with a periwinkle accent in place of purple. */
+[data-theme="snowy-peaks"] {
+  --aura-950: 15 23 42;
+  --aura-900: 30 41 72;
+  --aura-850: 37 50 88;
+  --aura-800: 49 65 110;
+  --aura-700: 67 86 150;
+  --aura-600: 79 98 200;
+  --aura-500: 92 112 230;
+  --aura-400: 129 148 245;
+  --aura-300: 165 180 252;
+  --aura-200: 199 210 254;
+  --aura-100: 224 231 255;
+  --aura-50:  240 244 255;
+  --bg-primary:    #f3f7fd;
+  --bg-secondary:  #ffffff;
+  --bg-elevated:   #e9f0fa;
+  --bg-card:       #ffffff;
+  --border:        #d5e0f0;
+  --text-primary:  #0f1d33;
+  --text-secondary:#3b5a8c;
+  --text-muted:    #64748b;
+  --accent:        #5c70e6;
+  --accent-hover:  #4f62c8;
+  --accent-subtle: #e6ecfd;
+}
+
+/* Duskfall: deep violet night with a warm sunset-rose accent. */
+[data-theme="duskfall"] {
+  --aura-950: 20 8 22;
+  --aura-900: 38 14 40;
+  --aura-850: 50 18 50;
+  --aura-800: 66 24 62;
+  --aura-700: 110 36 90;
+  --aura-600: 160 50 110;
+  --aura-500: 219 80 120;
+  --aura-400: 244 128 140;
+  --aura-300: 250 170 160;
+  --aura-200: 253 205 190;
+  --aura-100: 255 228 215;
+  --aura-50:  255 244 238;
+  --bg-primary:    #0c0a1d;
+  --bg-secondary:  #120e26;
+  --bg-elevated:   #1d1634;
+  --bg-card:       #15102b;
+  --border:        #2e2245;
+  --text-primary:  #fbf3f0;
+  --text-secondary:#f4a28c;
+  --text-muted:    #a99bb8;
+  --accent:        #e8607a;
+  --accent-hover:  #f4808c;
+  --accent-subtle: #2a1530;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
@@ -127,7 +181,8 @@ h1, h2, h3 {
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 /* ── Landing and auth pages ─────────────────────────────────────────── */
 
-/* Pins the light theme on these pages, even when the app is in dark mode. */
+/* The public pages' own colors. AuthBackdrop puts this (and `dark` for dark
+   scenes) on the content above the rotating scenery. */
 .aura-heaven {
   --bg-primary:    #f8f7ff;
   --bg-secondary:  #ffffff;
@@ -140,8 +195,11 @@ h1, h2, h3 {
   --accent:        #7c3aed;
   --accent-hover:  #6d28d9;
   --accent-subtle: #ede9fe;
-  background: #efe8ff;
-  /* Where the sun glow and the light rays are centred. */
+}
+
+/* The rotating scenery behind the public pages (AuthBackdrop). Sets where
+   Day's sun glow and light rays are centred. */
+.aura-scenery {
   --sun-y: 5rem;
   --ray-y: -10%;
 }
@@ -278,7 +336,8 @@ h1, h2, h3 {
 .aura-night-only { display: none; }
 .dark .aura-night-only { display: block; }
 
-.dark .aura-heaven {
+.dark .aura-heaven,
+.aura-heaven.dark {
   --bg-primary:    #0d0618;
   --bg-secondary:  #1a0a2e;
   --bg-elevated:   #1c0f33;
@@ -290,7 +349,6 @@ h1, h2, h3 {
   --accent:        #a78bfa;
   --accent-hover:  #c4b5fd;
   --accent-subtle: #2d1b4e;
-  background: #05020d;
 }
 
 /* Deep space with violet, magenta and indigo nebulae. */

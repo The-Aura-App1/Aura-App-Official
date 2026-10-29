@@ -1,0 +1,103 @@
+/* ── Snowy Peaks ───────────────────────────────────────────────────── */
+
+/* A pale winter sky: icy blue overhead, a lavender blush at the horizon. */
+.aura-peaks-sky {
+  background:
+    radial-gradient(ellipse 60% 45% at 72% 12%, rgba(255, 255, 255, 0.9), transparent 70%),
+    linear-gradient(180deg, #a9c8f0 0%, #cfe0f7 35%, #eaf1fc 60%, #f3eefc 80%, #ffffff 100%);
+}
+.aura-peaks-sun {
+  top: -8rem;
+  right: 6%;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 250, 240, 0.7) 28%, rgba(255, 255, 255, 0) 68%);
+  filter: blur(8px);
+}
+
+/* Falling snow: a tall strip of repeated flake tiles that slides down by
+   exactly one tile per cycle, so it loops seamlessly. Sliding the whole
+   strip (a transform) is much cheaper than moving the background. */
+.aura-snow {
+  top: -420px;
+  bottom: 0;
+  background-repeat: repeat;
+  will-change: transform;
+  pointer-events: none;
+}
+.aura-snow-far {
+  background-image:
+    radial-gradient(circle at 30px 50px,   rgba(255, 255, 255, 0.95) 0 1.3px, transparent 2px),
+    radial-gradient(circle at 150px 20px,  rgba(255, 255, 255, 0.8)  0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 95px 150px,  rgba(255, 255, 255, 0.9)  0 1.3px, transparent 2px),
+    radial-gradient(circle at 220px 95px,  rgba(255, 255, 255, 0.75) 0 1px,   transparent 1.7px),
+    radial-gradient(circle at 250px 190px, rgba(255, 255, 255, 0.9)  0 1.2px, transparent 1.9px),
+    radial-gradient(circle at 45px 230px,  rgba(255, 255, 255, 0.8)  0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 175px 250px, rgba(255, 255, 255, 0.85) 0 1.3px, transparent 2px);
+  background-size: 280px 280px;
+  filter: drop-shadow(0 0 1px rgba(90, 120, 180, 0.45));
+  animation: snowFallFar 22s linear infinite, snowSway 7s ease-in-out infinite alternate;
+}
+.aura-snow-near {
+  background-image:
+    radial-gradient(circle at 60px 80px,   rgba(255, 255, 255, 0.95) 0 2.4px, transparent 3.6px),
+    radial-gradient(circle at 300px 40px,  rgba(255, 255, 255, 0.9)  0 2px,   transparent 3.2px),
+    radial-gradient(circle at 200px 260px, rgba(255, 255, 255, 0.95) 0 2.6px, transparent 3.8px),
+    radial-gradient(circle at 380px 330px, rgba(255, 255, 255, 0.85) 0 2.1px, transparent 3.3px),
+    radial-gradient(circle at 20px 360px,  rgba(255, 255, 255, 0.9)  0 2.3px, transparent 3.5px);
+  background-size: 420px 420px;
+  filter: drop-shadow(0 0 2px rgba(90, 120, 180, 0.5));
+  animation: snowFallNear 14s linear infinite, snowSway 5s ease-in-out -2s infinite alternate;
+}
+@keyframes snowFallFar  { from { transform: translateY(0); } to { transform: translateY(280px); } }
+@keyframes snowFallNear { from { transform: translateY(0); } to { transform: translateY(420px); } }
+/* `translate` is separate from `transform`, so the sway adds to the fall. */
+@keyframes snowSway     { from { translate: -14px 0; } to { translate: 14px 0; } }
+
+/* ── Duskfall ──────────────────────────────────────────────────────── */
+
+/* Deep night overhead, warming to violet towards the sea. The orange
+   afterglow is drawn in the SVG so it always sits on the horizon. */
+.aura-dusk-sky {
+  background:
+    radial-gradient(ellipse 45% 30% at 18% 20%, rgba(124, 58, 237, 0.18), transparent 70%),
+    linear-gradient(180deg, #05061a 0%, #0f0f30 30%, #231845 55%, #3b1f52 75%, #4a2a5c 100%);
+}
+/* Only a few early stars, fading out towards the glowing horizon. */
+.aura-dusk-stars {
+  opacity: 0.7;
+  mask-image: linear-gradient(180deg, black 0%, black 25%, transparent 55%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 25%, transparent 55%);
+}
+.aura-dusk-glint { opacity: 0.2; animation: duskGlint 3s ease-in-out infinite alternate; }
+@keyframes duskGlint { from { opacity: 0.12; } to { opacity: 0.85; } }
+
+.aura-dusk-swell { animation: duskSwell 22s ease-in-out infinite alternate; }
+@keyframes duskSwell { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+
+/* Each wave rolls in from out at sea, washes up the sand, then slips back
+   out and fades while the next one arrives. */
+.aura-dusk-wave { animation: duskWave 12s cubic-bezier(0.45, 0, 0.4, 1) infinite; }
+@keyframes duskWave {
+  0%   { transform: translateY(-120px); opacity: 0; }
+  12%  { opacity: 0.9; }
+  55%  { transform: translateY(58px);   opacity: 1; }
+  68%  { transform: translateY(52px);   opacity: 0.85; }
+  100% { transform: translateY(0);      opacity: 0; }
+}
+
+/* ── Public pages: one scene fading in over another (AuthBackdrop) ── */
+@keyframes sceneFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Behind the signed-in app: quieter versions ───────────────────── */
+
+.aura-app-sky .aura-peaks-sky { opacity: 0.7; }
+.aura-app-sky .aura-peaks-range { opacity: 0.8; transform: translateY(18%); }
+.aura-app-sky .aura-snow-near { opacity: 0.6; }
+.aura-app-sky .aura-dusk-sea { transform: translateY(12%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-snow, .aura-dusk-glint, .aura-dusk-swell { animation: none !important; }
+  .aura-dusk-wave { animation: none; opacity: 0.8; transform: translateY(30px); }
+}

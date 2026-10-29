@@ -233,7 +233,7 @@ export default function Settings() {
         </div>
         <Toggle
           label="Animated scenery"
-          description="Clouds and birds in Day, stars and galaxies in Night. Saved on this device."
+          description="The clouds, stars, snow and waves behind Day, Night, Snowy Peaks and Duskfall. Saved on this device."
           checked={skyDetails}
           onChange={setSkyDetails}
         />

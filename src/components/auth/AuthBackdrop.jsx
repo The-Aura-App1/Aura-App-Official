@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Sun } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import useChooseTheme from '../../hooks/useChooseTheme';
+import { getTheme, PUBLIC_ROTATION } from '../../themes';
+import seeded from '../scenes/seeded';
+import SnowyPeaks from '../scenes/SnowyPeaks';
+import Duskfall from '../scenes/Duskfall';
+import '../scenes/scenes.css';
 
 // Fixed positions so the sparkles don't jump around between renders.
 const SPARKLES = [
@@ -21,15 +25,6 @@ function Sparkle({ size }) {
       <path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z" />
     </svg>
   );
-}
-
-// Small seeded random generator, so every visit draws the same clouds.
-function seeded(seed) {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
 }
 
 // Overlapping circles along a baseline. The SVG filter below roughens their
@@ -165,13 +160,38 @@ export function Wordmark({ size = 'lg', linked = false }) {
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
 
-// Top bar for the public pages: logo home, About, Sign in and a light/dark
-// switch that flips to the current theme's pair (Day and Night, Light and Dark).
+// Pause/play for the rotating scenery, plus a dot per scene. Picking a dot
+// jumps to that scene and stays there.
+function SceneControls() {
+  const scenes = useContext(SceneContext);
+  if (!scenes) return null;
+  const { index, paused, togglePaused, pick } = scenes;
+  const current = getTheme(PUBLIC_ROTATION[index]);
+  return (
+    <div className="ml-1 flex items-center gap-0.5 h-9 pl-1 pr-1.5 rounded-xl bg-white/50 dark:bg-white/5 border border-white/80 dark:border-white/15">
+      <button type="button" onClick={togglePaused}
+        aria-label={paused ? 'Rotate the scenery' : `Keep the ${current.name} scenery`}
+        title={paused ? 'Rotate the scenery' : `Keep ${current.name}`}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-aura-800 dark:text-aura-100 hover:text-aura-500 transition-colors">
+        {paused ? <Play size={15} /> : <Pause size={15} />}
+      </button>
+      {PUBLIC_ROTATION.map((id, i) => {
+        const theme = getTheme(id);
+        return (
+          <button key={id} type="button" onClick={() => pick(i)} aria-label={`Show ${theme.name}`} aria-pressed={i === index}
+            title={theme.name} className="w-5 h-7 flex items-center justify-center group">
+            <span className={`block rounded-full transition-all duration-300
+              ${i === index ? 'w-2.5 h-2.5 bg-aura-500' : 'w-1.5 h-1.5 bg-aura-800/30 dark:bg-white/30 group-hover:bg-aura-500/70'}`} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Top bar for the public pages: logo home, About, Sign in and the scenery
+// controls.
 export function SiteHeader() {
-  const { theme, themeInfo } = useTheme();
-  const chooseTheme = useChooseTheme();
-  const dark = theme === 'dark';
-  const toggleTheme = () => chooseTheme(themeInfo.pair);
   return (
     <header className="flex items-center justify-between px-5 sm:px-10 py-6">
       <Link to="/welcome" aria-label="Aura App home">
@@ -180,10 +200,7 @@ export function SiteHeader() {
       <nav className="flex items-center gap-1 sm:gap-3 text-sm">
         <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">About</Link>
         <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
-        <button type="button" onClick={toggleTheme} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="ml-1 w-9 h-9 rounded-xl flex items-center justify-center text-aura-800 dark:text-aura-100 bg-white/50 dark:bg-white/5 border border-white/80 dark:border-white/15 hover:text-aura-500 transition-colors">
-          {dark ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
+        <SceneControls />
       </nav>
     </header>
   );
@@ -293,17 +310,137 @@ export function SkyDecor({ variant = 'page' }) {
   );
 }
 
-// Heavenly dawn sky shared by the landing page and the auth pages: light rays
-// from above, drifting clouds below. The `aura-heaven` class sets the theme
-// variables for these pages. `className` can move the glow (see
-// .aura-glow-on-halo).
-export default function AuthBackdrop({ children, className = '' }) {
-  return (
-    <div className={`aura-heaven relative min-h-screen overflow-hidden text-[var(--text-primary)] ${className}`}>
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <SkyDecor />
+// The scenery for a theme: Day and Night share the sky (styled by the
+// `dark` class), Snowy Peaks and Duskfall have their own.
+export function SceneDecor({ scene, variant = 'page' }) {
+  if (scene === 'sky')   return <SkyDecor variant={variant} />;
+  if (scene === 'peaks') return <SnowyPeaks variant={variant} />;
+  if (scene === 'beach') return <Duskfall variant={variant} />;
+  return null;
+}
+
+// ── Rotating scenery on the public pages ────────────────────────────
+
+const HOLD_MS = 12000;  // how long each scene shows
+const FADE_MS = 2000;   // crossfade between scenes
+const PAUSED_KEY = 'aura-scenery-paused';
+const SceneContext = createContext(null);
+
+// Kept across the public pages, so going from Welcome to Sign in carries on
+// with the same scene instead of starting over.
+let lastSceneIndex = null;
+
+function readPaused() {
+  try { return PUBLIC_ROTATION.indexOf(localStorage.getItem(PAUSED_KEY)); } catch { return -1; }
+}
+
+function writePaused(id) {
+  try {
+    if (id) localStorage.setItem(PAUSED_KEY, id);
+    else localStorage.removeItem(PAUSED_KEY);
+  } catch { /* just not remembered */ }
+}
+
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// Starts on the scene someone paused on, else where they left off, else the
+// scene closest to their own theme (Light shows Day, Dark shows Night).
+function startingScene(themeInfo) {
+  const paused = readPaused();
+  if (paused >= 0) return paused;
+  if (lastSceneIndex !== null) return lastSceneIndex;
+  const own = PUBLIC_ROTATION.indexOf(themeInfo.id);
+  if (own >= 0) return own;
+  return PUBLIC_ROTATION.indexOf(themeInfo.base === 'dark' ? 'night' : 'day');
+}
+
+function useSceneRotation() {
+  const { themeInfo, setPublicScenes } = useTheme();
+  const [index, setIndex] = useState(() => startingScene(themeInfo));
+  // Text and buttons switch light/dark halfway through the fade, when the
+  // new scene is about as visible as the old one.
+  const [foreground, setForeground] = useState(index);
+  const [paused, setPaused] = useState(() => readPaused() >= 0 || prefersReducedMotion());
+
+  useEffect(() => {
+    setPublicScenes(true);
+    return () => setPublicScenes(false);
+  }, [setPublicScenes]);
+
+  useEffect(() => {
+    if (paused) return undefined;
+    const timer = setInterval(() => setIndex(i => (i + 1) % PUBLIC_ROTATION.length), HOLD_MS);
+    return () => clearInterval(timer);
+  }, [paused]);
+
+  useEffect(() => {
+    lastSceneIndex = index;
+    const timer = setTimeout(() => setForeground(index), FADE_MS / 2);
+    return () => clearTimeout(timer);
+  }, [index]);
+
+  useEffect(() => {
+    const bar = getTheme(PUBLIC_ROTATION[foreground]).bar;
+    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute('content', bar));
+  }, [foreground]);
+
+  function togglePaused() {
+    writePaused(paused ? null : PUBLIC_ROTATION[index]);
+    setPaused(!paused);
+  }
+
+  function pick(i) {
+    setIndex(i);
+    setPaused(true);
+    writePaused(PUBLIC_ROTATION[i]);
+  }
+
+  return { index, foreground, paused, togglePaused, pick };
+}
+
+// Each scene on its own layer, styled light or dark by its own theme. A new
+// scene fades in over the old one, which is removed once it's covered.
+function SceneLayers({ index }) {
+  const [layers, setLayers] = useState([index]);
+
+  useEffect(() => {
+    setLayers(prev => (prev[prev.length - 1] === index ? prev : [prev[prev.length - 1], index]));
+    const timer = setTimeout(() => setLayers([index]), FADE_MS + 100);
+    return () => clearTimeout(timer);
+  }, [index]);
+
+  return layers.map((i, n) => {
+    const theme = getTheme(PUBLIC_ROTATION[i]);
+    const fadingIn = layers.length > 1 && n === layers.length - 1;
+    return (
+      <div key={theme.id} data-theme={theme.id}
+        className={`absolute inset-0 ${theme.base === 'dark' ? 'dark' : ''}`}
+        style={fadingIn ? { animation: `sceneFadeIn ${FADE_MS}ms ease-in-out both` } : undefined}>
+        <SceneDecor scene={theme.scene} />
       </div>
-      <div className="relative z-10 min-h-screen flex flex-col">{children}</div>
-    </div>
+    );
+  });
+}
+
+// The scenery shared by the welcome, about and auth pages. It rotates
+// through Day, Snowy Peaks, Night and Duskfall (SiteHeader's controls pause
+// it). The content sits above on its own layer with the `aura-heaven`
+// colors, switching light/dark with the scene. `className` can move Day's
+// glow (see .aura-glow-on-halo).
+export default function AuthBackdrop({ children, className = '' }) {
+  const scenes = useSceneRotation();
+  const theme = getTheme(PUBLIC_ROTATION[scenes.foreground]);
+  return (
+    <SceneContext.Provider value={scenes}>
+      <div className={`aura-scenery relative min-h-screen overflow-hidden bg-[#0d0618] ${className}`}>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <SceneLayers index={scenes.index} />
+        </div>
+        <div data-theme={theme.id}
+          className={`aura-heaven ${theme.base === 'dark' ? 'dark' : ''} relative z-10 min-h-screen flex flex-col text-[var(--text-primary)]`}>
+          {children}
+        </div>
+      </div>
+    </SceneContext.Provider>
   );
 }
