@@ -26,30 +26,27 @@ const toPath = pts => pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} $
 // Several shapes of the same line, looping back to the first, for <animate>.
 const morph = make => [0, 1, 2, 0].map(make).join(';');
 
-// Rows of broken wave crests across the sea: small and close together near
-// the horizon, bigger and further apart towards the shore. Each row
-// undulates between three shapes while its crests travel along it.
-const RIPPLES = (() => {
-  const rand = seeded(70);
-  return Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8;
-    const y = HORIZON + 10 + t ** 1.6 * (SHORE - 40);
-    const amp = 1 + t * 5;
-    const step = Math.round(36 + t * 34);
-    const dashes = Array.from({ length: 6 }, () => Math.round((8 + rand() * 50) * (0.5 + t)));
-    return {
-      shapes: morph(k => toPath(wavyLine(y, { amp, seed: 100 + i * 5 + k, step }))),
-      first: toPath(wavyLine(y, { amp, seed: 100 + i * 5, step })),
-      width: 0.7 + t * 1.8,
-      opacity: 0.3 + t * 0.4,
-      dash: dashes.join(' '),
-      dashTotal: dashes.reduce((a, b) => a + b, 0),
-      morphDur: 5 + rand() * 4,
-      travelDur: 9 + rand() * 8,
-      flip: rand() < 0.5,
-    };
-  });
-})();
+// Swells rolling across the sea: filled bands of water, each with a smooth
+// repeating wave along its top. They slide sideways by exactly one wave
+// length per cycle (so the loop is seamless) while slowly rising and
+// falling. Small and slow near the horizon, bigger towards the shore, and
+// each one overlaps the one behind it.
+function swellPath(y, amp, period) {
+  const end = WIDTH + 100 + period;
+  // A quadratic curve with its control point 2×amp above the line peaks at
+  // amp; each T repeats the curve mirrored, giving a smooth sine.
+  let d = `M -100 ${y} Q ${-100 + period / 4} ${y - amp * 2} ${-100 + period / 2} ${y}`;
+  for (let x = -100 + period; x <= end; x += period / 2) d += ` T ${x} ${y}`;
+  return { fill: `${d} L ${end} ${SHORE + 60} L -100 ${SHORE + 60} Z`, crest: d };
+}
+
+const SWELLS = [
+  { y: 95,  amp: 3,  period: 180, roll: 16, bob: 5.5, crest: 0.18, width: 0.8 },
+  { y: 140, amp: 5,  period: 250, roll: 14, bob: 6.5, crest: 0.22, width: 1   },
+  { y: 185, amp: 7,  period: 320, roll: 12, bob: 5,   crest: 0.28, width: 1.2 },
+  { y: 228, amp: 10, period: 400, roll: 10, bob: 6,   crest: 0.34, width: 1.5 },
+  { y: 265, amp: 13, period: 500, roll: 9,  bob: 4.5, crest: 0.4,  width: 1.8 },
+].map(sw => ({ ...sw, ...swellPath(sw.y, sw.amp, sw.period) }));
 
 // A sheet of water whose leading edge is the foam line. Above the edge it
 // fades to nothing, so out at sea only the foam shows; on the sand the thin
@@ -90,8 +87,9 @@ const HEADLAND = 'M 1080 0 C 1150 -6 1190 -26 1250 -30 C 1300 -36 1340 -52 1395 
 const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 // A dark beach just after sunset: a violet sky with the last orange glow on
-// the horizon, early stars twinkling, the afterglow glinting on a rippling
-// sea, and waves rolling in over the sand and slipping back out. `page` is
+// the horizon, early stars twinkling, swells rolling across the sea with the
+// afterglow glinting on them, and waves washing up the sand and slipping
+// back out. `page` is
 // the full version for the public pages; `app` sits lower behind the
 // signed-in app.
 export default function Duskfall({ variant = 'page' }) {
@@ -134,14 +132,12 @@ export default function Duskfall({ variant = 'page' }) {
               <stop offset="0%" stopColor="#2a2550" stopOpacity="0" />
               <stop offset="100%" stopColor="#3b3870" stopOpacity="0.7" />
             </linearGradient>
-            {/* Crests catch the afterglow in the middle and fade to cool
-                lavender towards the edges. */}
-            <linearGradient id="dusk-crest" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={WIDTH} y2="0">
-              <stop offset="0%" stopColor="#8f80d6" stopOpacity="0.45" />
-              <stop offset="35%" stopColor="#d9b4e0" />
-              <stop offset="50%" stopColor="#ffcfa8" />
-              <stop offset="65%" stopColor="#d9b4e0" />
-              <stop offset="100%" stopColor="#8f80d6" stopOpacity="0.45" />
+            {/* Each swell's face is lit at the top and darkens into the trough. */}
+            <linearGradient id="dusk-swell" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6a4f93" />
+              <stop offset="6%" stopColor="#4a3878" />
+              <stop offset="30%" stopColor="#2a1f4e" />
+              <stop offset="100%" stopColor="#140f2c" />
             </linearGradient>
           </defs>
 
@@ -151,18 +147,13 @@ export default function Duskfall({ variant = 'page' }) {
           <rect x="-100" y={HORIZON} width={WIDTH + 200} height={SHORE + 40} fill="url(#dusk-sea)" />
           <line x1="-100" y1={HORIZON} x2={WIDTH + 100} y2={HORIZON} stroke="#ffb48a" strokeOpacity="0.55" strokeWidth="1.5" />
 
-          {RIPPLES.map((r, i) => (
-            <path key={i} d={r.first} fill="none" stroke="url(#dusk-crest)" strokeOpacity={r.opacity}
-              strokeWidth={r.width} strokeLinecap="round" strokeDasharray={r.dash}>
-              {!still && (
-                <>
-                  <animate attributeName="d" values={r.shapes} dur={`${r.morphDur}s`} repeatCount="indefinite"
-                    calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" />
-                  <animate attributeName="stroke-dashoffset" from="0" to={r.flip ? r.dashTotal : -r.dashTotal}
-                    dur={`${r.travelDur}s`} repeatCount="indefinite" />
-                </>
-              )}
-            </path>
+          {SWELLS.map((sw, i) => (
+            <g key={i} className="aura-dusk-bob" style={{ '--bob': `${sw.amp * 0.7}px`, animationDuration: `${sw.bob}s`, animationDelay: `${-i * 1.3}s` }}>
+              <g className="aura-dusk-roll" style={{ '--roll': `${-sw.period}px`, animationDuration: `${sw.roll}s` }}>
+                <path d={sw.fill} fill="url(#dusk-swell)" />
+                <path d={sw.crest} fill="none" stroke="#e6cfee" strokeOpacity={sw.crest} strokeWidth={sw.width} strokeLinecap="round" />
+              </g>
+            </g>
           ))}
 
           {GLINTS.map((g, i) => (

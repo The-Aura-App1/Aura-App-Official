@@ -65,36 +65,11 @@ function shadePath(apexes, rand) {
   }).join(' ');
 }
 
-// Snow-filled gullies running down from each cap (thin tapering streaks)
-// and dark rock seams between them, so the faces read as rock and ice.
-function faceDetail(apexes, rand, depth, scale) {
-  let gullies = '';
-  let seams = '';
-  for (const a of apexes) {
-    const count = 4 + Math.floor(rand() * 4);
-    for (let i = 0; i < count; i++) {
-      const side = rand() < 0.5 ? -1 : 1;
-      const dx = side * rand() * a.half * 0.55;
-      const x0 = a.x + dx;
-      const y0 = a.y + depth * 0.55 + Math.abs(dx) * 0.55;
-      const length = (25 + rand() * 60) * scale;
-      const x1 = x0 + side * length * (0.18 + rand() * 0.2);
-      const y1 = y0 + length;
-      const w = (1.5 + rand() * 3) * scale;
-      gullies += `M ${(x0 - w).toFixed(1)} ${y0.toFixed(1)} L ${(x0 + w).toFixed(1)} ${y0.toFixed(1)} L ${x1.toFixed(1)} ${y1.toFixed(1)} Z `;
-      const sx = x0 + side * (8 + rand() * 20) * scale;
-      const sy = y0 + (10 + rand() * 30) * scale;
-      seams += `M ${sx.toFixed(1)} ${sy.toFixed(1)} l ${(side * length * 0.25).toFixed(1)} ${(length * 0.6).toFixed(1)} `;
-    }
-  }
-  return { gullies, seams };
-}
-
 // Back to front: hazy and pale far away, deeper blue up close.
 const RANGES = [
-  { seed: 5,  peaks: 5, top: 150, bottom: 260, valley: 330, light: '#d6e0f4', rock: '#c2cfea', snow: '#f7f9ff', depth: 70, shade: 0.08, scale: 0.7 },
-  { seed: 17, peaks: 6, top: 270, bottom: 350, valley: 420, light: '#b8c7e8', rock: '#98acd8', snow: '#f2f6ff', depth: 60, shade: 0.12, scale: 0.85 },
-  { seed: 29, peaks: 4, top: 360, bottom: 430, valley: 500, light: '#94a8d4', rock: '#7187bd', snow: '#eef3ff', depth: 55, shade: 0.16, scale: 1 },
+  { seed: 5,  peaks: 5, top: 150, bottom: 260, valley: 330, rock: '#c9d5ef', snow: '#f7f9ff', depth: 70, shade: 0.08 },
+  { seed: 17, peaks: 6, top: 270, bottom: 350, valley: 420, rock: '#a5b7de', snow: '#f2f6ff', depth: 60, shade: 0.12 },
+  { seed: 29, peaks: 4, top: 360, bottom: 430, valley: 500, rock: '#7f95c6', snow: '#eef3ff', depth: 55, shade: 0.16 },
 ];
 
 // A row of pines along the bottom. Each has three tiers, a lit left half,
@@ -135,24 +110,15 @@ function pines(seed, { base, minH, maxH, gap }) {
 
 const RIDGES = RANGES.map(r => {
   const { path, apexes, rand } = ridge(r.seed, r);
-  return {
-    ...r, path, apexes,
-    snowD: snowPath(apexes, rand, r.depth),
-    shadeD: shadePath(apexes, rand),
-    ...faceDetail(apexes, rand, r.depth, r.scale),
-  };
+  return { ...r, path, snowD: snowPath(apexes, rand, r.depth), shadeD: shadePath(apexes, rand) };
 });
 const BACK_PINES  = pines(57, { base: HEIGHT - 26, minH: 34, maxH: 60, gap: [12, 16] });
 const FRONT_PINES = pines(41, { base: HEIGHT - 10, minH: 50, maxH: 120, gap: [18, 26] });
 
-// Wind lifting powder off the two highest summits.
-const SPINDRIFT = RIDGES.slice(0, 2).flatMap(r => [...r.apexes].sort((a, b) => a.y - b.y).slice(0, 1));
-
-// Layered mountain ranges with snowcaps, snow-filled gullies, a two-row
-// treeline and gently falling snow under a pale winter sky. Mist drifts
-// through the valleys, wind lifts powder off the summits now and then, and
-// the pines sway a little. `page` is the full version for the public pages;
-// `app` sits lower and quieter behind the signed-in app.
+// Layered mountain ranges with snowcaps, a two-row treeline and snow
+// falling in three layers (small and slow far away, large and drifting up
+// close) under a pale winter sky. `page` is the full version for the public
+// pages; `app` sits lower and quieter behind the signed-in app.
 export default function SnowyPeaks({ variant = 'page' }) {
   const page = variant === 'page';
   return (
@@ -163,55 +129,33 @@ export default function SnowyPeaks({ variant = 'page' }) {
         <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
           <defs>
             {RIDGES.map((r, i) => (
-              <React.Fragment key={i}>
-                <clipPath id={`peaks-clip-${i}`}><path d={r.path} /></clipPath>
-                <linearGradient id={`peaks-rock-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={r.light} />
-                  <stop offset="100%" stopColor={r.rock} />
-                </linearGradient>
-              </React.Fragment>
+              <clipPath key={i} id={`peaks-clip-${i}`}><path d={r.path} /></clipPath>
             ))}
             <linearGradient id="peaks-mist" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
               <stop offset="100%" stopColor="#ffffff" stopOpacity="0.75" />
             </linearGradient>
-            <radialGradient id="peaks-powder">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-            </radialGradient>
-            <filter id="peaks-soft" x="-50%" y="-200%" width="200%" height="500%">
-              <feGaussianBlur stdDeviation="6" />
-            </filter>
           </defs>
 
           {RIDGES.map((r, i) => (
             <g key={i}>
-              <path d={r.path} fill={`url(#peaks-rock-${i})`} />
+              <path d={r.path} fill={r.rock} />
               <g clipPath={`url(#peaks-clip-${i})`}>
-                <path d={r.seams} fill="none" stroke="#2a3f78" strokeOpacity={0.12 + i * 0.04} strokeWidth={1.2 * r.scale} strokeLinecap="round" />
-                <path d={r.gullies} fill={r.snow} opacity="0.6" />
                 <path d={r.snowD} fill={r.snow} />
                 <path d={r.shadeD} fill="#2a3f78" opacity={r.shade} />
               </g>
-              {i < 2 && SPINDRIFT[i] && (
-                <ellipse className="aura-spindrift" cx={SPINDRIFT[i].x + 70} cy={SPINDRIFT[i].y + 4} rx="80" ry="12"
-                  fill="url(#peaks-powder)" filter="url(#peaks-soft)" style={{ animationDelay: `${i * 9}s` }} />
-              )}
               {/* Mist settling in the valleys in front of each range */}
               <rect x="-60" y={r.valley - 90} width={WIDTH + 120} height="140" fill="url(#peaks-mist)" opacity="0.7" />
-              <ellipse className="aura-mist-drift" cx={i % 2 ? 1100 : 450} cy={r.valley - 20} rx="520" ry="26"
-                fill="#ffffff" opacity="0.4" filter="url(#peaks-soft)"
-                style={{ animationDuration: `${46 + i * 12}s`, animationDelay: `${-i * 15}s` }} />
             </g>
           ))}
 
-          <g className="aura-pines-back">
+          <g>
             <path d={BACK_PINES.bodies} fill="#6c80b3" />
             <path d={BACK_PINES.lit} fill="#7d91c2" />
             <path d={BACK_PINES.snow} fill="none" stroke="#f4f7ff" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
           </g>
           <rect x="-60" y={HEIGHT - 30} width={WIDTH + 120} height="30" fill="#e8eefb" />
-          <g className="aura-pines-sway">
+          <g>
             <path d={FRONT_PINES.bodies} fill="#3f5288" />
             <path d={FRONT_PINES.lit} fill="#51669c" />
             <path d={FRONT_PINES.snow} fill="none" stroke="#f7f9ff" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
@@ -221,6 +165,7 @@ export default function SnowyPeaks({ variant = 'page' }) {
       </div>
       <div className="aura-snow aura-snow-far absolute inset-x-0" />
       <div className="aura-snow aura-snow-near absolute inset-x-0" />
+      <div className="aura-snow aura-snow-close absolute inset-x-0" />
     </>
   );
 }
