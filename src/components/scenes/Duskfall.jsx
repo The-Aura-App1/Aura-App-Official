@@ -9,31 +9,38 @@ const HORIZON = 0;
 const SHORE = 290;
 const BOTTOM = 520;
 
+// A short line centred on 0,0 with three small humps. `a` is the hump
+// height; the same command list at any height lets the browser morph it.
+const crest = (w, a) =>
+  `M ${-w / 2} 0 Q ${(-3 * w) / 8} ${-2 * a} ${-w / 4} 0 T 0 0 T ${w / 4} 0 T ${w / 2} 0`;
+
+// The shapes a crest ripples through: flat, humped, flat, humps flipped.
+const rippleShapes = (w, a) => [0, a, 0, -a, 0].map(h => crest(w, h)).join(';');
+
 // Glints of the afterglow on the water, in a column under the sunset that
-// widens towards the shore.
+// widens towards the shore. Each shimmers and ripples gently in place.
 const GLINTS = (() => {
   const rand = seeded(9);
   return Array.from({ length: 40 }, () => {
     const y = HORIZON + 6 + rand() ** 1.4 * (SHORE - 30);
     const spread = 30 + (y / SHORE) * 220;
+    const w = 10 + rand() * (20 + (y / SHORE) * 70);
     return {
       x: WIDTH / 2 + (rand() - 0.5) * spread * 2,
       y,
-      w: 10 + rand() * (20 + (y / SHORE) * 70),
+      flat: crest(w, 0),
+      ripple: rippleShapes(w, 0.8),
+      rippleDur: 1.4 + rand() * 1,
       delay: rand() * 4,
       dur: 2.5 + rand() * 2.5,
     };
   });
 })();
 
-// A short line centred on 0,0 with three small humps. `a` is the hump
-// height; the same command list at any height lets the browser morph it.
-const crest = (w, a) =>
-  `M ${-w / 2} 0 Q ${(-3 * w) / 8} ${-2 * a} ${-w / 4} 0 T 0 0 T ${w / 4} 0 T ${w / 2} 0`;
-
 // Small waves breaking out at sea: short pale crests scattered across the
-// water. Each one appears, rolls forward a little towards the shore with a
-// ripple running through it, then fades, and rests before breaking again.
+// water. Each one appears, rolls slowly forward towards the shore for
+// several seconds with a ripple running through it, then fades and rests
+// briefly before breaking again.
 // Tiny and close together near the horizon, bigger towards the shore.
 const WHITECAPS = (() => {
   const rand = seeded(21);
@@ -47,11 +54,11 @@ const WHITECAPS = (() => {
       y: HORIZON + 8 + depth * (SHORE - 40),
       h,
       flat: crest(w, 0),
-      ripple: [crest(w, 0), crest(w, a), crest(w, 0), crest(w, -a), crest(w, 0)].join(';'),
+      ripple: rippleShapes(w, a),
       rippleDur: 1.2 + rand() * 0.8,
-      roll: 2 + depth * 9,
-      dur: 4.5 + rand() * 4,
-      delay: -rand() * 8,
+      roll: 6 + depth * 22,
+      dur: 10 + rand() * 6,
+      delay: -rand() * 16,
     };
   });
 })();
@@ -112,10 +119,10 @@ function DolphinPod({ size, dur, delay }) {
           <g clipPath="url(#dusk-above-water)">
             <Dolphin timing={timing(i)} onLeapDone={i === 0 ? () => setSpot(randomSpot()) : undefined} />
           </g>
-          <rect className="aura-dolphin-splash" x="-2" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
-          <ellipse className="aura-dolphin-splash aura-dolphin-spray" cx="12" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
-          <rect className="aura-dolphin-splash aura-dolphin-splash-in" x="76" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
-          <ellipse className="aura-dolphin-splash aura-dolphin-splash-in aura-dolphin-spray" cx="90" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
+          <rect className="aura-dolphin-splash" x="8" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
+          <ellipse className="aura-dolphin-splash aura-dolphin-spray" cx="22" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
+          <rect className="aura-dolphin-splash aura-dolphin-splash-in" x="66" y="-1.6" width="28" height="3.4" rx="1.7" fill="#efe6ff" style={timing(i)} />
+          <ellipse className="aura-dolphin-splash aura-dolphin-splash-in aura-dolphin-spray" cx="80" cy="-4" rx="7" ry="5" fill="#efe6ff" style={timing(i)} />
         </g>
       ))}
     </g>
@@ -195,8 +202,12 @@ export default function Duskfall({ variant = 'page' }) {
           ))}
 
           {GLINTS.map((g, i) => (
-            <rect key={i} className="aura-dusk-glint" x={g.x - g.w / 2} y={g.y} width={g.w} height="2.2" rx="1.1"
-              fill="#ffc29e" style={{ animationDelay: `${g.delay}s`, animationDuration: `${g.dur}s` }} />
+            <g key={i} transform={`translate(${g.x.toFixed(1)} ${g.y.toFixed(1)})`}>
+              <path className="aura-dusk-glint" d={g.flat} fill="none" stroke="#ffc29e" strokeWidth="2.2" strokeLinecap="round"
+                style={{ animationDelay: `${g.delay}s`, animationDuration: `${g.dur}s` }}>
+                <animate attributeName="d" values={g.ripple} dur={`${g.rippleDur.toFixed(2)}s`} repeatCount="indefinite" />
+              </path>
+            </g>
           ))}
 
           {/* The water's surface is y = 0 in each dolphin's own space, so
