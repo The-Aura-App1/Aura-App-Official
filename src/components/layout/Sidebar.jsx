@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import Wordmark from '../brand/Wordmark';
 import { ThemeMenu } from '../theme/ThemePicker';
 import useUnreadCount from '../../hooks/useUnreadCount';
 
@@ -33,9 +34,8 @@ export default function Sidebar() {
 
   return (
     <div className="flex flex-col h-full px-4 py-6">
-      <div className="flex items-center gap-2 px-2 mb-10">
-        <img src="/aura-logo.png" alt="Aura" className="w-9 h-9 rounded-xl" />
-        <span className="aura-wordmark text-3xl">Aura App</span>
+      <div className="flex items-center px-2 pt-2 mb-10">
+        <Wordmark className="text-4xl" />
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">

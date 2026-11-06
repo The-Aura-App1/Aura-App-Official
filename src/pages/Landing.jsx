@@ -61,9 +61,9 @@ export default function Landing() {
           style={{ animationDelay: '0.25s' }}>
           A{' '}
           <span className="relative inline-block">
-            consumer-centered
+            <span className="aura-em">consumer-centered</span>
             {/* Hand-drawn underline */}
-            <svg className="absolute left-0 -bottom-2 w-full h-4 text-fuchsia-500" viewBox="0 0 300 16"
+            <svg className="absolute left-0 -bottom-2 w-full h-4" style={{ color: 'var(--brand-3)' }} viewBox="0 0 300 16"
               preserveAspectRatio="none" fill="none" aria-hidden="true">
               <path className="aura-scribble" d="M3 11c38-6 84-9 135-8 52 1 104 3 159 0M18 14c56-4 128-6 210-3"
                 stroke="currentColor" strokeWidth="3" strokeLinecap="round" />

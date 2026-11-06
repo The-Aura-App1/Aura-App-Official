@@ -8,6 +8,7 @@ import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
 import TwinklingStars from '../scenes/TwinklingStars';
 import '../scenes/scenes.css';
+import BrandWordmark from '../brand/Wordmark';
 
 // Fixed positions so the sparkles don't jump around between renders.
 const SPARKLES = [
@@ -150,14 +151,12 @@ function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }
   );
 }
 
-// The "Aura App" name in the display font. `size` picks the landing-page or
-// compact version used above the auth forms.
+// The logo on the public pages. `size` picks the landing-page version (under
+// the big halo, so without its own) or the compact one above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
-  const text = (
-    <span className={`aura-wordmark ${size === 'lg' ? 'text-6xl sm:text-8xl md:text-9xl' : 'text-4xl sm:text-5xl'}`}>
-      Aura App
-    </span>
-  );
+  const text = size === 'lg'
+    ? <BrandWordmark halo={false} className="text-6xl sm:text-8xl md:text-9xl" />
+    : <BrandWordmark className="text-4xl sm:text-5xl" />;
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
 
@@ -447,6 +446,22 @@ function SceneLayers({ index }) {
   });
 }
 
+// Tells the glass card or highlight under the mouse where the cursor is, for
+// its hover glow (.aura-glass-card in index.css).
+function useCardSpotlight() {
+  useEffect(() => {
+    function onMove(e) {
+      const card = e.target.closest?.('.aura-glass-card, .aura-highlight');
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+      card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+    }
+    document.addEventListener('pointermove', onMove, { passive: true });
+    return () => document.removeEventListener('pointermove', onMove);
+  }, []);
+}
+
 // The scenery shared by the welcome, about and auth pages. It rotates
 // through Day, Snowy Peaks, Night and Duskfall (SiteHeader's controls pause
 // it). The content sits above on its own layer with the `aura-heaven`
@@ -455,6 +470,7 @@ function SceneLayers({ index }) {
 export default function AuthBackdrop({ children, className = '' }) {
   const scenes = useSceneRotation();
   const theme = getTheme(PUBLIC_ROTATION[scenes.foreground]);
+  useCardSpotlight();
   return (
     <SceneContext.Provider value={scenes}>
       <div className={`aura-scenery relative min-h-screen overflow-hidden bg-[#0d0618] ${className}`}>

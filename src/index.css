@@ -31,6 +31,16 @@
   --accent:        #7c3aed;
   --accent-hover:  #6d28d9;
   --accent-subtle: #ede9fe;
+
+  /* Each theme's signature gradient: --brand-* fills buttons, borders and
+     the logo's halo; --brand-ink-* is the same gradient tuned to read as
+     text on the theme's background (logo, italic emphasis, kickers). */
+  --brand-1: #6d28d9;
+  --brand-2: #9333ea;
+  --brand-3: #c026d3;
+  --brand-ink-1: #6d28d9;
+  --brand-ink-2: #9333ea;
+  --brand-ink-3: #c026d3;
 }
 
 .dark {
@@ -45,6 +55,12 @@
   --accent:        #7c3aed;
   --accent-hover:  #8b5cf6;
   --accent-subtle: #2d1b4e;
+  --brand-1: #8b5cf6;
+  --brand-2: #a855f7;
+  --brand-3: #d946ef;
+  --brand-ink-1: #c4b5fd;
+  --brand-ink-2: #d8b4fe;
+  --brand-ink-3: #f0abfc;
 }
 
 /* Light: pure white with neutral greys, no scenery. */
@@ -102,6 +118,13 @@
   --accent:        #5c70e6;
   --accent-hover:  #4f62c8;
   --accent-subtle: #e6ecfd;
+  /* Deep periwinkle into glacier blue. */
+  --brand-1: #3b55d9;
+  --brand-2: #5c70e6;
+  --brand-3: #0ea5e9;
+  --brand-ink-1: #2c47b8;
+  --brand-ink-2: #4f62c8;
+  --brand-ink-3: #0284c7;
 }
 
 /* Duskfall: deep violet night with a warm sunset-rose accent. */
@@ -129,6 +152,13 @@
   --accent:        #e8607a;
   --accent-hover:  #f4808c;
   --accent-subtle: #2a1530;
+  /* Sunset rose into amber. */
+  --brand-1: #c2416b;
+  --brand-2: #e0587a;
+  --brand-3: #e8794f;
+  --brand-ink-1: #f4808c;
+  --brand-ink-2: #f8a28c;
+  --brand-ink-3: #fbc38a;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -212,16 +242,43 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* The name in the heading serif, in the theme's deepest accent shade, with
-     a faint soft shadow so it still lifts off the sky. */
+  /* The name in the heading serif and the theme's gradient, with a faint
+     soft shadow so it still lifts off the sky. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
     font-weight: 600;
     letter-spacing: -0.02em;
-    padding: 0.04em 0.05em 0.1em;
-    color: rgb(var(--aura-800));
-    text-shadow: 0 1px 18px rgba(255, 255, 255, 0.55);
+    padding: 0.04em 0.06em 0.12em;
+    background: linear-gradient(110deg, var(--brand-ink-1), var(--brand-ink-2) 50%, var(--brand-ink-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 1px 10px rgba(255, 255, 255, 0.5));
   }
+  /* The small halo tilted over the logo's "A" (Wordmark.jsx). */
+  .aura-wordmark-halo {
+    position: absolute;
+    left: 0.1em;
+    top: -0.14em;
+    width: 0.7em;
+    transform: rotate(-8deg);
+    filter: drop-shadow(0 0 0.06em rgb(var(--aura-400) / 0.7));
+    pointer-events: none;
+  }
+  /* Italic words in the theme's gradient, for emphasis inside headings. */
+  .aura-em {
+    font-style: italic;
+    background: linear-gradient(110deg, var(--brand-ink-1), var(--brand-ink-2) 50%, var(--brand-ink-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding: 0 0.1em 0.08em 0.02em;
+    margin: 0 -0.06em 0 -0.02em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  /* Small uppercase labels above headings, in the gradient's end color. */
+  .aura-kicker { color: var(--brand-ink-3); }
   /* Section headings on the public pages, in the wordmark's serif. */
   .aura-heading {
     @apply font-heading text-aura-900;
@@ -229,11 +286,22 @@ h1, h2, h3 {
     letter-spacing: -0.01em;
   }
   .aura-cta {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
-    background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
-    box-shadow: 0 8px 24px -10px rgba(124, 58, 237, 0.55);
+    @apply relative overflow-hidden inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
+    background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+    box-shadow: 0 8px 24px -10px rgb(var(--aura-500) / 0.55);
   }
-  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(124, 58, 237, 0.65); }
+  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgb(var(--aura-500) / 0.65); }
+  /* A band of light that sweeps across on hover. */
+  .aura-cta::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+    transform: translateX(-110%);
+    transition: transform 0.7s ease;
+    pointer-events: none;
+  }
+  .aura-cta:hover::after { transform: translateX(110%); }
   .aura-glass-btn {
     @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-aura-800 bg-white/60 border border-white backdrop-blur-md transition-all duration-200 hover:bg-white/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500;
     box-shadow: 0 6px 20px -12px rgba(91, 53, 158, 0.35);
@@ -243,8 +311,38 @@ h1, h2, h3 {
     box-shadow: 0 20px 50px -28px rgba(91, 53, 158, 0.4);
   }
   .aura-highlight {
-    @apply rounded-xl bg-white/55 border border-white/80 backdrop-blur-md transition-all duration-300;
+    @apply rounded-xl bg-white/55 border border-white/80 backdrop-blur-md;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, --spot 0.3s ease;
   }
+}
+
+/* Glass cards and highlights get a hairline border in the theme's gradient
+   and, where there's a mouse, a soft glow that follows the cursor (AuthBackdrop
+   sets --mx/--my). */
+@property --spot { syntax: '<number>'; inherits: false; initial-value: 0; }
+.aura-glass-card, .aura-highlight {
+  position: relative;
+  background-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 0%),
+    rgb(var(--aura-400) / calc(var(--spot) * 0.18)), transparent 70%);
+}
+.aura-glass-card { transition: --spot 0.3s ease; }
+.aura-glass-card::before, .aura-highlight::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2) 45%, var(--brand-3));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.35;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .aura-glass-card:hover, .aura-highlight:hover { --spot: 1; }
+  .aura-glass-card:hover::before, .aura-highlight:hover::before { opacity: 0.75; }
 }
 
 /* Highlight pills: the explanation opens on hover (where hover exists) or
@@ -259,11 +357,11 @@ h1, h2, h3 {
 .aura-highlight-body > * { min-height: 0; }
 .aura-faq summary::-webkit-details-marker { display: none; }
 .aura-highlight-chevron { transition: transform 0.3s ease; }
-.aura-highlight.is-open { background: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
+.aura-highlight.is-open { background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
 .aura-highlight.is-open .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
 .aura-highlight.is-open .aura-highlight-chevron { transform: rotate(180deg); }
 @media (hover: hover) {
-  .aura-highlight:hover { background: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
+  .aura-highlight:hover { background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
   .aura-highlight:hover .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
   .aura-highlight:hover .aura-highlight-chevron { transform: rotate(180deg); }
 }
@@ -417,14 +515,8 @@ h1, h2, h3 {
 }
 
 .dark .aura-wordmark {
-  color: rgb(var(--aura-100));
-  text-shadow: 0 0 24px rgb(var(--aura-500) / 0.45);
+  filter: drop-shadow(0 0 18px rgb(var(--aura-500) / 0.45));
 }
-.dark .aura-cta {
-  background: linear-gradient(110deg, #8b5cf6, #a855f7 55%, #d946ef);
-  box-shadow: 0 10px 40px -8px rgba(168, 85, 247, 0.65);
-}
-.dark .aura-cta:hover { box-shadow: 0 14px 48px -6px rgba(168, 85, 247, 0.8); }
 .dark .aura-heading { color: #f5f3ff; }
 .dark .aura-glass-btn,
 .dark .aura-glass-btn:hover {
@@ -435,17 +527,17 @@ h1, h2, h3 {
 .dark .aura-glass-btn { background: rgba(255, 255, 255, 0.05); }
 .dark .aura-glass-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.25); }
 .dark .aura-glass-card {
-  background: rgba(20, 10, 38, 0.7);
+  background-color: rgba(20, 10, 38, 0.7);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 56px -28px rgba(124, 58, 237, 0.4);
 }
 .dark .aura-highlight {
-  background: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
 }
-.dark .aura-highlight.is-open { background: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
+.dark .aura-highlight.is-open { background-color: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
 @media (hover: hover) {
-  .dark .aura-highlight:hover { background: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
+  .dark .aura-highlight:hover { background-color: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
 }
 
 /* Halo-shaped constellation: dark mode on wide screens only, where there's

@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ThemeMenu } from '../theme/ThemePicker';
 import { useAuth } from '../../context/AuthContext';
 import useUnreadCount from '../../hooks/useUnreadCount';
+import Wordmark from '../brand/Wordmark';
 
 // Top bar on phones and tablets (the sidebar takes over on large screens).
 export default function Topbar() {
@@ -24,9 +25,8 @@ export default function Topbar() {
                        bg-[var(--bg-secondary)]/90 backdrop-blur-md
                        border-b border-[var(--border)]
                        flex items-center justify-between px-4 h-14">
-      <Link to="/" className="flex items-center gap-2">
-        <img src="/aura-logo.png" alt="Aura" className="w-8 h-8 rounded-lg" />
-        <span className="aura-wordmark text-2xl">Aura App</span>
+      <Link to="/" aria-label="Aura App home" className="flex items-center pt-1">
+        <Wordmark className="text-3xl" />
       </Link>
       <div className="flex items-center gap-1">
         <NavLink to="/notifications" aria-label="Notifications" className={iconClass}>
