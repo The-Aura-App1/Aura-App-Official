@@ -162,7 +162,7 @@ h1, h2, h3 {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium text-sm text-[var(--text-secondary)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200;
   }
   .card {
-    @apply bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 shadow-sm transition-all duration-200;
+    @apply bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 shadow-sm transition-all duration-200;
   }
   .card-hover {
     @apply card hover:border-aura-500/50 hover:shadow-aura-sm cursor-pointer;
@@ -212,48 +212,38 @@ h1, h2, h3 {
 }
 
 @layer components {
-  /* Loose hand-written script (Zeyada) in the same gradient as the Create account button,
-     with a white glow to lift it off the sky. A transparent stroke thickens the
-     hairline strokes (the gradient fills the stroke too), and the padding
-     makes room for it and the swashes. */
+  /* The name in the heading serif, in the theme's deepest accent shade, with
+     a faint soft shadow so it still lifts off the sky. */
   .aura-wordmark {
     @apply font-wordmark leading-none;
-    font-weight: 400;
-    letter-spacing: 0;
-    -webkit-text-stroke: 0.04em transparent;
-    padding: 0.08em 0.2em 0.18em;
-    background: linear-gradient(110deg, #7c3aed, #a855f7 50%, #e040fb);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    /* A tight white rim, a soft white bloom, then a violet halo. */
-    filter:
-      drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95))
-      drop-shadow(0 0 14px rgba(255, 255, 255, 0.85))
-      drop-shadow(0 4px 24px rgba(168, 85, 247, 0.5));
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    padding: 0.04em 0.05em 0.1em;
+    color: rgb(var(--aura-800));
+    text-shadow: 0 1px 18px rgba(255, 255, 255, 0.55);
   }
-  /* Section headings on the public pages, in the wordmark's soft serif. */
+  /* Section headings on the public pages, in the wordmark's serif. */
   .aura-heading {
     @apply font-heading text-aura-900;
     font-weight: 700;
     letter-spacing: -0.01em;
   }
   .aura-cta {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
     background: linear-gradient(110deg, #6d28d9, #9333ea 55%, #c026d3);
-    box-shadow: 0 10px 34px -8px rgba(124, 58, 237, 0.6);
+    box-shadow: 0 8px 24px -10px rgba(124, 58, 237, 0.55);
   }
-  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 40px -6px rgba(124, 58, 237, 0.7); }
+  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(124, 58, 237, 0.65); }
   .aura-glass-btn {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl font-semibold text-aura-800 bg-white/60 border border-white backdrop-blur-md transition-all duration-200 hover:bg-white/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500;
-    box-shadow: 0 8px 28px -10px rgba(91, 53, 158, 0.35);
+    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-aura-800 bg-white/60 border border-white backdrop-blur-md transition-all duration-200 hover:bg-white/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500;
+    box-shadow: 0 6px 20px -12px rgba(91, 53, 158, 0.35);
   }
   .aura-glass-card {
-    @apply rounded-3xl p-6 sm:p-8 bg-white/70 border border-white backdrop-blur-xl;
-    box-shadow: 0 30px 70px -24px rgba(91, 53, 158, 0.4);
+    @apply rounded-2xl p-6 sm:p-8 bg-white/70 border border-white backdrop-blur-xl;
+    box-shadow: 0 20px 50px -28px rgba(91, 53, 158, 0.4);
   }
   .aura-highlight {
-    @apply rounded-2xl bg-white/55 border border-white/80 backdrop-blur-md transition-all duration-300;
+    @apply rounded-xl bg-white/55 border border-white/80 backdrop-blur-md transition-all duration-300;
   }
 }
 
@@ -281,11 +271,11 @@ h1, h2, h3 {
 @layer components {
 }
 
-/* Dawn sky: lavender overhead fading to a warm, bright horizon. */
+/* Dawn sky: soft lavender overhead fading to a warm, bright horizon. */
 .aura-sky {
   background:
     radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255, 255, 255, 0.95), transparent 70%),
-    linear-gradient(180deg, #c9b6ff 0%, #ddd0ff 28%, #f1e6ff 52%, #ffeef5 72%, #fff6ec 100%);
+    linear-gradient(180deg, #cfc3f2 0%, #e1d8f7 28%, #f2eafb 52%, #fcf1f6 72%, #fcf6ef 100%);
 }
 
 /* Soft light rays fanning down from above the halo. */
@@ -322,7 +312,7 @@ h1, h2, h3 {
 @keyframes cloudDriftB { 0%, 100% { transform: translateX(-3rem); } 50% { transform: translateX(2rem); } }
 @keyframes cloudFloat  { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5rem); } }
 @keyframes twinkle     { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
-@keyframes haloFloat   { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
+@keyframes haloFloat   { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
 
 /* Page content stays still for people who ask their device for less motion.
    The scenery keeps moving, just slower (see SceneDecor); Aura's own
@@ -427,11 +417,8 @@ h1, h2, h3 {
 }
 
 .dark .aura-wordmark {
-  background-image: linear-gradient(110deg, #a78bfa, #c084fc 50%, #f472f6);
-  filter:
-    drop-shadow(0 0 4px rgba(233, 213, 255, 0.6))
-    drop-shadow(0 0 18px rgba(168, 85, 247, 0.75))
-    drop-shadow(0 0 44px rgba(217, 70, 239, 0.4));
+  color: rgb(var(--aura-100));
+  text-shadow: 0 0 24px rgb(var(--aura-500) / 0.45);
 }
 .dark .aura-cta {
   background: linear-gradient(110deg, #8b5cf6, #a855f7 55%, #d946ef);
@@ -450,7 +437,7 @@ h1, h2, h3 {
 .dark .aura-glass-card {
   background: rgba(20, 10, 38, 0.7);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 30px 80px -20px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 20px 56px -28px rgba(124, 58, 237, 0.4);
 }
 .dark .aura-highlight {
   background: rgba(255, 255, 255, 0.05);

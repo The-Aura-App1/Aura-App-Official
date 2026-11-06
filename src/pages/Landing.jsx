@@ -57,7 +57,7 @@ export default function Landing() {
           <Wordmark />
         </h1>
 
-        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-hand text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-aura-950 dark:text-white"
+        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-heading text-4xl sm:text-5xl md:text-6xl font-semibold leading-tight tracking-tight text-aura-950 dark:text-white"
           style={{ animationDelay: '0.25s' }}>
           A{' '}
           <span className="relative inline-block">
@@ -100,7 +100,7 @@ export default function Landing() {
         </div>
 
         <Link to="/about"
-          className="aura-rise mt-6 inline-flex items-center gap-1.5 font-hand text-2xl font-bold text-aura-700 dark:text-aura-300 hover:text-aura-500 transition-colors"
+          className="aura-rise mt-6 inline-flex items-center gap-1.5 text-base font-semibold text-aura-700 dark:text-aura-300 hover:text-aura-500 transition-colors"
           style={{ animationDelay: '0.65s' }}>
           What is Aura? <ArrowRight size={18} />
         </Link>

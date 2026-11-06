@@ -143,7 +143,7 @@ function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }
           <circle cx={s.x} cy={s.y} r={s.r} fill="#f5f3ff" />
         </g>
       ))}
-      <text x="110" y="128" textAnchor="middle" className="font-hand" fontSize="15" fill="rgba(221, 214, 254, 0.55)">
+      <text x="110" y="128" textAnchor="middle" className="font-heading" fontSize="14" fontStyle="italic" fill="rgba(221, 214, 254, 0.55)">
         Aura
       </text>
     </svg>

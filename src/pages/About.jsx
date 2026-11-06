@@ -142,8 +142,8 @@ const FAQS = [
 function SectionHeading({ kicker, title, children }) {
   return (
     <div className="text-center max-w-2xl mx-auto">
-      <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600 dark:text-fuchsia-300">{kicker}</p>
-      <h2 className="aura-heading mt-1 text-4xl sm:text-6xl">{title}</h2>
+      <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-600 dark:text-fuchsia-300">{kicker}</p>
+      <h2 className="aura-heading mt-3 text-4xl sm:text-6xl">{title}</h2>
       {children && <p className="mt-5 text-base sm:text-lg text-aura-800/80 dark:text-aura-100/80 leading-relaxed">{children}</p>}
     </div>
   );
@@ -151,7 +151,7 @@ function SectionHeading({ kicker, title, children }) {
 
 function IconBadge({ icon: Icon }) {
   return (
-    <div className="w-11 h-11 rounded-2xl bg-aura-100 dark:bg-aura-500/15 border border-white dark:border-white/10 flex items-center justify-center shrink-0">
+    <div className="w-11 h-11 rounded-xl bg-aura-100 dark:bg-aura-500/15 border border-white dark:border-white/10 flex items-center justify-center shrink-0">
       <Icon size={20} className="text-aura-600 dark:text-aura-300" />
     </div>
   );
@@ -165,7 +165,7 @@ export default function About() {
       <main className="flex-1 px-5 pb-28 sm:pb-40">
         {/* Hero */}
         <section className="aura-rise max-w-3xl mx-auto text-center pt-10 sm:pt-16">
-          <p className="font-hand text-3xl sm:text-4xl font-bold text-fuchsia-600 dark:text-fuchsia-300">Why we built Aura</p>
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-600 dark:text-fuchsia-300">Why we built Aura</p>
           <h1 className="aura-heading mt-3 text-5xl sm:text-7xl leading-[1.05]">
             Social media that works for you, not the other way around.
           </h1>
@@ -201,7 +201,7 @@ export default function About() {
               <li key={s.title} className="aura-glass-card !p-7 flex gap-5 text-left">
                 <div className="flex flex-col items-center gap-2">
                   <IconBadge icon={s.icon} />
-                  <span className="font-hand text-2xl font-bold text-aura-400">{i + 1}</span>
+                  <span className="font-heading text-2xl font-semibold text-aura-400">{i + 1}</span>
                 </div>
                 <div>
                   <h3 className="text-lg sm:text-xl font-bold text-aura-950 dark:text-white">{s.title}</h3>
@@ -211,13 +211,13 @@ export default function About() {
             ))}
           </ol>
 
-          <div className="mt-8 rounded-3xl p-7 sm:p-9 text-center text-white"
+          <div className="mt-8 rounded-2xl p-7 sm:p-9 text-center text-white"
             style={{ background: 'linear-gradient(120deg, #5b21b6, #7c3aed 55%, #a21caf)', boxShadow: '0 24px 60px -24px rgba(91, 33, 182, 0.6)' }}>
             <div className="flex justify-center gap-3">
               <Ban size={22} className="text-aura-200" />
               <Wallet size={22} className="text-aura-200" />
             </div>
-            <p className="mt-4 font-hand text-3xl sm:text-4xl font-bold">Aura can never be bought. Only earned.</p>
+            <p className="mt-4 font-heading text-3xl sm:text-4xl font-semibold">Aura can never be bought. Only earned.</p>
             <p className="mt-3 max-w-2xl mx-auto text-aura-100 leading-relaxed">
               There's no way to pay to win. The only way to get ahead is to make things people
               genuinely value.
@@ -294,8 +294,8 @@ export default function About() {
         {/* Founder note */}
         <section className="mt-28 sm:mt-36 max-w-2xl mx-auto">
           <figure className="aura-glass-card !p-8 sm:!p-10 text-center">
-            <p className="font-hand text-2xl sm:text-3xl font-bold text-fuchsia-600 dark:text-fuchsia-300">a note from the founder</p>
-            <blockquote className="mt-4 font-hand text-2xl sm:text-3xl leading-snug text-aura-950 dark:text-white">
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-600 dark:text-fuchsia-300">a note from the founder</p>
+            <blockquote className="mt-5 font-heading italic text-2xl sm:text-3xl leading-snug text-aura-950 dark:text-white">
               "We're in the business of making a consumer centered social media platform, not a
               cleverly designed data farm."
             </blockquote>

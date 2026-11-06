@@ -21,7 +21,7 @@ export const THEMES = [
     id: 'day', name: 'Day', base: 'light', scene: 'sky', bar: '#ede9fe',
     description: 'A dawn sky with drifting clouds.',
     preview: {
-      background: 'linear-gradient(180deg, #c9b6ff 0%, #f1e6ff 55%, #fff6ec 100%)',
+      background: 'linear-gradient(180deg, #cfc3f2 0%, #f2eafb 55%, #fcf6ef 100%)',
       card: '#ffffff', text: '#1a0a2e', muted: '#ddd6fe', accent: '#7c3aed',
     },
   },
