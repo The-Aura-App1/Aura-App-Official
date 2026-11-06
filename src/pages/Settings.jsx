@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api';
 import { ThemeCards } from '../components/theme/ThemePicker';
+import { clearTaste, isLearningOn, setLearningOn } from '../utils/tasteProfile';
 import { usernameStatusText } from '../utils/format';
 
 const NOTIFICATION_OPTIONS = [
@@ -131,11 +132,14 @@ function PasswordForm() {
 }
 
 export default function Settings() {
-  const { dbProfile, username, refreshUser, logout } = useAuth();
+  const { user, dbProfile, username, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
   const { skyDetails, setSkyDetails } = useTheme();
 
   const [settings, setSettings] = useState(null);
+  // Feed learning lives on this device only (tasteProfile.js)
+  const [learning, setLearning] = useState(() => isLearningOn(user?.userId));
+  const [learnReset, setLearnReset] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
@@ -243,6 +247,21 @@ export default function Settings() {
         <>
           {/* ── Privacy ── */}
           <Section icon={Shield} title="Privacy">
+            <Toggle
+              label="Learn from what I do"
+              description="Your feed adapts to the aura you give and take and the posts you like, right on this device. It's never sent to our servers, and nothing is learned from what you only look at."
+              checked={learning}
+              onChange={value => { setLearningOn(user?.userId, value); setLearning(value); }}
+            />
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs text-[var(--text-muted)]">
+                {learnReset ? 'Done. Your feed starts fresh.' : 'Clear everything your feed has learned on this device.'}
+              </p>
+              <button type="button" className="btn-secondary shrink-0"
+                onClick={() => { clearTaste(user?.userId); setLearnReset(true); }}>
+                Reset what Aura learned
+              </button>
+            </div>
             <Toggle
               label="Private account"
               description="Only approved followers will see your posts. Takes effect when following launches."

@@ -1,10 +1,19 @@
 import { decodeVector, similarity } from './embeddings';
 import { hashtagKey } from './hashtags';
+import { EMPTY_TASTE, hasTaste, prepareTaste, tasteMatch } from './tasteProfile';
 
 // hotScore units: 1.0 = about 12.5 hours newer, or 10x the aura
 export const MORE_BOOST    = 1.5;
 export const LESS_PENALTY  = 3;
 export const EXPLORE_EVERY = 5;
+
+// What the feed has learned on this device (tasteProfile.js) can move a post
+// by up to TASTE_WEIGHT either way. It's smaller than MORE_BOOST and
+// LESS_PENALTY, so the user's own choices always win. A post that fits the
+// learned taste by at least TASTE_MATCH counts as "more of what they like"
+// when choosing exploration posts.
+export const TASTE_WEIGHT = 1;
+export const TASTE_MATCH  = 0.2;
 
 // Keyword matches ramp from no effect at KEYWORD_FLOOR similarity to the full
 // boost/penalty at KEYWORD_FULL. Measured on all-MiniLM-L6-v2: real matches
@@ -36,7 +45,7 @@ function bestMatch(postVec, hashKeys, words) {
 }
 
 // Returns the post's score and whether it matches anything the user wants more of
-function evaluate(post, prefs, words) {
+function evaluate(post, prefs, words, taste) {
   const tags = post.tags ?? [];
   let score = post.hotScore ?? 0;
 
@@ -49,23 +58,30 @@ function evaluate(post, prefs, words) {
   const wordMore  = bestMatch(postVec, hashKeys, words.more);
   const wordLess  = bestMatch(postVec, hashKeys, words.less);
 
+  const fit = taste ? tasteMatch(post, taste) : 0;
+
   score += MORE_BOOST   * Math.max(topicMore ? 1 : 0, wordMore);
   score -= LESS_PENALTY * Math.max(topicLess ? 1 : 0, wordLess);
-  return { score, match: topicMore || wordMore > 0 };
+  score += TASTE_WEIGHT * fit;
+  return { score, match: topicMore || wordMore > 0 || fit >= TASTE_MATCH };
 }
 
-export function scorePost(post, prefs) {
-  return evaluate(post, prefs, keywordVectors(prefs)).score;
+const prepared = taste => (taste && hasTaste(taste) ? prepareTaste(taste) : null);
+
+export function scorePost(post, prefs, taste = EMPTY_TASTE) {
+  return evaluate(post, prefs, keywordVectors(prefs), prepared(taste)).score;
 }
 
 // Every EXPLORE_EVERY-th slot goes to the best post outside what the user asked
-// for more of, so the feed never narrows to only what they already picked
-export function rankFeed(posts, prefs) {
+// for more of or has shown they like, so the feed never narrows to only what
+// they already know and their interests can keep changing
+export function rankFeed(posts, prefs, taste = EMPTY_TASTE) {
   const words  = keywordVectors(prefs);
+  const learned = prepared(taste);
   const ranked = posts
-    .map((post, i) => ({ post, i, ...evaluate(post, prefs, words) }))
+    .map((post, i) => ({ post, i, ...evaluate(post, prefs, words, learned) }))
     .sort((a, b) => b.score - a.score || a.i - b.i);
-  if (!prefs.more.length && !words.more.length) return ranked.map(entry => entry.post);
+  if (!prefs.more.length && !words.more.length && !learned) return ranked.map(entry => entry.post);
 
   const used = new Set();
   const out  = [];

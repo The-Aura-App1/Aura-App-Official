@@ -3,13 +3,14 @@ import { X, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import { formatAura } from '../../utils/format';
+import { recordEngagement } from '../../utils/tasteProfile';
 
 const GIVE_PRESETS_REGULAR = [5, 10, 25, 50, 100, 250, 500];
 const GIVE_PRESETS_PREMIUM = [5, 10, 25, 50, 100, 250, 500, 1000, 2000];
 const TAKE_PRESETS         = [5, 10, 25, 50];
 
 export default function AuraModal({ post, type, onSuccess, onClose }) {
-  const { isPremium } = useAuth();
+  const { isPremium, user } = useAuth();
   const isGive        = type === 'give';
 
   const presets = isGive
@@ -34,7 +35,8 @@ export default function AuraModal({ post, type, onSuccess, onClose }) {
 
     try {
       const fn     = isGive ? api.giveAura : api.takeAura;
-      const result = await fn(post.postId, amount);
+      await fn(post.postId, amount);
+      recordEngagement(user?.userId, post, isGive ? 'give' : 'take', amount);
       onSuccess(isGive ? amount : -amount);
     } catch (err) {
       setError(err.message);

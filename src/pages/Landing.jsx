@@ -7,7 +7,7 @@ const HIGHLIGHTS = [
   {
     icon: SlidersHorizontal,
     title: 'Your feed, your rules',
-    body: 'Pick topics and keywords, or tap "Show more/less like this". Your feed is ranked only on what you tell it, never on what you click, view or like.',
+    body: 'Pick topics and keywords, or tap "Show more/less like this". Your feed also learns from the aura you give and the posts you like, right on your device. It never uses what you click on or how long you look.',
   },
   {
     icon: ShieldCheck,

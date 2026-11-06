@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import AuraModal   from './AuraModal';
+import { recordEngagement } from '../../utils/tasteProfile';
 import PostMedia   from './PostMedia';
 import { formatAura, timeAgo } from '../../utils/format';
 import { topicLabel } from '../../utils/topics';
@@ -57,6 +58,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff 
     if (likeCount !== undefined) setLikeCount(c => c + (next ? 1 : -1));
     try {
       await (next ? api.likePost(post.postId) : api.unlikePost(post.postId));
+      if (next) recordEngagement(user?.userId, post, 'like');
     } catch (err) {
       console.error(err);
       setLiked(!next);

@@ -6,6 +6,7 @@ import TuneFeed from '../components/feed/TuneFeed';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { loadPrefs, savePrefs, setTopics } from '../utils/feedPrefs';
 import { rankFeed } from '../utils/feedRanking';
+import { EMPTY_TASTE, isLearningOn, loadTaste } from '../utils/tasteProfile';
 
 const PAGE_SIZE = 20;
 
@@ -20,6 +21,9 @@ export default function Feed() {
   // from a post's menu wait until the next load so the feed doesn't jump.
   const [prefs, setPrefs]         = useState(() => loadPrefs(userId));
   const [rankPrefs, setRankPrefs] = useState(prefs);
+  // What the feed has learned on this device; read when the feed opens so
+  // the order doesn't shift while someone is reading.
+  const [taste, setTaste] = useState(EMPTY_TASTE);
   const prefsRef    = useRef(prefs);
   const sentinelRef = useRef(null);
 
@@ -28,6 +32,7 @@ export default function Feed() {
     prefsRef.current = saved;
     setPrefs(saved);
     setRankPrefs(saved);
+    setTaste(isLearningOn(userId) ? loadTaste(userId) : EMPTY_TASTE);
   }, [userId]);
 
   const loadFeed = useCallback(async () => {
@@ -44,7 +49,7 @@ export default function Feed() {
 
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
-  const ranked = useMemo(() => rankFeed(posts, rankPrefs), [posts, rankPrefs]);
+  const ranked = useMemo(() => rankFeed(posts, rankPrefs, taste), [posts, rankPrefs, taste]);
 
   useEffect(() => {
     const el = sentinelRef.current;

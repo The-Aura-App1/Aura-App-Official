@@ -52,8 +52,8 @@ const PROMISES = [
     icon: SlidersHorizontal,
     title: 'Your feed, your choice',
     points: [
-      'You tune your feed with topics, keywords and "Show more/less like this". That\'s it.',
-      'We never use your clicks, views, watch time or likes to rank your feed.',
+      'You tune your feed with topics, keywords and "Show more/less like this", and it learns from the aura you give and take and the posts you like.',
+      'We never use your clicks, views or watch time to rank your feed. What it learns stays on your device, and you can turn it off or reset it in Settings.',
     ],
   },
   {
