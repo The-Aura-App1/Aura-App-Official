@@ -6,31 +6,13 @@ import { getTheme, PUBLIC_ROTATION } from '../../themes';
 import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
+import Meadow from '../scenes/Meadow';
 import TwinklingStars from '../scenes/TwinklingStars';
 import '../scenes/scenes.css';
 import BrandWordmark from '../brand/Wordmark';
 
-// Fixed positions so the sparkles don't jump around between renders.
-const SPARKLES = [
-  { top: '12%', left: '14%', size: 14, delay: '0s'   },
-  { top: '22%', left: '82%', size: 18, delay: '1.2s' },
-  { top: '48%', left: '6%',  size: 10, delay: '2.1s' },
-  { top: '38%', left: '90%', size: 12, delay: '0.6s' },
-  { top: '6%',  left: '62%', size: 8,  delay: '1.7s' },
-  { top: '30%', left: '28%', size: 9,  delay: '2.8s' },
-  { top: '8%',  left: '38%', size: 8,  delay: '3.3s' },
-];
-
-function Sparkle({ size }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z" />
-    </svg>
-  );
-}
-
-// Overlapping circles along a baseline. The SVG filter below roughens their
-// edges with noise, which turns the blobs into soft, billowing clouds.
+// Overlapping circles along a baseline. The SVG filter in FloatingCloud
+// roughens their edges with noise, which turns the blobs into soft clouds.
 function cloudPuffs(seed, { width, baseline, minR, maxR, step }) {
   const rand = seeded(seed);
   const puffs = [];
@@ -41,47 +23,6 @@ function cloudPuffs(seed, { width, baseline, minR, maxR, step }) {
   return puffs;
 }
 
-const BANK_WIDTH = 1600;
-const BANK_HEIGHT = 420;
-
-// Back to front: hazier, lavender-tinted clouds behind, brightest in front.
-const CLOUD_LAYERS = [
-  { seed: 7,  baseline: 230, minR: 70, maxR: 150, step: 120, top: '#ffffff', bottom: '#d9ccff', opacity: 0.7,  drift: 'cloudDriftA 40s' },
-  { seed: 21, baseline: 290, minR: 60, maxR: 130, step: 105, top: '#ffffff', bottom: '#eadfff', opacity: 0.85, drift: 'cloudDriftB 32s' },
-  { seed: 42, baseline: 350, minR: 55, maxR: 115, step: 95,  top: '#ffffff', bottom: '#f6f0ff', opacity: 1,    drift: 'cloudDriftA 26s reverse' },
-];
-
-function CloudBank() {
-  return (
-    <div className="aura-cloud-bank absolute inset-x-0 bottom-0 h-[42vh] min-h-[220px]">
-      {CLOUD_LAYERS.map((layer, i) => {
-        const puffs = cloudPuffs(layer.seed, { width: BANK_WIDTH, ...layer });
-        return (
-          <svg key={layer.seed} className="aura-cloud-layer absolute -inset-x-16 bottom-0 h-full w-[calc(100%+8rem)]"
-            viewBox={`0 0 ${BANK_WIDTH} ${BANK_HEIGHT}`} preserveAspectRatio="xMidYMax slice"
-            style={{ opacity: layer.opacity, animation: `${layer.drift} ease-in-out infinite` }}>
-            <defs>
-              <linearGradient id={`cloud-fill-${i}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={layer.top} />
-                <stop offset="100%" stopColor={layer.bottom} />
-              </linearGradient>
-              <filter id={`cloud-edge-${i}`} x="-10%" y="-40%" width="120%" height="160%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="4" seed={layer.seed} />
-                <feDisplacementMap in="SourceGraphic" scale="70" />
-                <feGaussianBlur stdDeviation="5" />
-              </filter>
-            </defs>
-            <g filter={`url(#cloud-edge-${i})`} fill={`url(#cloud-fill-${i})`}>
-              {puffs.map((p, j) => <circle key={j} cx={p.cx} cy={p.cy} r={p.r} />)}
-              <rect x={-200} y={layer.baseline - 20} width={BANK_WIDTH + 400} height={BANK_HEIGHT} />
-            </g>
-          </svg>
-        );
-      })}
-    </div>
-  );
-}
-
 // A single small cloud drifting high in the sky.
 function FloatingCloud({ seed, className, style }) {
   const puffs = cloudPuffs(seed, { width: 260, baseline: 90, minR: 26, maxR: 52, step: 42 });
@@ -90,7 +31,7 @@ function FloatingCloud({ seed, className, style }) {
       <defs>
         <linearGradient id={`float-fill-${seed}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="40%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e4d9ff" />
+          <stop offset="100%" stopColor="#f5dcd2" />
         </linearGradient>
         <filter id={`float-edge-${seed}`} x="-20%" y="-40%" width="140%" height="180%">
           <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed={seed} />
@@ -106,56 +47,11 @@ function FloatingCloud({ seed, className, style }) {
   );
 }
 
-// Stars on a tilted ellipse, like the halo logo (tilted about 12 degrees and
-// squashed to half its width). Each star is nudged off the ellipse a little so
-// it reads as a constellation rather than a drawn ring.
-const HALO_STARS = [
-  { angle: 0,   nudge: 2,  r: 2.6 },
-  { angle: 38,  nudge: -3, r: 1.8 },
-  { angle: 80,  nudge: 3,  r: 2.2 },
-  { angle: 122, nudge: -2, r: 1.6 },
-  { angle: 160, nudge: 4,  r: 2.8 },
-  { angle: 200, nudge: -3, r: 1.7 },
-  { angle: 243, nudge: 2,  r: 2.3 },
-  { angle: 285, nudge: -4, r: 1.6 },
-  { angle: 322, nudge: 3,  r: 2.0 },
-].map(({ angle, nudge, r }) => {
-  const a = (angle * Math.PI) / 180;
-  const tilt = (-12 * Math.PI) / 180;
-  const x = (88 + nudge) * Math.cos(a);
-  const y = (36 + nudge / 2) * Math.sin(a);
-  return {
-    x: 110 + x * Math.cos(tilt) - y * Math.sin(tilt),
-    y: 62 + x * Math.sin(tilt) + y * Math.cos(tilt),
-    r,
-  };
-});
-
-function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }) {
-  const path = HALO_STARS.map((s, i) => `${i ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`).join(' ') + ' Z';
-  return (
-    <svg className={`aura-constellation absolute ${className}`}
-      viewBox="0 0 220 140" aria-hidden="true">
-      <path className="aura-constellation-line" d={path} fill="none" stroke="rgba(221, 214, 254, 0.35)"
-        strokeWidth="0.8" strokeDasharray="3 3" />
-      {HALO_STARS.map((s, i) => (
-        <g key={i} className="aura-constellation-star" style={{ animationDelay: `${(i * 0.7) % 4}s` }}>
-          <circle cx={s.x} cy={s.y} r={s.r * 2.6} fill="rgba(196, 181, 253, 0.18)" />
-          <circle cx={s.x} cy={s.y} r={s.r} fill="#f5f3ff" />
-        </g>
-      ))}
-      <text x="110" y="128" textAnchor="middle" className="font-heading" fontSize="14" fontStyle="italic" fill="rgba(221, 214, 254, 0.55)">
-        Aura
-      </text>
-    </svg>
-  );
-}
-
-// The logo on the public pages. `size` picks the landing-page version (under
-// the big halo, so without its own) or the compact one above the auth forms.
+// The logo on the public pages. `size` picks the big landing-page version
+// or the compact one above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
   const text = size === 'lg'
-    ? <BrandWordmark halo={false} className="text-6xl sm:text-8xl md:text-9xl" />
+    ? <BrandWordmark className="text-6xl sm:text-8xl md:text-9xl" />
     : <BrandWordmark className="text-4xl sm:text-5xl" />;
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
@@ -268,10 +164,68 @@ function BirdFlock({ className }) {
   );
 }
 
-// The sky itself: a dawn sky with clouds in light mode, a galaxy in dark mode.
-// `page` is the full version for the public pages, with the sun and light
-// rays; `app` is the quieter version behind the signed-in app, without rays
-// and with the floating clouds and constellation kept to the side margins.
+// A hot-air balloon far off, drifting slowly across the dawn sky now and
+// then: a striped envelope in faded canvas colors, the basket hanging
+// below on four lines, the sun catching its left side.
+const BALLOON_STRIPES = ['#e9d8c4', '#c9705a', '#e9d8c4', '#7d5a8c', '#e9d8c4', '#c9705a'];
+
+function Balloon({ className }) {
+  // The envelope: a round top narrowing to a mouth, split into gores.
+  const envelope = 'M 0 -38 C 22 -38 30 -20 26 -6 C 23 6 12 14 6 20 L -6 20 C -12 14 -23 6 -26 -6 C -30 -20 -22 -38 0 -38 Z';
+  return (
+    <div className={`aura-day-only aura-balloon absolute left-0 ${className}`} aria-hidden="true">
+      <svg viewBox="-32 -42 64 82" className="w-9 sm:w-11 overflow-visible aura-balloon-bob">
+        <defs>
+          <clipPath id="balloon-envelope"><path d={envelope} /></clipPath>
+          <linearGradient id="balloon-light" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#fff6e8" stopOpacity="0.45" />
+            <stop offset="0.45" stopColor="#fff6e8" stopOpacity="0" />
+            <stop offset="1" stopColor="#3a2a4a" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        <g clipPath="url(#balloon-envelope)">
+          {BALLOON_STRIPES.map((c, i) => (
+            <rect key={i} x={-30 + i * 10} y="-40" width="10.5" height="62" fill={c} />
+          ))}
+          <rect x="-30" y="-40" width="60" height="62" fill="url(#balloon-light)" />
+        </g>
+        <path d="M -6 20 L -4.5 29 M 6 20 L 4.5 29 M -2 20 L -2 29 M 2 20 L 2 29" stroke="#5a4660" strokeWidth="0.6" />
+        <path d="M -5 29 L 5 29 L 4 36 L -4 36 Z" fill="#6b4d3c" />
+      </svg>
+    </div>
+  );
+}
+
+// The full moon on clear nights: a pale disc with faint grey seas and a
+// soft glow, sitting well off to one side.
+function FullMoon({ className }) {
+  return (
+    <svg className={`aura-night-only aura-full-moon absolute ${className}`} viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="full-moon-face" cx="42%" cy="40%" r="62%">
+          <stop offset="0%" stopColor="#fffdf6" />
+          <stop offset="80%" stopColor="#ece8db" />
+          <stop offset="100%" stopColor="#d6d1c4" />
+        </radialGradient>
+      </defs>
+      <circle cx="50" cy="50" r="40" fill="url(#full-moon-face)" />
+      <g fill="#a9a6a6" opacity="0.2" style={{ filter: 'blur(1.2px)' }}>
+        <path d="M 30 34 C 36 26 48 28 50 36 C 52 44 42 48 34 46 C 28 44 26 40 30 34 Z" />
+        <path d="M 54 46 C 60 42 70 46 69 54 C 68 61 58 62 55 57 C 52 53 51 49 54 46 Z" />
+        <ellipse cx="44" cy="62" rx="9" ry="6" transform="rotate(-20 44 62)" />
+        <ellipse cx="64" cy="30" rx="5" ry="3.5" />
+        <circle cx="38" cy="74" r="2.5" />
+      </g>
+    </svg>
+  );
+}
+
+// Day and Night share one place, a hillside farm (Meadow.jsx), under a dawn
+// sky or a moonlit one. Dawn has a pale morning moon, a few clouds, birds
+// and now and then a balloon; night has stars, the full moon and the odd
+// shooting star. `page` is the full version for the public pages; `app` is
+// the quieter one behind the signed-in app, with the sky details kept to
+// the margins.
 export function SkyDecor({ variant = 'page' }) {
   const page = variant === 'page';
   return (
@@ -284,13 +238,14 @@ export function SkyDecor({ variant = 'page' }) {
         <TwinklingStars seed={page ? 3 : 4} count={page ? 70 : 55} />
       </div>
       <span className="aura-night-only aura-shooting-star" />
-      {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
+      {page
+        ? <FullMoon className="top-[92px] left-[9%] w-16 sm:w-20" />
+        : <FullMoon className="top-[10%] left-[4%] w-14" />}
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}
       <BirdFlock className={page ? 'top-[96px]' : 'top-[22%]'} />
-      {page && <div className="aura-rays absolute inset-0" />}
-      {page && <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />}
+      <Balloon className={page ? 'top-[17%]' : 'top-[30%]'} />
       {page ? (
         <>
           <FloatingCloud seed={3}  className="aura-float-cloud w-48 sm:w-72 top-[16%] -left-10 sm:left-[6%]" style={{ animationDuration: '34s' }} />
@@ -302,13 +257,7 @@ export function SkyDecor({ variant = 'page' }) {
           <FloatingCloud seed={11} className="aura-float-cloud w-48 top-[46%] -right-12 opacity-80" style={{ animationDuration: '44s', animationDirection: 'reverse' }} />
         </>
       )}
-      {SPARKLES.map((s, i) => (
-        <span key={i} className="aura-twinkle absolute text-amber-200 dark:text-aura-100"
-          style={{ top: s.top, left: s.left, animationDelay: s.delay }}>
-          <Sparkle size={s.size} />
-        </span>
-      ))}
-      <CloudBank />
+      <Meadow className={page ? 'h-[50vh] min-h-[300px]' : 'h-[40vh] min-h-[240px]'} />
     </>
   );
 }
@@ -341,6 +290,7 @@ export function SceneDecor({ scene, variant = 'page' }) {
   return (
     <div ref={ref} className="absolute inset-0">
       <Scene variant={variant} />
+      <div className="aura-grain absolute inset-0" />
     </div>
   );
 }
@@ -465,15 +415,14 @@ function useCardSpotlight() {
 // The scenery shared by the welcome, about and auth pages. It rotates
 // through Day, Snowy Peaks, Night and Duskfall (SiteHeader's controls pause
 // it). The content sits above on its own layer with the `aura-heaven`
-// colors, switching light/dark with the scene. `className` can move Day's
-// glow (see .aura-glow-on-halo).
-export default function AuthBackdrop({ children, className = '' }) {
+// colors, switching light/dark with the scene.
+export default function AuthBackdrop({ children }) {
   const scenes = useSceneRotation();
   const theme = getTheme(PUBLIC_ROTATION[scenes.foreground]);
   useCardSpotlight();
   return (
     <SceneContext.Provider value={scenes}>
-      <div className={`aura-scenery relative min-h-screen overflow-hidden bg-[#0d0618] ${className}`}>
+      <div className="relative min-h-screen overflow-hidden bg-[#0d0618]">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <SceneLayers index={scenes.index} />
         </div>

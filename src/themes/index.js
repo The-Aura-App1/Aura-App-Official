@@ -5,6 +5,13 @@ const PEAKS_ART = svg(
   "<path d='M55 28 L48 37 L54 35 L58 39 L63 35Z M138 34 L132 41 L137 40 L141 43 L145 40Z' fill='#ffffff'/>" +
   "<path d='M0 84 L30 66 L52 78 L80 60 L104 76 L130 64 L160 80 L160 100 L0 100Z' fill='#7f95c6'/>"
 );
+const HILLS = (far, mid, near) =>
+  `<path d='M0 62 C30 54 55 58 80 60 C110 62 135 52 160 56 L160 100 L0 100Z' fill='${far}'/>` +
+  `<path d='M0 74 C40 66 70 72 100 70 C125 68 145 72 160 70 L160 100 L0 100Z' fill='${mid}'/>` +
+  `<path d='M0 86 C50 80 100 84 160 90 L160 100 L0 100Z' fill='${near}'/>`;
+const DAY_ART = svg("<circle cx='112' cy='62' r='9' fill='#fffaf0'/>" + HILLS('#b9bedc', '#8f97bf', '#6c7299'));
+const NIGHT_ART = svg("<circle cx='26' cy='22' r='7' fill='#f3f0e6'/>" + HILLS('#1c1d3c', '#13142b', '#0c0c1c') +
+  "<rect x='44' y='64' width='2' height='2' fill='#ffc86b'/>");
 const DUSK_ART = svg(
   "<ellipse cx='80' cy='55' rx='60' ry='18' fill='#ff9a6a' opacity='0.55'/>" +
   "<rect y='55' width='160' height='25' fill='#24183f'/>" +
@@ -19,17 +26,17 @@ const DUSK_ART = svg(
 export const THEMES = [
   {
     id: 'day', name: 'Day', base: 'light', scene: 'sky', bar: '#ede9fe',
-    description: 'A dawn sky with drifting clouds.',
+    description: 'Dawn over a hillside farm, mist in the valleys.',
     preview: {
-      background: 'linear-gradient(180deg, #cfc3f2 0%, #f2eafb 55%, #fcf6ef 100%)',
+      background: `${DAY_ART} bottom / 100% 100% no-repeat, linear-gradient(180deg, #b4c4e4 0%, #e6dcef 45%, #fde6d2 100%)`,
       card: '#ffffff', text: '#1a0a2e', muted: '#ddd6fe', accent: '#7c3aed',
     },
   },
   {
     id: 'night', name: 'Night', base: 'dark', scene: 'sky', bar: '#0f0a1f',
-    description: 'A starry galaxy with violet nebulae.',
+    description: 'The same hills by moonlight, with fireflies.',
     preview: {
-      background: 'radial-gradient(ellipse 70% 50% at 20% 25%, rgba(124, 58, 237, 0.45), transparent 70%), linear-gradient(180deg, #05020d 0%, #170b33 100%)',
+      background: `${NIGHT_ART} bottom / 100% 100% no-repeat, linear-gradient(180deg, #04050f 0%, #161636 100%)`,
       card: '#1a0a2e', text: '#f8f7ff', muted: '#2d1b4e', accent: '#a78bfa',
     },
   },

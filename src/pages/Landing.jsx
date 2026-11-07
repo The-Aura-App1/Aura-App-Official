@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, ShieldCheck, HandCoins, ArrowRight, ChevronDown } from 'lucide-react';
 import AuthBackdrop, { SiteHeader, Wordmark } from '../components/auth/AuthBackdrop';
 
 const HIGHLIGHTS = [
@@ -15,7 +15,7 @@ const HIGHLIGHTS = [
     body: 'Your feed settings are saved in your browser and never sent to our servers. Even keyword matching runs right on your device.',
   },
   {
-    icon: Sparkles,
+    icon: HandCoins,
     title: 'Get rewarded for what you share',
     body: 'When people give aura to your posts, you earn it, and your best work rises to the top for everyone.',
   },
@@ -45,19 +45,15 @@ export default function Landing() {
   const [openIndex, setOpenIndex] = useState(null);
 
   return (
-    <AuthBackdrop className="aura-glow-on-halo">
+    <AuthBackdrop>
       <SiteHeader />
 
       <main className="flex-1 flex flex-col items-center text-center px-5 pt-6 pb-28 sm:pb-36">
-        <div className="aura-rise relative w-36 sm:w-48 mb-2" aria-hidden="true">
-          <img src="/aura-halo.png" alt="" className="aura-float aura-halo-glow relative w-full" />
-        </div>
-
-        <h1 className="aura-rise" style={{ animationDelay: '0.1s' }}>
+        <h1 className="aura-rise mt-16 sm:mt-24" style={{ animationDelay: '0.1s' }}>
           <Wordmark />
         </h1>
 
-        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-heading text-4xl sm:text-5xl md:text-6xl font-semibold leading-tight tracking-tight text-aura-950 dark:text-white"
+        <p className="aura-rise mt-10 sm:mt-12 max-w-3xl font-heading text-[1.8rem] min-[400px]:text-3xl sm:text-5xl md:text-6xl font-semibold leading-tight tracking-tight text-aura-950 dark:text-white"
           style={{ animationDelay: '0.25s' }}>
           A{' '}
           <span className="relative inline-block">

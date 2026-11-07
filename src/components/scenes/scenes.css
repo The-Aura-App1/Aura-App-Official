@@ -16,55 +16,38 @@
   filter: blur(8px);
 }
 
-/* Falling snow: a tall strip of repeated flake tiles that slides down by
-   exactly one tile per cycle, so it loops seamlessly. Sliding the whole
-   strip (a transform) is much cheaper than moving the background. */
+/* Falling snow: a tall strip of repeated flake tiles (drawn in
+   SnowyPeaks.jsx) that slides down by exactly one tile per cycle, so it
+   loops seamlessly. Sliding the whole strip (a transform) is much cheaper
+   than moving the background. */
 .aura-snow {
-  top: -600px;
+  top: -1200px;
   bottom: 0;
   background-repeat: repeat;
   will-change: transform;
   pointer-events: none;
 }
 .aura-snow-far {
-  background-image:
-    radial-gradient(circle at 30px 50px,   rgba(255, 255, 255, 0.95) 0 1.3px, transparent 2px),
-    radial-gradient(circle at 150px 20px,  rgba(255, 255, 255, 0.8)  0 1.1px, transparent 1.8px),
-    radial-gradient(circle at 95px 150px,  rgba(255, 255, 255, 0.9)  0 1.3px, transparent 2px),
-    radial-gradient(circle at 220px 95px,  rgba(255, 255, 255, 0.75) 0 1px,   transparent 1.7px),
-    radial-gradient(circle at 250px 190px, rgba(255, 255, 255, 0.9)  0 1.2px, transparent 1.9px),
-    radial-gradient(circle at 45px 230px,  rgba(255, 255, 255, 0.8)  0 1.1px, transparent 1.8px),
-    radial-gradient(circle at 175px 250px, rgba(255, 255, 255, 0.85) 0 1.3px, transparent 2px);
-  background-size: 280px 280px;
+  background-size: 560px 560px;
   filter: drop-shadow(0 0 1px rgba(90, 120, 180, 0.45));
-  animation: snowFallFar 22s linear infinite, snowSway 7s ease-in-out infinite alternate;
+  animation: snowFallFar 44s linear infinite, snowSway 7s ease-in-out infinite alternate;
 }
 .aura-snow-near {
-  background-image:
-    radial-gradient(circle at 60px 80px,   rgba(255, 255, 255, 0.95) 0 2.4px, transparent 3.6px),
-    radial-gradient(circle at 300px 40px,  rgba(255, 255, 255, 0.9)  0 2px,   transparent 3.2px),
-    radial-gradient(circle at 200px 260px, rgba(255, 255, 255, 0.95) 0 2.6px, transparent 3.8px),
-    radial-gradient(circle at 380px 330px, rgba(255, 255, 255, 0.85) 0 2.1px, transparent 3.3px),
-    radial-gradient(circle at 20px 360px,  rgba(255, 255, 255, 0.9)  0 2.3px, transparent 3.5px);
-  background-size: 420px 420px;
+  background-size: 840px 840px;
   filter: drop-shadow(0 0 2px rgba(90, 120, 180, 0.5));
-  animation: snowFallNear 14s linear infinite, snowSway 5s ease-in-out -2s infinite alternate;
+  animation: snowFallNear 28s linear infinite, snowSway 5s ease-in-out -2s infinite alternate;
 }
 .aura-snow-close {
-  background-image:
-    radial-gradient(circle at 120px 90px,  rgba(255, 255, 255, 0.9)  0 3.6px, transparent 5.5px),
-    radial-gradient(circle at 470px 300px, rgba(255, 255, 255, 0.85) 0 4.2px, transparent 6.2px),
-    radial-gradient(circle at 300px 520px, rgba(255, 255, 255, 0.9)  0 3.2px, transparent 5px);
-  background-size: 600px 600px;
+  background-size: 1200px 1200px;
   filter: blur(0.6px) drop-shadow(0 0 3px rgba(90, 120, 180, 0.45));
-  animation: snowFallClose 11s linear infinite, snowSwayWide 6s ease-in-out -1s infinite alternate;
+  animation: snowFallClose 22s linear infinite, snowSwayWide 6s ease-in-out -1s infinite alternate;
 }
-@keyframes snowFallClose { from { transform: translateY(0); } to { transform: translateY(600px); } }
-@keyframes snowSwayWide  { from { translate: -30px 0; } to { translate: 30px 0; } }
-@keyframes snowFallFar  { from { transform: translateY(0); } to { transform: translateY(280px); } }
-@keyframes snowFallNear { from { transform: translateY(0); } to { transform: translateY(420px); } }
+@keyframes snowFallFar   { from { transform: translateY(0); } to { transform: translateY(560px); } }
+@keyframes snowFallNear  { from { transform: translateY(0); } to { transform: translateY(840px); } }
+@keyframes snowFallClose { from { transform: translateY(0); } to { transform: translateY(1200px); } }
 /* `translate` is separate from `transform`, so the sway adds to the fall. */
 @keyframes snowSway     { from { translate: -14px 0; } to { translate: 14px 0; } }
+@keyframes snowSwayWide { from { translate: -30px 0; } to { translate: 30px 0; } }
 
 /* ── Duskfall ──────────────────────────────────────────────────────── */
 
@@ -235,3 +218,138 @@
 .aura-app-sky .aura-snow-near { opacity: 0.6; }
 .aura-app-sky .aura-snow-close { opacity: 0.5; }
 .aura-app-sky .aura-dusk-sea { transform: translateY(12%); }
+
+/* ── Meadow: the hillside farm under Day and Night (Meadow.jsx) ────── */
+
+/* Dawn: hills fading bluer and paler with distance, lit along their
+   crests by the low sun, with mist in the valleys. */
+.aura-meadow {
+  --m-far: #b9bedc;
+  --m-mid: #8f97bf;
+  --m-near: #6c7299;
+  --m-building: #7c83ab;
+  --m-tree: #5d6389;
+  --m-rim: #fff1dc;
+  --m-rim-opacity: 0.75;
+  --m-mist: #fbf3f2;
+  --m-window: #f4e3c8;
+  --m-window-glow: none;
+  --m-smoke: rgba(255, 255, 255, 0.75);
+  --m-fence: #575c80;
+}
+/* Night: the same hills as near-black silhouettes, rimmed by moonlight,
+   with warm lit windows and fireflies. The sun is down. */
+.dark .aura-meadow {
+  --m-far: #25274d;
+  --m-mid: #16172f;
+  --m-near: #0c0c1c;
+  --m-building: #0f1024;
+  --m-tree: #0b0b1a;
+  --m-rim: #c9cdf0;
+  --m-rim-opacity: 0.4;
+  --m-mist: #3a3d6e;
+  --m-window: #ffc86b;
+  --m-window-glow: drop-shadow(0 0 4px rgba(255, 190, 90, 0.9));
+  --m-smoke: rgba(190, 195, 230, 0.18);
+  --m-fence: #08081a;
+}
+.aura-meadow-far  { fill: var(--m-far); }
+.aura-meadow-mid  { fill: var(--m-mid); }
+.aura-meadow-near { fill: var(--m-near); }
+.aura-meadow-building { fill: var(--m-building); }
+.aura-meadow-roofline { fill: none; stroke: var(--m-rim); stroke-opacity: calc(var(--m-rim-opacity) * 0.6); stroke-width: 1.2; stroke-linecap: round; }
+.aura-meadow-tree { fill: var(--m-tree); }
+.aura-meadow-rim  { fill: none; stroke: var(--m-rim); stroke-opacity: var(--m-rim-opacity); stroke-width: 1.4; }
+.aura-meadow-rim-far { stroke-width: 1; }
+.aura-meadow-mist-stop { stop-color: var(--m-mist); }
+.dark .aura-meadow-mist { opacity: 0.35; }
+.aura-meadow-tufts { fill: none; stroke: var(--m-near); stroke-width: 1.3; stroke-linecap: round; }
+.aura-meadow-fence { fill: var(--m-fence); stroke: var(--m-fence); }
+.aura-meadow-smoke { color: var(--m-smoke); }
+.aura-meadow-window { fill: var(--m-window); filter: var(--m-window-glow); }
+.dark .aura-meadow-sun { display: none; }
+/* At night someone upstairs goes to bed now and then. */
+.dark .aura-meadow-window-dim { animation: windowLate 40s steps(1) infinite; }
+@keyframes windowLate { 0%, 55% { opacity: 1; } 55.01%, 100% { opacity: 0.08; } }
+.aura-meadow-crown {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: crownSway 7s ease-in-out infinite alternate;
+}
+@keyframes crownSway { from { transform: rotate(-0.8deg); } to { transform: rotate(0.8deg); } }
+
+/* Fireflies: only on the night hillside. Each blinks on and off on its own
+   rhythm and wanders slowly. */
+.aura-meadow-fireflies { display: none; }
+.dark .aura-meadow-fireflies { display: inline; }
+.aura-firefly {
+  fill: #ffe58a;
+  filter: drop-shadow(0 0 3px rgba(255, 220, 110, 0.95));
+  opacity: 0;
+  transform-box: fill-box;
+  animation-name: fireflyBlink, fireflyWander;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: normal, alternate;
+}
+@keyframes fireflyBlink {
+  0%, 40%, 100% { opacity: 0; }
+  52%, 62% { opacity: 1; }
+  75% { opacity: 0; }
+}
+@keyframes fireflyWander {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(calc(var(--drift) * 14px), -10px); }
+}
+
+/* ── Chimney smoke (ChimneySmoke.jsx) ──────────────────────────────── */
+.aura-smoke-puff {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: smokeRise 9.6s ease-out infinite;
+}
+@keyframes smokeRise {
+  0%   { opacity: 0;    transform: translate(0, 0) scale(0.6); }
+  10%  { opacity: 0.9; }
+  60%  { opacity: 0.45; transform: translate(10px, -34px) scale(1.8); }
+  100% { opacity: 0;    transform: translate(26px, -62px) scale(2.8); }
+}
+
+/* ── Day and Night sky details (AuthBackdrop.jsx) ─────────────────── */
+
+/* A hot-air balloon that drifts across the dawn sky about once every three
+   minutes, bobbing gently, then stays out of sight. */
+.aura-balloon {
+  opacity: 0;
+  animation: balloonDrift 180s linear -30s infinite;
+}
+@keyframes balloonDrift {
+  0%    { opacity: 0;    transform: translateX(-60px); }
+  2%    { opacity: 0.95; }
+  58%   { opacity: 0.95; }
+  60%   { opacity: 0;    transform: translateX(calc(100vw + 20px)); }
+  100%  { opacity: 0;    transform: translateX(calc(100vw + 20px)); }
+}
+.aura-balloon-bob { animation: balloonBob 9s ease-in-out infinite alternate; }
+@keyframes balloonBob { from { transform: translateY(0) rotate(-1.5deg); } to { transform: translateY(-12px) rotate(1.5deg); } }
+/* Phones have no open sky beside the logo for it to cross. */
+@media (max-width: 639px) {
+  .aura-balloon { display: none !important; }
+}
+
+.aura-full-moon { filter: drop-shadow(0 0 14px rgba(236, 232, 219, 0.35)) drop-shadow(0 0 40px rgba(200, 205, 240, 0.25)); }
+
+/* ── Paper grain over every scene ─────────────────────────────────── */
+/* A fine, static film grain softens the perfectly flat digital gradients,
+   the way a print or a painting never quite is. */
+.aura-grain {
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1.2 -0.1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: 0.22;
+}
+
+/* ── Snowy Peaks cabin ─────────────────────────────────────────────── */
+.aura-cabin-smoke { color: rgba(255, 255, 255, 0.85); }
+.aura-cabin-window { filter: drop-shadow(0 0 5px rgba(255, 196, 110, 0.85)); }
