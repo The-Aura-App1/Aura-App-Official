@@ -234,6 +234,20 @@ h1, h2, h3 {
   --accent-subtle: #ede9fe;
 }
 
+/* The rotating scenery behind the public pages (AuthBackdrop). Sets where
+   Day's sun glow and light rays are centred. */
+.aura-scenery {
+  --sun-y: 5rem;
+  --ray-y: -10%;
+}
+
+/* Landing page: centre the glow and rays on the halo. Its centre is the
+   header (84px) + the main top padding (24px) + half the halo's width. */
+.aura-glow-on-halo { --sun-y: 180px; --ray-y: 180px; }
+@media (min-width: 640px) {
+  .aura-glow-on-halo { --sun-y: 204px; --ray-y: 204px; }
+}
+
 @layer components {
   /* The logotype: Fraunces italic at its softest and wonkiest (rounded
      terminals, leaning letters), in solid ink. Solid ink, not gradient text,
@@ -253,13 +267,15 @@ h1, h2, h3 {
     font-weight: 560;
     letter-spacing: -0.02em;
   }
-  /* The brush-drawn halo tilted over the logo's "A" (Wordmark.jsx). */
+  /* The logo's halo over the "A" (Wordmark.jsx). The image is already
+     tilted and has transparent padding around the ring. */
   .aura-wordmark-halo {
     position: absolute;
-    left: 0.1em;
-    top: -0.13em;
-    width: 0.86em;
-    transform: rotate(-10deg);
+    left: -0.02em;
+    top: -0.36em;
+    width: 0.92em;
+    max-width: none;
+    filter: drop-shadow(0 0 0.05em rgb(var(--aura-400) / 0.6));
     pointer-events: none;
   }
   /* Italic emphasis inside headings: solid accent ink with the hand-drawn
@@ -362,29 +378,54 @@ h1, h2, h3 {
 @layer components {
 }
 
-/* Dawn sky: cool blue overhead, through a faint lilac, to peach and pale
-   gold where the sun is coming up (low and right of centre, behind the
-   far hills in Meadow.jsx). */
+/* Dawn sky: soft lavender overhead fading to a warm, bright horizon. */
 .aura-sky {
   background:
-    radial-gradient(ellipse 55% 40% at 68% 92%, rgba(255, 236, 205, 0.85), transparent 70%),
-    linear-gradient(180deg, #b4c4e4 0%, #cdd2ec 26%, #e6dcef 48%, #f6e2e2 66%, #fde6d2 82%, #fff2e2 100%);
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255, 255, 255, 0.95), transparent 70%),
+    linear-gradient(180deg, #cfc3f2 0%, #e1d8f7 28%, #f2eafb 52%, #fcf1f6 72%, #fcf6ef 100%);
 }
 
-.aura-float-cloud { will-change: transform; animation: cloudFloat 36s ease-in-out infinite; filter: drop-shadow(0 10px 18px rgba(150, 100, 90, 0.12)); }
+/* Soft light rays fanning down from above the halo. */
+.aura-rays {
+  background: repeating-conic-gradient(from 180deg at 50% var(--ray-y),
+    rgba(255, 255, 255, 0.5) 0deg 3deg, rgba(255, 255, 255, 0) 3deg 9deg);
+  mask-image: radial-gradient(ellipse 60% 75% at 50% var(--ray-y), black 10%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 75% at 50% var(--ray-y), black 10%, transparent 75%);
+  transform-origin: 50% var(--ray-y);
+  animation: raySway 18s ease-in-out infinite;
+}
 
+.aura-sun {
+  top: calc(var(--sun-y) - 23rem);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 247, 230, 0.8) 30%, rgba(255, 255, 255, 0) 70%);
+  filter: blur(10px);
+}
+
+.aura-cloud-layer { will-change: transform; }
+.aura-float-cloud { will-change: transform; animation: cloudFloat 36s ease-in-out infinite; filter: drop-shadow(0 10px 18px rgba(124, 58, 237, 0.12)); }
+.aura-halo-glow   { filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.9)) drop-shadow(0 10px 30px rgba(124, 58, 237, 0.45)); }
+
+.aura-twinkle { opacity: 0; animation: twinkle 4s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)); }
+.aura-float   { animation: haloFloat 6s ease-in-out infinite; }
 .aura-rise    { opacity: 0; animation: slideUp 0.7s ease-out forwards; }
 
 /* Draws the hand-drawn underline in once the motto has appeared. */
 .aura-scribble { stroke-dasharray: 520; stroke-dashoffset: 520; animation: scribble 1.1s ease-out 0.9s forwards; }
 @keyframes scribble { to { stroke-dashoffset: 0; } }
 
+@keyframes raySway     { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes cloudDriftA { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-4rem); } }
+@keyframes cloudDriftB { 0%, 100% { transform: translateX(-3rem); } 50% { transform: translateX(2rem); } }
 @keyframes cloudFloat  { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5rem); } }
+@keyframes twinkle     { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes haloFloat   { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
 
 /* Page content stays still for people who ask their device for less motion.
    The scenery keeps moving, just slower (see SceneDecor); Aura's own
    "Animated scenery" setting is what turns it off. */
 @media (prefers-reduced-motion: reduce) {
+  .aura-float { animation: none !important; }
   .aura-rise { animation: none; opacity: 1; }
   .aura-scribble { animation: none; stroke-dashoffset: 0; }
 }
@@ -409,20 +450,30 @@ h1, h2, h3 {
   --accent-subtle: #2d1b4e;
 }
 
-/* A clear night: deep blue-black overhead, a little lighter towards the
-   hills, with moonlight washing in from the upper left. */
+/* Deep space with violet, magenta and indigo nebulae. */
 .dark .aura-sky {
   background:
-    radial-gradient(ellipse 40% 35% at 12% 14%, rgba(196, 204, 240, 0.14), transparent 70%),
-    radial-gradient(ellipse 80% 35% at 50% 100%, rgba(70, 64, 130, 0.35), transparent 70%),
-    linear-gradient(180deg, #04050f 0%, #0a0c22 45%, #161636 100%);
+    radial-gradient(ellipse 50% 40% at 12% 22%, rgba(124, 58, 237, 0.35), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 88% 38%, rgba(192, 38, 211, 0.25), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 50% 100%, rgba(79, 70, 229, 0.35), transparent 70%),
+    linear-gradient(180deg, #05020d 0%, #0d0620 45%, #170b33 100%);
 }
+.dark .aura-rays {
+  background: repeating-conic-gradient(from 180deg at 50% var(--ray-y),
+    rgba(196, 181, 253, 0.12) 0deg 3deg, rgba(196, 181, 253, 0) 3deg 9deg);
+}
+.dark .aura-sun {
+  background: radial-gradient(circle, rgba(196, 181, 253, 0.5) 0%, rgba(124, 58, 237, 0.25) 35%, rgba(124, 58, 237, 0) 70%);
+}
+/* The cloud bank becomes a faint, misty nebula at the bottom. */
+.dark .aura-cloud-layer { opacity: 0.06 !important; }
 .dark .aura-float-cloud { display: none; }
+.dark .aura-halo-glow { filter: drop-shadow(0 0 22px rgba(196, 181, 253, 0.6)) drop-shadow(0 10px 30px rgba(124, 58, 237, 0.6)); }
 
-/* A faint band of the Milky Way across the sky, mostly white. */
+/* A soft band of the Milky Way across the sky. */
 .aura-galaxy-band {
-  background: linear-gradient(115deg, transparent 28%, rgba(220, 222, 245, 0.06) 42%,
-    rgba(236, 228, 250, 0.09) 50%, rgba(220, 222, 245, 0.06) 58%, transparent 72%);
+  background: linear-gradient(115deg, transparent 28%, rgba(196, 181, 253, 0.08) 42%,
+    rgba(240, 171, 252, 0.12) 50%, rgba(196, 181, 253, 0.08) 58%, transparent 72%);
   filter: blur(24px);
 }
 
@@ -495,12 +546,29 @@ h1, h2, h3 {
   .dark .aura-highlight:hover { background-color: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
 }
 
+/* Halo-shaped constellation: dark mode on wide screens only, where there's
+   empty sky beside the content. The dashed lines draw in, then each star
+   twinkles on its own rhythm. */
+.aura-constellation { display: none; }
+@media (min-width: 1024px) {
+  .dark .aura-constellation { display: block; }
+}
+.aura-constellation-line { stroke-dashoffset: 600; animation: constellationDraw 3s ease-out 0.8s forwards; }
+.aura-constellation-star { animation: constellationTwinkle 3.5s ease-in-out infinite; }
+@keyframes constellationDraw    { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes constellationTwinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
 /* ── Sky details behind the signed-in app ──────────────────────────── */
 /* A softer version of the public pages' sky, so it never competes with posts. */
 .aura-app-sky .aura-sky { opacity: 0.55; }
 .dark .aura-app-sky .aura-sky { opacity: 0.9; }
-/* The hills sit lower and softer behind posts. */
-.aura-app-sky .aura-meadow { transform: translateY(14%); opacity: 0.85; }
+/* Full-height bank pushed partly below the screen, so the cloud tops stay soft. */
+.aura-app-sky .aura-cloud-bank { transform: translateY(45%); opacity: 0.75; }
+/* The constellation only fits beside the feed on wide screens. */
+.aura-app-sky .aura-constellation { display: none; }
+@media (min-width: 1440px) {
+  .dark .aura-app-sky .aura-constellation { display: block; }
+}
 
 /* ── Daytime details: light mode only ──────────────────────────────── */
 

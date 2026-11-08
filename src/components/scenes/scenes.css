@@ -219,89 +219,6 @@
 .aura-app-sky .aura-snow-close { opacity: 0.5; }
 .aura-app-sky .aura-dusk-sea { transform: translateY(12%); }
 
-/* ── Meadow: the hillside farm under Day and Night (Meadow.jsx) ────── */
-
-/* Dawn: hills fading bluer and paler with distance, lit along their
-   crests by the low sun, with mist in the valleys. */
-.aura-meadow {
-  --m-far: #b9bedc;
-  --m-mid: #8f97bf;
-  --m-near: #6c7299;
-  --m-building: #7c83ab;
-  --m-tree: #5d6389;
-  --m-rim: #fff1dc;
-  --m-rim-opacity: 0.75;
-  --m-mist: #fbf3f2;
-  --m-window: #f4e3c8;
-  --m-window-glow: none;
-  --m-smoke: rgba(255, 255, 255, 0.75);
-  --m-fence: #575c80;
-}
-/* Night: the same hills as near-black silhouettes, rimmed by moonlight,
-   with warm lit windows and fireflies. The sun is down. */
-.dark .aura-meadow {
-  --m-far: #25274d;
-  --m-mid: #16172f;
-  --m-near: #0c0c1c;
-  --m-building: #0f1024;
-  --m-tree: #0b0b1a;
-  --m-rim: #c9cdf0;
-  --m-rim-opacity: 0.4;
-  --m-mist: #3a3d6e;
-  --m-window: #ffc86b;
-  --m-window-glow: drop-shadow(0 0 4px rgba(255, 190, 90, 0.9));
-  --m-smoke: rgba(190, 195, 230, 0.18);
-  --m-fence: #08081a;
-}
-.aura-meadow-far  { fill: var(--m-far); }
-.aura-meadow-mid  { fill: var(--m-mid); }
-.aura-meadow-near { fill: var(--m-near); }
-.aura-meadow-building { fill: var(--m-building); }
-.aura-meadow-roofline { fill: none; stroke: var(--m-rim); stroke-opacity: calc(var(--m-rim-opacity) * 0.6); stroke-width: 1.2; stroke-linecap: round; }
-.aura-meadow-tree { fill: var(--m-tree); }
-.aura-meadow-rim  { fill: none; stroke: var(--m-rim); stroke-opacity: var(--m-rim-opacity); stroke-width: 1.4; }
-.aura-meadow-rim-far { stroke-width: 1; }
-.aura-meadow-mist-stop { stop-color: var(--m-mist); }
-.dark .aura-meadow-mist { opacity: 0.35; }
-.aura-meadow-tufts { fill: none; stroke: var(--m-near); stroke-width: 1.3; stroke-linecap: round; }
-.aura-meadow-fence { fill: var(--m-fence); stroke: var(--m-fence); }
-.aura-meadow-smoke { color: var(--m-smoke); }
-.aura-meadow-window { fill: var(--m-window); filter: var(--m-window-glow); }
-.dark .aura-meadow-sun { display: none; }
-/* At night someone upstairs goes to bed now and then. */
-.dark .aura-meadow-window-dim { animation: windowLate 40s steps(1) infinite; }
-@keyframes windowLate { 0%, 55% { opacity: 1; } 55.01%, 100% { opacity: 0.08; } }
-.aura-meadow-crown {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: crownSway 7s ease-in-out infinite alternate;
-}
-@keyframes crownSway { from { transform: rotate(-0.8deg); } to { transform: rotate(0.8deg); } }
-
-/* Fireflies: only on the night hillside. Each blinks on and off on its own
-   rhythm and wanders slowly. */
-.aura-meadow-fireflies { display: none; }
-.dark .aura-meadow-fireflies { display: inline; }
-.aura-firefly {
-  fill: #ffe58a;
-  filter: drop-shadow(0 0 3px rgba(255, 220, 110, 0.95));
-  opacity: 0;
-  transform-box: fill-box;
-  animation-name: fireflyBlink, fireflyWander;
-  animation-timing-function: ease-in-out, ease-in-out;
-  animation-iteration-count: infinite, infinite;
-  animation-direction: normal, alternate;
-}
-@keyframes fireflyBlink {
-  0%, 40%, 100% { opacity: 0; }
-  52%, 62% { opacity: 1; }
-  75% { opacity: 0; }
-}
-@keyframes fireflyWander {
-  from { transform: translate(0, 0); }
-  to   { transform: translate(calc(var(--drift) * 14px), -10px); }
-}
-
 /* ── Chimney smoke (ChimneySmoke.jsx) ──────────────────────────────── */
 .aura-smoke-puff {
   opacity: 0;
@@ -316,7 +233,7 @@
   100% { opacity: 0;    transform: translate(26px, -62px) scale(2.8); }
 }
 
-/* ── Day and Night sky details (AuthBackdrop.jsx) ─────────────────── */
+/* ── Day sky details (AuthBackdrop.jsx) ───────────────────────────── */
 
 /* A hot-air balloon that drifts across the dawn sky about once every three
    minutes, bobbing gently, then stays out of sight. */
@@ -336,18 +253,6 @@
 /* Phones have no open sky beside the logo for it to cross. */
 @media (max-width: 639px) {
   .aura-balloon { display: none !important; }
-}
-
-.aura-full-moon { filter: drop-shadow(0 0 14px rgba(236, 232, 219, 0.35)) drop-shadow(0 0 40px rgba(200, 205, 240, 0.25)); }
-
-/* ── Paper grain over every scene ─────────────────────────────────── */
-/* A fine, static film grain softens the perfectly flat digital gradients,
-   the way a print or a painting never quite is. */
-.aura-grain {
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 1.2 -0.1'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-  opacity: 0.22;
 }
 
 /* ── Snowy Peaks cabin ─────────────────────────────────────────────── */
