@@ -1,12 +1,14 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  DynamoDBDocumentClient, GetCommand, PutCommand,
+  DynamoDBDocumentClient, GetCommand, PutCommand, BatchGetCommand,
   UpdateCommand, ScanCommand, TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
 const COMMENTS_TABLE = 'aura-comments';
+const LIKES_TABLE    = 'aura-likes';
+const MAX_REPLIES_SHOWN = 100;   // per top-level comment
 
 // Site moderators (the aura_app account). Keep in sync across aura-users,
 // aura-posts and aura-comments. IDs come from the verified Cognito token, so
@@ -82,6 +84,57 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Comment text as stored: Unicode-normalized, without invisible control
+// characters or the direction-override marks that can make text display as
+// something other than what it says, line endings unified and long runs of
+// blank lines shortened. It's still plain text; the app never renders it as HTML.
+function cleanText(raw) {
+  return raw.normalize('NFC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '')
+    .replace(/[؜‎‏‪-‮⁦-⁩]/g, '')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim();
+}
+
+// What anyone may see of a comment. Only listed fields go out, so internal
+// ones (who reported it, report counts, aura breakdowns) never leak. The
+// like count goes to the comment's own author only; canDelete is true for the
+// author and site moderators.
+function publicComment(comment, viewerId, likedIds) {
+  const isAuthor = !!viewerId && comment.authorId === viewerId;
+  return {
+    commentId:       comment.commentId,
+    postId:          comment.postId,
+    authorId:        comment.authorId,
+    authorUsername:  comment.authorUsername,
+    authorDisplay:   comment.authorDisplay,
+    text:            comment.text,
+    parentCommentId: comment.parentCommentId ?? null,
+    auraScore:       comment.auraScore ?? 0,
+    createdAt:       comment.createdAt,
+    likedByMe:       likedIds.has(comment.commentId),
+    canDelete:       isAuthor || ADMIN_IDS.has(viewerId),
+    ...(isAuthor && { likeCount: comment.likeCount ?? 0 }),
+  };
+}
+
+// The comment ids, out of `comments`, that the viewer has liked
+async function likedByViewer(comments, viewerId) {
+  const liked = new Set();
+  if (!viewerId || !comments.length) return liked;
+  const keys = comments.map(c => ({ userId: viewerId, postId: `comment#${c.commentId}` }));
+  for (let i = 0; i < keys.length; i += 100) {
+    let request = { [LIKES_TABLE]: { Keys: keys.slice(i, i + 100), ProjectionExpression: 'targetId' } };
+    while (request && Object.keys(request).length) {
+      const result = await dynamo.send(new BatchGetCommand({ RequestItems: request }));
+      for (const like of result.Responses?.[LIKES_TABLE] ?? []) liked.add(like.targetId);
+      request = result.UnprocessedKeys;
+    }
+  }
+  return liked;
+}
+
 // Same rules as aura-posts: open groups are readable by anyone logged in
 // (except banned users), other groups by members only; only members comment
 async function groupAccess(groupId, viewerId) {
@@ -97,11 +150,10 @@ async function groupAccess(groupId, viewerId) {
 
 // ─── Create comment ───────────────────────────────────────────
 async function createComment(userId, postId, body) {
-  const { text, parentCommentId } = body;
-
-  if (typeof text !== 'string' || !text.trim()) {
-    return response(400, { error: 'Comment text is required.' });
-  }
+  const { parentCommentId } = body;
+  if (typeof body.text !== 'string') return response(400, { error: 'Comment text is required.' });
+  const text = cleanText(body.text);
+  if (!text) return response(400, { error: 'Comment text is required.' });
 
   // Get post to check visibility settings and type
   const postResult = await dynamo.send(new GetCommand({
@@ -156,7 +208,7 @@ async function createComment(userId, postId, body) {
       TableName: COMMENTS_TABLE,
       Key: { commentId: parentCommentId },
     }));
-    if (!parentResult.Item || parentResult.Item.postId !== postId) {
+    if (!parentResult.Item || parentResult.Item.postId !== postId || parentResult.Item.status !== 'active') {
       return response(404, { error: 'Parent comment not found.' });
     }
     // Only one level deep — cannot reply to a reply
@@ -174,7 +226,7 @@ async function createComment(userId, postId, body) {
     authorId:        userId,
     authorUsername:  user.username,
     authorDisplay:   user.displayName,
-    text:            text.trim(),
+    text,
     parentCommentId: parentCommentId ?? null,
     auraScore:       0,
     auraReceived:    0,
@@ -203,7 +255,7 @@ async function createComment(userId, postId, body) {
     ],
   }));
 
-  return response(201, comment);
+  return response(201, { ...publicComment(comment, userId, new Set()), replies: [] });
 }
 
 // ─── Get comments for a post ──────────────────────────────────
@@ -230,31 +282,29 @@ async function getComments(postId, viewerId, limit = 50) {
     ExclusiveStartKey = result.LastEvaluatedKey;
   } while (ExclusiveStartKey);
 
-  // Like counts are private to each comment's author, and this route is public
-  for (const comment of items) delete comment.likeCount;
-
-  const comments = items
-    .sort((a, b) => {
-      // Sort by aura score first, then recency
-      const auraDiff = b.auraScore - a.auraScore;
-      if (auraDiff !== 0) return auraDiff;
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    })
+  // The top `limit` comments by aura (then newest), each with its replies
+  // oldest first. Replies to a removed comment go with it.
+  const topLevel = items
+    .filter(c => !c.parentCommentId)
+    .sort((a, b) => ((b.auraScore ?? 0) - (a.auraScore ?? 0)) || (Date.parse(b.createdAt) - Date.parse(a.createdAt)))
     .slice(0, limit);
+  const repliesByParent = new Map(topLevel.map(c => [c.commentId, []]));
+  for (const reply of items) {
+    repliesByParent.get(reply.parentCommentId)?.push(reply);
+  }
+  for (const replies of repliesByParent.values()) {
+    replies.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    replies.splice(MAX_REPLIES_SHOWN);
+  }
 
-  // Separate top-level comments and replies
-  const topLevel = comments.filter(c => !c.parentCommentId);
-  const replies   = comments.filter(c => !!c.parentCommentId);
-
-  // Attach replies to their parent
+  const shown = [...topLevel, ...[...repliesByParent.values()].flat()];
+  const liked = await likedByViewer(shown, viewerId);
   const threaded = topLevel.map(comment => ({
-    ...comment,
-    replies: replies
-      .filter(r => r.parentCommentId === comment.commentId)
-      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+    ...publicComment(comment, viewerId, liked),
+    replies: repliesByParent.get(comment.commentId).map(r => publicComment(r, viewerId, liked)),
   }));
 
-  return response(200, { comments: threaded });
+  return response(200, { comments: threaded, total: items.length });
 }
 
 // ─── Delete comment ───────────────────────────────────────────

@@ -14,7 +14,9 @@ import { topicLabel } from '../../utils/topics';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
-export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff = false }) {
+// onComment, when given (on the post's own page), makes the comment button call it
+// instead of opening the post.
+export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment, takesOff = false }) {
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
   const tags      = post.tags ?? [];
@@ -85,7 +87,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-4 py-3">
           <Link
-            to={`/profile/${post.authorUsername}`}
+            to={`/profile/${encodeURIComponent(post.authorUsername ?? '')}`}
             className="flex items-center gap-3"
           >
             {/* Avatar */}
@@ -237,14 +239,27 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff 
             </button>
 
             {/* Comment */}
-            <Link
-              to={`/post/${post.postId}`}
-              className="p-2 rounded-lg text-[var(--text-muted)]
-                         hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
-                         transition-all duration-200"
-            >
-              <MessageCircle size={20} />
-            </Link>
+            {onComment ? (
+              <button
+                onClick={onComment}
+                aria-label="Write a comment"
+                className="p-2 rounded-lg text-[var(--text-muted)]
+                           hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
+                           transition-all duration-200"
+              >
+                <MessageCircle size={20} />
+              </button>
+            ) : (
+              <Link
+                to={`/post/${post.postId}`}
+                aria-label="Comments"
+                className="p-2 rounded-lg text-[var(--text-muted)]
+                           hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
+                           transition-all duration-200"
+              >
+                <MessageCircle size={20} />
+              </Link>
+            )}
 
             {/* Share */}
             <button
@@ -279,7 +294,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, takesOff 
         )}
 
         {/* ── Comment count ── */}
-        {post.commentCount > 0 && (
+        {post.commentCount > 0 && !onComment && (
           <Link
             to={`/post/${post.postId}`}
             className="block px-4 pb-3 text-xs text-[var(--text-muted)]

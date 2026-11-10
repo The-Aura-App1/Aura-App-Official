@@ -14,6 +14,12 @@
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-posts"
     },
     {
+      "Sid": "ViewerCommentLikes",
+      "Effect": "Allow",
+      "Action": "dynamodb:BatchGetItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-likes"
+    },
+    {
       "Sid": "CommentersAndGroupAccessChecks",
       "Effect": "Allow",
       "Action": "dynamodb:GetItem",

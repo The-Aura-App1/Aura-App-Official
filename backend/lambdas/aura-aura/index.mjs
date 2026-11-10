@@ -218,7 +218,9 @@ async function checkGroupAccess(target, userId) {
   const post = target.type === 'post'
     ? target.item
     : (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: target.item.postId } }))).Item;
-  if (!post?.groupId) return null;
+  // Comments on a removed post are gone with it
+  if (!post || post.status !== 'active') return response(404, { error: 'Post or comment not found.' });
+  if (!post.groupId) return null;
 
   const group  = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId: post.groupId } }))).Item;
   const member = (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId: post.groupId, userId } }))).Item;

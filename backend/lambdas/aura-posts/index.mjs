@@ -341,6 +341,9 @@ async function forViewer(posts, viewerId) {
     for (const like of likes) liked.add(like.targetId);
   }
   return posts.map(post => {
+    // Report details are for moderation only, never for viewers
+    delete post.reportCount;
+    delete post.reportedBy;
     if (post.authorId !== viewerId) {
       delete post.viewCount;
       delete post.likeCount;
@@ -440,7 +443,8 @@ async function setLike(userId, collection, targetId, liked) {
     const post   = target.type === 'post'
       ? targetResult.Item
       : postId && (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } }))).Item;
-    if (!targetResult.Item || !post || !(await visibleToViewer([post], userId)).length) {
+    // A comment on a removed post can't be liked either
+    if (!targetResult.Item || !post || post.status !== 'active' || !(await visibleToViewer([post], userId)).length) {
       return response(404, { error: `${target.type === 'post' ? 'Post' : 'Comment'} not found.` });
     }
   }

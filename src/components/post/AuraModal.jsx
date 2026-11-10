@@ -9,9 +9,11 @@ const GIVE_PRESETS_REGULAR = [5, 10, 25, 50, 100, 250, 500];
 const GIVE_PRESETS_PREMIUM = [5, 10, 25, 50, 100, 250, 500, 1000, 2000];
 const TAKE_PRESETS         = [5, 10, 25, 50];
 
-export default function AuraModal({ post, type, onSuccess, onClose }) {
+// Gives or takes aura on `post`, or on `comment` (a comment on `post`) when one is passed.
+export default function AuraModal({ post, comment = null, type, onSuccess, onClose }) {
   const { isPremium, user } = useAuth();
   const isGive        = type === 'give';
+  const recipient     = comment ?? post;
 
   const presets = isGive
     ? (isPremium ? GIVE_PRESETS_PREMIUM : GIVE_PRESETS_REGULAR)
@@ -34,9 +36,12 @@ export default function AuraModal({ post, type, onSuccess, onClose }) {
     setError('');
 
     try {
-      const fn     = isGive ? api.giveAura : api.takeAura;
-      await fn(post.postId, amount);
-      recordEngagement(user?.userId, post, isGive ? 'give' : 'take', amount);
+      if (comment) {
+        await (isGive ? api.giveCommentAura : api.takeCommentAura)(comment.commentId, amount);
+      } else {
+        await (isGive ? api.giveAura : api.takeAura)(post.postId, amount);
+        recordEngagement(user?.userId, post, isGive ? 'give' : 'take', amount);
+      }
       onSuccess(isGive ? amount : -amount);
     } catch (err) {
       setError(err.message);
@@ -84,12 +89,13 @@ export default function AuraModal({ post, type, onSuccess, onClose }) {
         <p className="text-xs text-[var(--text-muted)] mb-4">
           {isGive ? 'Rewarding' : 'Taking from'}{' '}
           <span className="text-[var(--text-primary)] font-medium">
-            @{post.authorUsername}
+            @{recipient.authorUsername}
           </span>
+          {comment && ' for their comment'}
         </p>
         {!isGive && (
           <p className="text-xs text-red-300/90 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-4">
-            Taking costs you the same amount of your own aura. It's removed from the post and nobody gets it.
+            Taking costs you the same amount of your own aura. It's removed from the {comment ? 'comment' : 'post'} and nobody gets it.
           </p>
         )}
 
