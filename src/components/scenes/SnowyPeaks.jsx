@@ -167,61 +167,77 @@ function Cabin() {
 
 // Falling snow is drawn as tiles of flakes scattered at random (seeded, so
 // every visit matches), sized and faded at random too, so the repeat never
-// reads as a grid. Each layer slides down exactly one tile per cycle.
-function snowTile(seed, { size, count, minR, maxR }) {
+// reads as a grid. The tiles are taller than they are wide, and each layer
+// slides exactly one tile across and one tile down per cycle, so it loops
+// seamlessly while the wind blows the snow in at a slant. Gusts push it
+// further now and then (scenes.css).
+function snowTile(seed, { w, h, count, minR, maxR }) {
   const rand = seeded(seed);
   let flakes = '';
   for (let i = 0; i < count; i++) {
     const r = minR + rand() ** 1.5 * (maxR - minR);
-    flakes += `<circle cx='${(rand() * size).toFixed(0)}' cy='${(rand() * size).toFixed(0)}' r='${r.toFixed(2)}' fill-opacity='${(0.55 + rand() * 0.45).toFixed(2)}'/>`;
+    flakes += `<circle cx='${(rand() * w).toFixed(0)}' cy='${(rand() * h).toFixed(0)}' r='${r.toFixed(2)}' fill-opacity='${(0.55 + rand() * 0.45).toFixed(2)}'/>`;
   }
-  return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' fill='white'>${flakes}</svg>`)}")`;
+  return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' fill='white'>${flakes}</svg>`)}")`;
 }
 const SNOW = {
-  far:   snowTile(3,  { size: 560,  count: 34, minR: 0.9, maxR: 1.8 }),
-  near:  snowTile(8,  { size: 840,  count: 18, minR: 1.8, maxR: 3.2 }),
-  close: snowTile(19, { size: 1200, count: 7,  minR: 3.2, maxR: 5.5 }),
+  flurry: snowTile(31, { w: 300, h: 420,  count: 46, minR: 0.6, maxR: 1.1 }),
+  far:    snowTile(3,  { w: 300, h: 560,  count: 40, minR: 0.9, maxR: 1.8 }),
+  near:   snowTile(8,  { w: 420, h: 840,  count: 26, minR: 1.8, maxR: 3.2 }),
+  close:  snowTile(19, { w: 560, h: 1200, count: 10, minR: 3.2, maxR: 5.5 }),
 };
 
-// ── The winter sky ────────────────────────────────────────────────────
-// What a cold, clear day in the mountains actually shows: an ice halo
-// around the sun with a sun dog on either side (ice crystals bending the
-// light, faintly rainbow-edged), high wisps of cirrus drifting slowly, and
-// "diamond dust", tiny ice crystals glinting in the air.
+// Gusts of wind: faint streaks of blown snow that sweep across the sky now
+// and then, each on its own rhythm.
+const GUSTS = (() => {
+  const rand = seeded(47);
+  return Array.from({ length: 7 }, () => ({
+    top: 12 + rand() * 62,
+    width: 18 + rand() * 22,
+    duration: 7 + rand() * 6,
+    delay: -rand() * 14,
+    tilt: 2 + rand() * 4,
+  }));
+})();
 
-function IceHalo() {
+function Gusts() {
   return (
-    <div className="aura-peaks-halo absolute" aria-hidden="true">
-      <span className="aura-peaks-parhelic" />
-      <span className="aura-peaks-sundog aura-peaks-sundog-left" />
-      <span className="aura-peaks-sundog aura-peaks-sundog-right" />
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+      {GUSTS.map((g, i) => (
+        <span key={i} className="aura-peaks-gust absolute"
+          style={{ top: `${g.top}%`, width: `${g.width}vw`, '--tilt': `${g.tilt}deg`, animationDuration: `${g.duration}s`, animationDelay: `${g.delay}s` }} />
+      ))}
     </div>
   );
 }
 
+// ── The winter sky ────────────────────────────────────────────────────
+// High wisps of cirrus drifting on the wind, and "diamond dust", tiny ice
+// crystals glinting in the air.
+
 // Streaky noise stretched sideways reads as feathery cirrus. It's kept to
-// two bands high in the sky and drifts very slowly.
-function Cirrus() {
+// bands high in the sky, in two layers on different winds.
+function Cirrus({ seed = 11, layer = 'high' }) {
   return (
-    <div className="aura-peaks-cirrus absolute inset-x-0 top-0 overflow-hidden" aria-hidden="true">
+    <div className={`aura-peaks-cirrus aura-peaks-cirrus-${layer} absolute inset-x-0 top-0 overflow-hidden`} aria-hidden="true">
       <svg className="aura-peaks-cirrus-drift absolute top-0 h-full" viewBox="0 0 1600 500" preserveAspectRatio="none">
         <defs>
-          <filter id="cirrus-fibers" x="0" y="0" width="100%" height="100%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.0021 0.03" numOctaves="4" seed="11" />
+          <filter id={`cirrus-fibers-${layer}`} x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.0021 0.03" numOctaves="4" seed={seed} />
             {/* White, with only the noise's brightest streaks showing */}
             <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.2 0 0 0 -1.85" />
             <feGaussianBlur stdDeviation="1.4" />
           </filter>
-          <linearGradient id="cirrus-bands" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`cirrus-bands-${layer}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#fff" stopOpacity="0" />
             <stop offset="14%" stopColor="#fff" stopOpacity="0.9" />
             <stop offset="26%" stopColor="#fff" stopOpacity="0.15" />
             <stop offset="40%" stopColor="#fff" stopOpacity="0.75" />
             <stop offset="58%" stopColor="#fff" stopOpacity="0" />
           </linearGradient>
-          <mask id="cirrus-mask"><rect width="1600" height="500" fill="url(#cirrus-bands)" /></mask>
+          <mask id={`cirrus-mask-${layer}`}><rect width="1600" height="500" fill={`url(#cirrus-bands-${layer})`} /></mask>
         </defs>
-        <rect width="1600" height="500" fill="#fff" filter="url(#cirrus-fibers)" mask="url(#cirrus-mask)" />
+        <rect width="1600" height="500" fill="#fff" filter={`url(#cirrus-fibers-${layer})`} mask={`url(#cirrus-mask-${layer})`} />
       </svg>
     </div>
   );
@@ -256,9 +272,9 @@ function DiamondDust() {
 }
 
 // Layered mountain ranges with snowcaps, a two-row treeline with a lit
-// cabin in a clearing, and snow falling in three layers (small and slow far
-// away, large and drifting up close) under a pale winter sky with an ice
-// halo, cirrus and glinting ice crystals. `page` is the full version for the public
+// cabin in a clearing, and snow blowing in on the wind in four layers (fine
+// and slow far away, large up close) under a pale winter sky with drifting
+// cirrus, gusts of blown snow and glinting ice crystals. `page` is the full version for the public
 // pages; `app` sits lower and quieter behind the signed-in app.
 export default function SnowyPeaks({ variant = 'page' }) {
   const page = variant === 'page';
@@ -266,8 +282,8 @@ export default function SnowyPeaks({ variant = 'page' }) {
     <>
       <div className="aura-peaks-sky absolute inset-0" />
       <Cirrus />
+      <Cirrus seed={4} layer="low" />
       <div className="aura-peaks-sun absolute" />
-      <IceHalo />
       <DiamondDust />
       <div className={`aura-peaks-range absolute inset-x-0 bottom-0 ${page ? 'h-[70vh] min-h-[340px]' : 'h-[46vh] min-h-[240px]'}`}>
         <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -305,7 +321,8 @@ export default function SnowyPeaks({ variant = 'page' }) {
                 {r.shades.map((s, j) => <path key={j} d={s.d} fill={`url(#peaks-shade-${i}-${j})`} opacity={r.shade} />)}
               </g>
               {/* Mist settling in the valleys in front of each range */}
-              <path d={r.fogD} fill="url(#peaks-mist)" filter="url(#peaks-fog-soft)" opacity="0.7" />
+              <path className="aura-peaks-fog" d={r.fogD} fill="url(#peaks-mist)" filter="url(#peaks-fog-soft)" opacity="0.7"
+                style={{ animationDuration: `${34 + i * 9}s`, animationDelay: `${-i * 11}s` }} />
             </g>
           ))}
 
@@ -324,9 +341,11 @@ export default function SnowyPeaks({ variant = 'page' }) {
           <rect x="-60" y={HEIGHT - 12} width={WIDTH + 120} height="12" fill="#f4f7ff" />
         </svg>
       </div>
-      <div className="aura-snow aura-snow-far absolute inset-x-0" style={{ backgroundImage: SNOW.far }} />
-      <div className="aura-snow aura-snow-near absolute inset-x-0" style={{ backgroundImage: SNOW.near }} />
-      <div className="aura-snow aura-snow-close absolute inset-x-0" style={{ backgroundImage: SNOW.close }} />
+      <Gusts />
+      <div className="aura-snow aura-snow-flurry absolute" style={{ backgroundImage: SNOW.flurry }} />
+      <div className="aura-snow aura-snow-far absolute" style={{ backgroundImage: SNOW.far }} />
+      <div className="aura-snow aura-snow-near absolute" style={{ backgroundImage: SNOW.near }} />
+      <div className="aura-snow aura-snow-close absolute" style={{ backgroundImage: SNOW.close }} />
     </>
   );
 }

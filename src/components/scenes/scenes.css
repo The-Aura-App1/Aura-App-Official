@@ -16,71 +16,41 @@
   filter: blur(8px);
 }
 
-/* An ice halo around the sun (the sun's center is 5rem down and 6% + 13rem
-   in from the right): a faint ring, warm on its inner edge and cool on its
-   outer, with a bright sun dog on each side and the pale parhelic circle
-   running through them. It shimmers slowly. */
-.aura-peaks-halo {
-  --halo: min(26rem, 92vw);
-  width: var(--halo);
-  height: var(--halo);
-  top: calc(5rem - var(--halo) / 2);
-  right: calc(6% + 13rem - var(--halo) / 2);
-  border-radius: 9999px;
-  background: radial-gradient(circle closest-side, transparent 80%, rgba(255, 176, 156, 0.26) 85%,
-    rgba(255, 242, 224, 0.4) 88.5%, rgba(196, 214, 255, 0.32) 92%, rgba(176, 196, 255, 0.12) 96%, transparent 100%);
-  filter: blur(1.5px);
-  animation: haloShimmer 14s ease-in-out infinite;
-  pointer-events: none;
-}
-.aura-peaks-parhelic {
-  position: absolute;
-  top: 50%;
-  left: -55%;
-  width: 210%;
-  height: 2px;
-  margin-top: -1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32) 28%, rgba(255, 255, 255, 0.32) 72%, transparent);
-  filter: blur(1px);
-}
-.aura-peaks-sundog {
-  position: absolute;
-  top: 50%;
-  width: 3.4rem;
-  height: 1.5rem;
-  margin-top: -0.75rem;
-  border-radius: 9999px;
-  filter: blur(2.5px);
-  animation: sundogGlow 9s ease-in-out infinite;
-}
-/* Red edge towards the sun, a white heart, a blue tail pointing away */
-.aura-peaks-sundog-left {
-  left: -1.7rem;
-  background: radial-gradient(ellipse at 60% 50%, rgba(255, 255, 255, 0.95), rgba(255, 214, 190, 0.55) 30%, transparent 62%),
-    linear-gradient(270deg, rgba(255, 150, 130, 0.45), rgba(255, 236, 200, 0.4) 30%, rgba(190, 206, 255, 0.3) 62%, transparent);
-}
-.aura-peaks-sundog-right {
-  right: -1.7rem;
-  background: radial-gradient(ellipse at 40% 50%, rgba(255, 255, 255, 0.95), rgba(255, 214, 190, 0.55) 30%, transparent 62%),
-    linear-gradient(90deg, rgba(255, 150, 130, 0.45), rgba(255, 236, 200, 0.4) 30%, rgba(190, 206, 255, 0.3) 62%, transparent);
-  animation-delay: -4.5s;
-}
-@keyframes haloShimmer { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
-/* On phones it sits behind the logo's own halo, so it stays fainter there. */
-@media (max-width: 639px) {
-  .aura-peaks-halo { filter: blur(1.5px) opacity(0.55); }
-}
-@keyframes sundogGlow  { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-
-/* High cirrus: wider than the screen so it can drift without showing an edge. */
+/* High cirrus, wider than the screen so it can drift without showing an
+   edge. Two layers on different winds: the high one drifts slowly, the
+   lower, fainter one a little faster, so the sky is always gently moving. */
 .aura-peaks-cirrus { height: 62vh; opacity: 0.6; }
+.aura-peaks-cirrus-low { top: 8vh; height: 50vh; opacity: 0.35; }
 .aura-peaks-cirrus-drift {
   left: -15%;
   width: 130%;
   will-change: transform;
-  animation: cirrusDrift 140s ease-in-out infinite alternate;
+  animation: cirrusDrift 60s ease-in-out infinite alternate;
 }
-@keyframes cirrusDrift { from { transform: translateX(-5%); } to { transform: translateX(5%); } }
+.aura-peaks-cirrus-low .aura-peaks-cirrus-drift { animation-duration: 38s; animation-delay: -19s; }
+@keyframes cirrusDrift { from { transform: translateX(-9%); } to { transform: translateX(9%); } }
+
+/* Valley fog drifting back and forth (the band is wider than the scene). */
+.aura-peaks-fog { animation: fogDrift 40s ease-in-out infinite alternate; }
+@keyframes fogDrift { from { transform: translateX(-60px); } to { transform: translateX(60px); } }
+
+/* A gust: a thin, soft streak of blown snow that sweeps across the screen
+   and fades, then waits off to the left until its next pass. */
+.aura-peaks-gust {
+  left: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7) 40%, rgba(255, 255, 255, 0.9) 60%, transparent);
+  filter: blur(1.5px) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+  opacity: 0;
+  animation: gust 10s ease-in infinite;
+}
+@keyframes gust {
+  0%           { opacity: 0;   transform: translateX(-45vw) rotate(var(--tilt)); }
+  8%           { opacity: 0.8; }
+  32%          { opacity: 0;   transform: translateX(115vw) rotate(var(--tilt)); }
+  32.01%, 100% { opacity: 0;   transform: translateX(-45vw) rotate(var(--tilt)); }
+}
 
 /* Diamond dust glints */
 .aura-peaks-glint {
@@ -95,38 +65,51 @@
   75%      { opacity: 0; transform: scale(0.5) rotate(90deg); }
 }
 
-/* Falling snow: a tall strip of repeated flake tiles (drawn in
-   SnowyPeaks.jsx) that slides down by exactly one tile per cycle, so it
-   loops seamlessly. Sliding the whole strip (a transform) is much cheaper
-   than moving the background. */
+/* Falling snow: a strip of repeated flake tiles (drawn in SnowyPeaks.jsx),
+   one tile bigger than the screen each way, sliding one tile across and one
+   down per cycle. It loops seamlessly and the snow comes in at a slant on
+   the wind. Sliding the whole strip (a transform) is much cheaper than
+   moving the background. Gusts (`translate`, separate from `transform`)
+   push it further now and then. */
 .aura-snow {
-  top: -1200px;
   bottom: 0;
+  right: 0;
+  top: calc(var(--tile-h) * -1);
+  left: calc(var(--tile-w) * -1);
+  background-size: var(--tile-w) var(--tile-h);
   background-repeat: repeat;
   will-change: transform;
   pointer-events: none;
+  animation: snowFall var(--fall) linear infinite, snowGust var(--gust) ease-in-out infinite;
+}
+.aura-snow-flurry {
+  --tile-w: 300px; --tile-h: 420px; --fall: 16s; --gust: 11s;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 1px rgba(90, 120, 180, 0.4));
 }
 .aura-snow-far {
-  background-size: 560px 560px;
+  --tile-w: 300px; --tile-h: 560px; --fall: 36s; --gust: 13s;
   filter: drop-shadow(0 0 1px rgba(90, 120, 180, 0.45));
-  animation: snowFallFar 44s linear infinite, snowSway 7s ease-in-out infinite alternate;
+  animation-delay: 0s, -4s;
 }
 .aura-snow-near {
-  background-size: 840px 840px;
+  --tile-w: 420px; --tile-h: 840px; --fall: 26s; --gust: 9s;
   filter: drop-shadow(0 0 2px rgba(90, 120, 180, 0.5));
-  animation: snowFallNear 28s linear infinite, snowSway 5s ease-in-out -2s infinite alternate;
+  animation-delay: 0s, -2s;
 }
 .aura-snow-close {
-  background-size: 1200px 1200px;
+  --tile-w: 560px; --tile-h: 1200px; --fall: 20s; --gust: 10s;
   filter: blur(0.6px) drop-shadow(0 0 3px rgba(90, 120, 180, 0.45));
-  animation: snowFallClose 22s linear infinite, snowSwayWide 6s ease-in-out -1s infinite alternate;
+  animation-delay: 0s, -6s;
 }
-@keyframes snowFallFar   { from { transform: translateY(0); } to { transform: translateY(560px); } }
-@keyframes snowFallNear  { from { transform: translateY(0); } to { transform: translateY(840px); } }
-@keyframes snowFallClose { from { transform: translateY(0); } to { transform: translateY(1200px); } }
-/* `translate` is separate from `transform`, so the sway adds to the fall. */
-@keyframes snowSway     { from { translate: -14px 0; } to { translate: 14px 0; } }
-@keyframes snowSwayWide { from { translate: -30px 0; } to { translate: 30px 0; } }
+@keyframes snowFall { from { transform: translate(0, 0); } to { transform: translate(var(--tile-w), var(--tile-h)); } }
+/* Calm, then a gust pushes the snow along and it eases back. */
+@keyframes snowGust {
+  0%, 100% { translate: 0 0; }
+  35%      { translate: -10px 0; }
+  55%      { translate: 46px 6px; }
+  70%      { translate: 18px 2px; }
+}
 
 /* ── Duskfall ──────────────────────────────────────────────────────── */
 
