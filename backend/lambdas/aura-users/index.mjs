@@ -51,7 +51,7 @@ const NOTIFICATION_TYPES = [
 ];
 const COMMENT_VISIBILITY = ['anyone', 'followers'];
 // App themes an account can save. Keep in sync with THEME_IDS in src/themes/index.js.
-const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'custom'];
+const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'custom'];
 
 // Fields only the owner may see
 const PRIVATE_FIELDS = [

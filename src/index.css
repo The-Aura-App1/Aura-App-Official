@@ -168,6 +168,41 @@
   --wordmark-ink: #fde9df;
 }
 
+/* City Skies: indigo night with a neon magenta-to-cyan accent. */
+[data-theme="city-skies"] {
+  --aura-950: 10 8 30;
+  --aura-900: 22 16 54;
+  --aura-850: 30 22 70;
+  --aura-800: 44 32 96;
+  --aura-700: 72 52 150;
+  --aura-600: 102 74 210;
+  --aura-500: 132 104 240;
+  --aura-400: 165 140 252;
+  --aura-300: 196 181 253;
+  --aura-200: 221 214 254;
+  --aura-100: 237 233 254;
+  --aura-50:  245 243 255;
+  --bg-primary:    #0a0820;
+  --bg-secondary:  #100c2a;
+  --bg-elevated:   #1a1440;
+  --bg-card:       #120e30;
+  --border:        #2a2152;
+  --text-primary:  #f6f3ff;
+  --text-secondary:#e9a6f5;
+  --text-muted:    #a49cc6;
+  --accent:        #9b7cf8;
+  --accent-hover:  #b69cff;
+  --accent-subtle: #1e1745;
+  /* Electric violet through neon magenta to cyan, like the city's signs. */
+  --brand-1: #6d4ff0;
+  --brand-2: #c04fd8;
+  --brand-3: #22a6d6;
+  --brand-ink-1: #b9a4ff;
+  --brand-ink-2: #ec9cf6;
+  --brand-ink-3: #7fdcf7;
+  --wordmark-ink: #f4eeff;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {

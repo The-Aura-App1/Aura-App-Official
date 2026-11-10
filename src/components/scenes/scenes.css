@@ -325,3 +325,132 @@
 /* Duskfall's foam line washes in and out a little. */
 .aura-dusk-foam { animation: foamWash 7s ease-in-out infinite; }
 @keyframes foamWash { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* ── City Skies ────────────────────────────────────────────────────── */
+
+/* Deep indigo overhead, warming to violet and magenta where the city's
+   light meets the sky. */
+.aura-city-sky {
+  background:
+    radial-gradient(ellipse 50% 32% at 82% 14%, rgba(196, 181, 253, 0.16), transparent 70%),
+    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(214, 80, 160, 0.35), transparent 70%),
+    linear-gradient(180deg, #04030f 0%, #0b0a2a 30%, #1c1449 55%, #3a1d62 75%, #5e2672 100%);
+}
+/* Stars fade out low down, washed out by the city's glow. */
+.aura-city-stars {
+  mask-image: linear-gradient(180deg, black 0%, black 30%, transparent 62%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 30%, transparent 62%);
+}
+
+/* A big soft moon with faint maria, and a glow around it (no ring). */
+.aura-city-moon {
+  top: 9vh;
+  right: 13%;
+  width: clamp(4.5rem, 8vw, 7.5rem);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background:
+    radial-gradient(ellipse 22% 18% at 34% 40%, rgba(178, 164, 220, 0.38), transparent),
+    radial-gradient(ellipse 16% 14% at 62% 30%, rgba(178, 164, 220, 0.26), transparent),
+    radial-gradient(ellipse 26% 20% at 58% 64%, rgba(178, 164, 220, 0.3), transparent),
+    radial-gradient(ellipse 14% 12% at 30% 70%, rgba(178, 164, 220, 0.2), transparent),
+    radial-gradient(circle at 40% 35%, #fffaf2 0%, #f3ebff 55%, #ddd2f6 100%);
+  box-shadow: 0 0 40px 8px rgba(233, 222, 255, 0.35), 0 0 140px 50px rgba(160, 130, 255, 0.18);
+  filter: blur(0.3px);
+  animation: moonGlow 10s ease-in-out infinite;
+}
+@keyframes moonGlow { 0%, 100% { opacity: 0.92; } 50% { opacity: 1; } }
+@media (max-width: 639px) {
+  .aura-city-moon { top: 12vh; right: 8%; }
+}
+
+/* Soft clouds lit pink from below by the city, drifting slowly across. */
+.aura-city-cloud {
+  height: 7vh;
+  border-radius: 9999px;
+  background: radial-gradient(ellipse at 50% 70%, rgba(226, 140, 210, 0.22), rgba(140, 110, 220, 0.1) 50%, transparent 72%);
+  filter: blur(14px);
+  animation: cityCloud 180s linear infinite;
+}
+@keyframes cityCloud { from { transform: translateX(-30vw); } to { transform: translateX(110vw); } }
+
+/* An airship crossing the sky about once every four minutes, rocking
+   gently, then out of sight. */
+.aura-city-airship {
+  top: 20vh;
+  left: 0;
+  opacity: 0;
+  animation: airshipDrift 240s linear -50s infinite;
+}
+@keyframes airshipDrift {
+  0%           { opacity: 0;   transform: translateX(-120px); }
+  2%           { opacity: 0.9; }
+  58%          { opacity: 0.9; }
+  60%          { opacity: 0;   transform: translateX(calc(100vw + 20px)); }
+  60.01%, 100% { opacity: 0;   transform: translateX(calc(100vw + 20px)); }
+}
+.aura-city-airship-bob { animation: balloonBob 8s ease-in-out infinite alternate; }
+
+/* The hill with the AURA sign: its ridge and sign at the top, its slope
+   carrying on down behind the city (fading at the right edge). */
+.aura-city-hill {
+  bottom: 0;
+  width: min(60vw, 720px);
+  height: 82%;
+  display: flex;
+  flex-direction: column;
+}
+.aura-city-hill-base {
+  flex: 1;
+  margin-top: -1px;
+  background: #170f36;
+  mask-image: linear-gradient(90deg, black 70%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, black 70%, transparent);
+}
+.aura-city-hill svg {
+  mask-image: linear-gradient(90deg, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, black 85%, transparent);
+}
+.aura-city-sign { animation: signGlow 6s ease-in-out infinite; }
+@keyframes signGlow { 0%, 100% { opacity: 0.88; } 50% { opacity: 1; } }
+
+/* Searchlights swinging slowly back and forth from their base. */
+.aura-city-beam {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: beamSweep 16s ease-in-out infinite alternate;
+}
+.aura-city-beam-2 { animation-duration: 21s; animation-delay: -9s; }
+@keyframes beamSweep { from { transform: rotate(-24deg); } to { transform: rotate(20deg); } }
+
+.aura-city-needle-tip {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: needleBreathe 5s ease-in-out infinite;
+}
+@keyframes needleBreathe { 0%, 100% { opacity: 0.55; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* Aircraft warning lights: a short red blink every couple of seconds. */
+.aura-city-beacon { animation: beaconBlink 2.4s ease-in-out infinite; }
+@keyframes beaconBlink { 0%, 100% { opacity: 0.15; } 10%, 22% { opacity: 1; } 35% { opacity: 0.15; } }
+
+/* A dark patch over a lit window: someone turns the light off for a while. */
+.aura-city-flicker { opacity: 0; animation: windowOff 24s steps(1) infinite; }
+@keyframes windowOff { 0%, 70% { opacity: 0; } 71%, 92% { opacity: 1; } 93%, 100% { opacity: 0; } }
+
+/* The monorail train: crosses the city, then a long wait. */
+.aura-city-train { animation: trainRun 46s linear -12s infinite; }
+@keyframes trainRun {
+  0%           { transform: translateX(-220px); }
+  45%          { transform: translateX(1640px); }
+  45.01%, 100% { transform: translateX(1640px); }
+}
+
+/* String lights twinkling in three sets, each on its own beat. */
+.aura-city-bulbs { animation: bulbTwinkle 4.5s ease-in-out infinite; }
+.aura-city-bulbs-1 { animation-delay: -1.5s; }
+.aura-city-bulbs-2 { animation-delay: -3s; }
+@keyframes bulbTwinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+.aura-app-sky .aura-city { transform: translateY(8%); }
+.aura-app-sky .aura-city-sky { opacity: 0.85; }

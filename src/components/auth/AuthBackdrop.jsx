@@ -6,6 +6,7 @@ import { getTheme, PUBLIC_ROTATION } from '../../themes';
 import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
+import CitySkies from '../scenes/CitySkies';
 import TwinklingStars from '../scenes/TwinklingStars';
 import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
 import '../scenes/scenes.css';
@@ -374,7 +375,7 @@ function useGentleMotion(ref) {
   }, [ref]);
 }
 
-const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall };
+const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies };
 
 // The scenery for a theme: Day and Night share the sky (styled by the
 // `dark` class), Snowy Peaks and Duskfall have their own.
@@ -508,7 +509,7 @@ function useCardSpotlight() {
 }
 
 // The scenery shared by the welcome, about and auth pages. It rotates
-// through Day, Snowy Peaks, Night and Duskfall (SiteHeader's controls pause
+// through Day, City Skies, Snowy Peaks, Night and Duskfall (SiteHeader's controls pause
 // it). The content sits above on its own layer with the `aura-heaven`
 // colors, switching light/dark with the scene. `className` can move Day's
 // glow (see .aura-glow-on-halo).

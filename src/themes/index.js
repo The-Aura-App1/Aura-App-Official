@@ -12,6 +12,14 @@ const DUSK_ART = svg(
   "<path d='M0 79 Q40 75 80 79 T160 78' stroke='#efe9ff' stroke-opacity='0.7' stroke-width='1.2' fill='none'/>"
 );
 
+const CITY_ART = svg(
+  "<path d='M10 58 C30 50 50 44 70 46 C90 48 105 58 120 66 L120 100 L10 100Z' fill='#1f1748'/>" +
+  "<path d='M22 48 h4 l2 -6 h2 l2 6 h4 M38 43 h5 v6 h-5Z' stroke='#f6f0ff' stroke-width='1.2' fill='none'/>" +
+  "<path d='M0 100 V72 h12 V64 h10 V76 h14 V60 h8 V70 h16 V56 h10 V74 h14 V30 l3 -14 l3 14 V66 h12 V58 h14 V70 h18 V62 h12 V100Z' fill='#2b2160'/>" +
+  "<rect y='88' width='160' height='12' fill='#0a0618'/>" +
+  "<circle cx='132' cy='18' r='7' fill='#f3ebff'/>"
+);
+
 // The built-in themes. `base` picks light or dark styling (dark-based themes
 // also get the `dark` class, so Tailwind's `dark:` styles apply), `scene` the
 // scenery behind the app, and `bar` the browser toolbar color on phones.
@@ -59,16 +67,24 @@ export const THEMES = [
       card: '#15102b', text: '#fbf3f0', muted: '#2e2245', accent: '#f4808c',
     },
   },
+  {
+    id: 'city-skies', name: 'City Skies', base: 'dark', scene: 'city', bar: '#0a0820',
+    description: 'A dreamy city at night, seen from a rooftop.',
+    preview: {
+      background: `${CITY_ART} bottom / 100% 100% no-repeat, linear-gradient(180deg, #04030f 0%, #1c1449 55%, #5e2672 100%)`,
+      card: '#120e30', text: '#f6f3ff', muted: '#2a2152', accent: '#c04fd8',
+    },
+  },
 ];
 
 // The scenes the welcome and sign-in pages rotate through, in order. Light
-// and dark scenes alternate.
-export const PUBLIC_ROTATION = ['day', 'snowy-peaks', 'night', 'duskfall'];
+// and dark scenes alternate where they can.
+export const PUBLIC_ROTATION = ['day', 'city-skies', 'snowy-peaks', 'night', 'duskfall'];
 
 // Every theme id an account can save, including ones still being built.
 // aura-users checks saved themes against its own copy (backendContract.test.js
 // fails if the two drift apart).
-export const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'custom'];
+export const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'custom'];
 
 export function getTheme(id) {
   return THEMES.find(t => t.id === id) ?? null;
