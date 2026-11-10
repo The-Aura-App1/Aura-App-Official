@@ -586,23 +586,21 @@ h1, h2, h3 {
   opacity: 0.6;
 }
 
-/* An occasional shooting star. */
+/* Shooting stars (ShootingStars in AuthBackdrop.jsx places each one). The
+   bright head leads; --angle tilts the path and --dir sends it left or right. */
 .aura-shooting-star {
   position: absolute;
-  top: 12%;
-  right: 8%;
-  width: 140px;
   height: 2px;
   border-radius: 9999px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(196, 181, 253, 0));
+  box-shadow: 0 0 6px rgba(221, 214, 254, 0.5);
   opacity: 0;
-  animation: shootingStar 11s ease-in 3s infinite;
+  animation: shootingStar 1.3s ease-in forwards;
 }
 @keyframes shootingStar {
-  0%   { opacity: 0; transform: rotate(-28deg) translateX(0); }
-  2%   { opacity: 1; }
-  9%   { opacity: 0; transform: rotate(-28deg) translateX(-520px); }
-  100% { opacity: 0; transform: rotate(-28deg) translateX(-520px); }
+  0%   { opacity: 0; transform: scaleX(var(--dir, 1)) rotate(calc(var(--angle, 28deg) * -1)) translateX(0); }
+  12%  { opacity: 1; }
+  100% { opacity: 0; transform: scaleX(var(--dir, 1)) rotate(calc(var(--angle, 28deg) * -1)) translateX(-520px); }
 }
 
 .dark .aura-heading { color: #f5f3ff; }
@@ -627,12 +625,17 @@ h1, h2, h3 {
 }
 .dark .aura-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15); }
 
-/* Halo-shaped constellation: dark mode on wide screens only, where there's
+/* Constellations: dark mode on wide screens only, where there's
    empty sky beside the content. The dashed lines draw in, then each star
    twinkles on its own rhythm. */
 .aura-constellation { display: none; }
 @media (min-width: 1024px) {
   .dark .aura-constellation { display: block; }
+  /* Only where the screen is wide enough to keep clear of the headings. */
+  .dark .aura-constellation.aura-xl-only { display: none; }
+}
+@media (min-width: 1280px) {
+  .dark .aura-constellation.aura-xl-only { display: block; }
 }
 .aura-constellation-line { stroke-dashoffset: 600; animation: constellationDraw 3s ease-out 0.8s forwards; }
 .aura-constellation-star { animation: constellationTwinkle 3.5s ease-in-out infinite; }
@@ -645,7 +648,7 @@ h1, h2, h3 {
 .dark .aura-app-sky .aura-sky { opacity: 0.9; }
 /* Full-height bank pushed partly below the screen, so the cloud tops stay soft. */
 .aura-app-sky .aura-cloud-bank { transform: translateY(45%); opacity: 0.75; }
-/* The constellation only fits beside the feed on wide screens. */
+/* The constellations only fit beside the feed on wide screens. */
 .aura-app-sky .aura-constellation { display: none; }
 @media (min-width: 1440px) {
   .dark .aura-app-sky .aura-constellation { display: block; }

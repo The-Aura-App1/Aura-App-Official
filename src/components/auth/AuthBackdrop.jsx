@@ -131,23 +131,142 @@ const HALO_STARS = [
   };
 });
 
-function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }) {
-  const path = HALO_STARS.map((s, i) => `${i ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`).join(' ') + ' Z';
+const star = (x, y, r) => ({ x, y, r });
+
+// The night sky's constellations, drawn like the halo one. Star sizes follow
+// how bright each star really is. `lines` lists the stars each line passes
+// through, in order.
+const CONSTELLATIONS = {
+  aura: {
+    name: 'Aura', viewBox: '0 0 220 140', label: [110, 128],
+    stars: HALO_STARS,
+    lines: [[0, 1, 2, 3, 4, 5, 6, 7, 8, 0]],
+  },
+  // Alkaid, Mizar, Alioth, Megrez, then the bowl: Phecda, Merak, Dubhe.
+  bigDipper: {
+    name: 'Big Dipper', viewBox: '0 0 220 140', label: [110, 128],
+    stars: [star(18, 38, 2.2), star(52, 26, 2.3), star(86, 34, 2.4), star(116, 50, 1.6),
+      star(124, 88, 2.0), star(178, 94, 2.2), star(184, 52, 2.6)],
+    lines: [[0, 1, 2, 3, 4, 5, 6, 3]],
+  },
+  // Polaris at the tip of the handle, then Yildun, Epsilon, Zeta and the
+  // bowl: Eta, Pherkad, Kochab.
+  littleDipper: {
+    name: 'Little Dipper', viewBox: '0 0 160 130', label: [80, 126], labelSize: 18,
+    stars: [star(16, 18, 2.8), star(42, 30, 1.5), star(66, 44, 1.6), star(86, 62, 1.7),
+      star(92, 94, 1.5), star(136, 100, 2.0), star(130, 66, 2.6)],
+    lines: [[0, 1, 2, 3, 4, 5, 6, 3]],
+  },
+  // The W.
+  cassiopeia: {
+    name: 'Cassiopeia', viewBox: '0 0 200 120', label: [100, 114], labelSize: 17,
+    stars: [star(16, 42, 2.2), star(56, 80, 2.4), star(98, 48, 2.6), star(140, 84, 2.0), star(184, 34, 2.2)],
+    lines: [[0, 1, 2, 3, 4]],
+  },
+  // Meissa (the head), Betelgeuse and Bellatrix (shoulders), the belt
+  // (Alnitak, Alnilam, Mintaka), Saiph and Rigel (knees).
+  orion: {
+    name: 'Orion', viewBox: '0 0 160 210', label: [80, 204], labelSize: 20,
+    stars: [star(80, 14, 1.6), star(38, 42, 2.8), star(118, 50, 2.2), star(66, 108, 2.1),
+      star(80, 102, 2.2), star(94, 96, 2.0), star(50, 168, 2.0), star(126, 162, 2.8)],
+    lines: [[1, 0, 2], [1, 3, 4, 5, 2], [3, 6], [5, 7]],
+  },
+};
+
+// Faint dashed lines that draw in, glowing stars that each twinkle on their
+// own rhythm, and the name in italics. `delay` staggers when each one
+// appears. The smaller drawings get bigger `labelSize`s so every name ends
+// up about the same size on screen.
+function Constellation({ id, className, delay = 0 }) {
+  const { name, viewBox, label, labelSize = 14, stars, lines } = CONSTELLATIONS[id];
+  const path = lines
+    .map(line => line.map((s, i) => `${i ? 'L' : 'M'}${stars[s].x.toFixed(1)} ${stars[s].y.toFixed(1)}`).join(' '))
+    .join(' ');
   return (
-    <svg className={`aura-constellation absolute ${className}`}
-      viewBox="0 0 220 140" aria-hidden="true">
+    <svg className={`aura-constellation absolute ${className}`} viewBox={viewBox} aria-hidden="true">
       <path className="aura-constellation-line" d={path} fill="none" stroke="rgba(221, 214, 254, 0.35)"
-        strokeWidth="0.8" strokeDasharray="3 3" />
-      {HALO_STARS.map((s, i) => (
-        <g key={i} className="aura-constellation-star" style={{ animationDelay: `${(i * 0.7) % 4}s` }}>
+        strokeWidth="0.8" strokeDasharray="3 3" style={{ animationDelay: `${0.8 + delay}s` }} />
+      {stars.map((s, i) => (
+        <g key={i} className="aura-constellation-star" style={{ animationDelay: `${(i * 0.7 + delay) % 4}s` }}>
           <circle cx={s.x} cy={s.y} r={s.r * 2.6} fill="rgba(196, 181, 253, 0.18)" />
           <circle cx={s.x} cy={s.y} r={s.r} fill="#f5f3ff" />
         </g>
       ))}
-      <text x="110" y="128" textAnchor="middle" className="font-heading" fontSize="14" fontStyle="italic" fill="rgba(221, 214, 254, 0.55)">
-        Aura
+      <text x={label[0]} y={label[1]} textAnchor="middle" className="font-heading" fontSize={labelSize} fontStyle="italic" fill="rgba(221, 214, 254, 0.55)">
+        {name}
       </text>
     </svg>
+  );
+}
+
+// Where each constellation sits. On the public pages they keep to the sky
+// beside the logo and headings: the Aura halo and Big Dipper from large
+// screens up, the rest only where the screen is wide enough to leave room
+// (`aura-xl-only`). Behind the app they keep to the margins beside the feed.
+function Constellations({ page }) {
+  return page ? (
+    <>
+      <Constellation id="aura" className="top-[120px] right-[5%] w-60 xl:w-72" />
+      <Constellation id="bigDipper" className="top-[96px] left-[4%] w-56 xl:w-64" delay={0.5} />
+      <Constellation id="littleDipper" className="aura-xl-only top-[260px] left-[15%] w-32" delay={0.9} />
+      <Constellation id="cassiopeia" className="aura-xl-only top-[310px] right-[3%] w-40" delay={1.3} />
+      <Constellation id="orion" className="aura-xl-only bottom-[180px] right-[1%] w-28" delay={1.7} />
+    </>
+  ) : (
+    <>
+      <Constellation id="aura" className="top-[96px] right-[3%] w-52" />
+      <Constellation id="bigDipper" className="top-[12%] left-[3%] w-48" delay={0.5} />
+      <Constellation id="orion" className="top-[52%] left-[4%] w-28" delay={0.9} />
+      <Constellation id="cassiopeia" className="top-[60%] right-[4%] w-40" delay={1.3} />
+    </>
+  );
+}
+
+// A shooting star now and then. Each one starts somewhere new in the part of
+// the sky that's on screen, at its own angle, length and direction. Only
+// runs while the night sky is showing (in the day sky this layer is hidden,
+// so it measures zero and skips).
+function ShootingStars() {
+  const ref = useRef(null);
+  const [shot, setShot] = useState(null);
+
+  useEffect(() => {
+    const rand = (a, b) => a + Math.random() * (b - a);
+    let timer;
+    function schedule(wait) {
+      timer = setTimeout(() => {
+        const rect = ref.current?.getBoundingClientRect();
+        if (rect && rect.width > 0 && !document.hidden) {
+          const visibleTop = Math.max(0, -rect.top);
+          const visibleHeight = Math.max(0, Math.min(window.innerHeight, rect.height - visibleTop));
+          setShot({
+            id: Date.now(),
+            top: visibleTop + rand(0.05, 0.6) * visibleHeight,
+            left: rand(0.1, 0.9) * rect.width,
+            length: rand(110, 190),
+            angle: rand(15, 42),
+            dir: Math.random() < 0.5 ? 1 : -1,
+          });
+        }
+        schedule(rand(5000, 14000));
+      }, wait);
+    }
+    schedule(rand(2000, 5000));
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <span ref={ref} className="aura-night-only absolute inset-0">
+      {shot && (
+        <span key={shot.id} className="aura-shooting-star"
+          style={{
+            top: shot.top, left: shot.left, width: shot.length,
+            '--angle': `${shot.angle}deg`, '--dir': shot.dir,
+            // Devices that ask for less motion get the same slower pace as the rest of the scenery
+            animationDuration: prefersReducedMotion() ? '2.2s' : '1.3s',
+          }} />
+      )}
+    </span>
   );
 }
 
@@ -315,8 +434,8 @@ export function SkyDecor({ variant = 'page' }) {
       <div className="aura-night-only absolute inset-0">
         <TwinklingStars seed={page ? 3 : 4} count={page ? 70 : 55} />
       </div>
-      <span className="aura-night-only aura-shooting-star" />
-      {page ? <HaloConstellation /> : <HaloConstellation className="top-[96px] right-[3%] w-52" />}
+      <ShootingStars />
+      <Constellations page={page} />
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}
