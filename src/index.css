@@ -189,8 +189,19 @@ h1, h2, h3 {
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 @layer components {
+  /* The theme's gradient, which slides along on hover, with a soft glow. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-aura-500 hover:bg-aura-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aura-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-aura-500 focus:outline-none focus:ring-2 focus:ring-aura-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-image: linear-gradient(110deg, var(--brand-1), var(--brand-2) 40%, var(--brand-3) 70%, var(--brand-2));
+    background-size: 200% 100%;
+    background-position: 0% 50%;
+    box-shadow: 0 8px 20px -10px rgb(var(--aura-500) / 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transition: background-position 0.6s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-position: 100% 50%;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px -10px rgb(var(--aura-500) / 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border border-[var(--border)] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-aura-500;
@@ -198,17 +209,27 @@ h1, h2, h3 {
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium text-sm text-[var(--text-secondary)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200;
   }
+  /* Cards: the card color picking up a faint wash of the theme's gradient
+     towards the bottom, a light catch along the top edge, and a soft colored
+     shadow instead of a flat grey one. */
   .card {
-    @apply bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 shadow-sm transition-all duration-200;
+    @apply bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 transition-all duration-200;
+    background-image: linear-gradient(170deg, transparent 35%, color-mix(in srgb, var(--brand-2) 6%, transparent) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04),
+      0 14px 34px -26px rgb(var(--aura-500) / 0.45);
   }
   .card-hover {
-    @apply card hover:border-aura-500/50 hover:shadow-aura-sm cursor-pointer;
+    @apply card hover:border-aura-500/50 cursor-pointer;
+  }
+  .card-hover:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 40px -24px rgb(var(--aura-500) / 0.6);
   }
   .input {
     @apply w-full px-4 py-3 rounded-xl text-sm bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-aura-500 focus:border-transparent transition-all duration-200;
   }
   .aura-badge {
-    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-aura-500/10 text-aura-400 border border-aura-500/20;
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-aura-400 border border-aura-500/25;
+    background: linear-gradient(110deg, rgb(var(--aura-500) / 0.16), color-mix(in srgb, var(--brand-3) 10%, transparent));
   }
   .divider { @apply border-t border-[var(--border)] my-4; }
   .page-container { @apply max-w-screen-xl mx-auto px-4 sm:px-6; }
@@ -242,10 +263,20 @@ h1, h2, h3 {
 }
 
 /* Landing page: centre the glow and rays on the halo. Its centre is the
-   header (84px) + the main top padding (24px) + half the halo's width. */
-.aura-glow-on-halo { --sun-y: 180px; --ray-y: 180px; }
+   header (84px) + the hero's top padding + half the halo's width. The
+   padding grows with the screen's height, so tall screens get more sky. */
+.aura-glow-on-halo {
+  --hero-pad: clamp(0.75rem, 3.5vh, 3.5rem);
+  --sun-y: calc(84px + var(--hero-pad) + 4.5rem);
+  --ray-y: var(--sun-y);
+}
 @media (min-width: 640px) {
-  .aura-glow-on-halo { --sun-y: 204px; --ray-y: 204px; }
+  .aura-glow-on-halo { --sun-y: calc(84px + var(--hero-pad) + min(6rem, 11vh)); }
+}
+/* The hero fills the first screen; "Explore" sits at its bottom edge. */
+.aura-hero {
+  min-height: calc(100svh - 84px);
+  padding-top: var(--hero-pad, 1.5rem);
 }
 
 @layer components {
@@ -294,12 +325,16 @@ h1, h2, h3 {
     font-variation-settings: 'SOFT' 50;
     letter-spacing: -0.015em;
   }
+  /* The main call to action: the theme's gradient drifting slowly back and
+     forth, with a soft glow underneath. */
   .aura-cta {
     @apply relative overflow-hidden inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
-    background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
-    box-shadow: 0 8px 24px -10px rgb(var(--aura-500) / 0.55);
+    background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 30%, var(--brand-3) 55%, var(--brand-2) 80%, var(--brand-1));
+    background-size: 250% 100%;
+    animation: auraDrift 9s ease-in-out infinite;
+    box-shadow: 0 10px 30px -10px rgb(var(--aura-500) / 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
-  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgb(var(--aura-500) / 0.65); }
+  .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 16px 36px -10px rgb(var(--aura-500) / 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
   /* A band of light that sweeps across on hover. */
   .aura-cta::after {
     content: '';
@@ -319,63 +354,108 @@ h1, h2, h3 {
     @apply rounded-2xl p-6 sm:p-8 bg-white/70 border border-white backdrop-blur-xl;
     box-shadow: 0 20px 50px -28px rgba(91, 53, 158, 0.4);
   }
-  .aura-highlight {
-    @apply rounded-xl bg-white/55 border border-white/80 backdrop-blur-md;
-    transition: background-color 0.3s ease, box-shadow 0.3s ease, --spot 0.3s ease;
-  }
 }
 
-/* Glass cards and highlights get a hairline border in the theme's gradient
-   and, where there's a mouse, a soft glow that follows the cursor (AuthBackdrop
-   sets --mx/--my). */
+/* Glass cards get a hairline border in the theme's gradient that slowly
+   turns around the card, like light moving over glass, and, where there's a
+   mouse, a soft glow that follows the cursor (AuthBackdrop sets --mx/--my). */
 @property --spot { syntax: '<number>'; inherits: false; initial-value: 0; }
-.aura-glass-card, .aura-highlight {
+@property --aura-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.aura-glass-card {
   position: relative;
-  background-image: radial-gradient(circle 260px at var(--mx, 50%) var(--my, 0%),
-    rgb(var(--aura-400) / calc(var(--spot) * 0.18)), transparent 70%);
+  background-image:
+    radial-gradient(circle 260px at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--aura-400) / calc(var(--spot) * 0.18)), transparent 70%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+  transition: --spot 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
-.aura-glass-card { transition: --spot 0.3s ease; }
-.aura-glass-card::before, .aura-highlight::before {
+.aura-glass-card::before {
   content: '';
   position: absolute;
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--brand-1), var(--brand-2) 45%, var(--brand-3));
+  background: conic-gradient(from var(--aura-angle), var(--brand-1), var(--brand-2), var(--brand-3),
+    rgba(255, 255, 255, 0.9), var(--brand-2), var(--brand-1));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0.35;
+  opacity: 0.4;
+  animation: auraSpin 14s linear infinite;
   transition: opacity 0.3s ease;
   pointer-events: none;
 }
 @media (hover: hover) {
-  .aura-glass-card:hover, .aura-highlight:hover { --spot: 1; }
-  .aura-glass-card:hover::before, .aura-highlight:hover::before { opacity: 0.75; }
+  .aura-glass-card:hover { --spot: 1; }
+  .aura-glass-card:hover::before { opacity: 0.85; }
+  .aura-lift:hover { transform: translateY(-4px); box-shadow: 0 28px 60px -30px rgb(var(--aura-500) / 0.55); }
 }
-
-/* Highlight pills: the explanation opens on hover (where hover exists) or
-   when tapped. Animating grid rows from 0fr to 1fr lets the height ease
-   open without knowing it in advance. */
-.aura-highlight-body {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
-}
-.aura-highlight-body > * { min-height: 0; }
 .aura-faq summary::-webkit-details-marker { display: none; }
-.aura-highlight-chevron { transition: transform 0.3s ease; }
-.aura-highlight.is-open { background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
-.aura-highlight.is-open .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
-.aura-highlight.is-open .aura-highlight-chevron { transform: rotate(180deg); }
-@media (hover: hover) {
-  .aura-highlight:hover { background-color: rgba(255, 255, 255, 0.85); box-shadow: 0 16px 40px -18px rgba(91, 53, 158, 0.45); }
-  .aura-highlight:hover .aura-highlight-body { grid-template-rows: 1fr; opacity: 1; }
-  .aura-highlight:hover .aura-highlight-chevron { transform: rotate(180deg); }
+
+@keyframes auraSpin  { to { --aura-angle: 360deg; } }
+@keyframes auraDrift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+/* ── Landing page details ──────────────────────────────────────────── */
+
+/* A breathing glow in the theme's colors behind the big halo. */
+.aura-halo-aura {
+  position: absolute;
+  inset: -30%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-2) 40%, transparent) 0%,
+    color-mix(in srgb, var(--brand-3) 16%, transparent) 45%, transparent 70%);
+  filter: blur(14px);
+  animation: haloBreathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes haloBreathe { 0%, 100% { opacity: 0.55; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.06); } }
+
+/* Feature icons sit on a small tile of the theme's gradient. */
+.aura-icon-tile {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+  box-shadow: 0 10px 22px -10px rgb(var(--aura-500) / 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-@layer components {
+/* "Explore" chevron: a slow nudge downward. */
+.aura-cue { animation: cueNudge 2.4s ease-in-out infinite; }
+@keyframes cueNudge { 0%, 100% { transform: translateY(0); opacity: 0.7; } 50% { transform: translateY(5px); opacity: 1; } }
+
+/* The app previews: each floats on its own rhythm. */
+.aura-preview { position: relative; }
+.aura-preview-float { animation: previewFloat 9s ease-in-out infinite; }
+@keyframes previewFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.aura-avatar { background: conic-gradient(from 200deg, #f9a8d4, #c4b5fd, #93c5fd, #f9a8d4); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7); }
+.aura-preview-photo {
+  background:
+    radial-gradient(circle at 62% 62%, rgba(255, 246, 220, 1) 0 8%, rgba(255, 214, 170, 0.8) 14%, transparent 40%),
+    linear-gradient(180deg, #8f7fe0 0%, #d79ad6 45%, #f8b89a 78%, #ffd9a8 100%);
+}
+.aura-chip { background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3)); box-shadow: 0 6px 16px -8px rgb(var(--aura-500) / 0.8); }
+.aura-toggle {
+  position: relative;
+  width: 2rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  background: linear-gradient(110deg, var(--brand-1), var(--brand-3));
+}
+.aura-toggle::after {
+  content: '';
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 9999px;
+  background: #fff;
+}
+/* "+50 aura" drifting up off the post now and then. */
+.aura-plus { opacity: 0; animation: plusRise 5s ease-out 2.5s infinite; }
+@keyframes plusRise {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.9); }
+  12%  { opacity: 1; transform: translateY(0) scale(1); }
+  45%  { opacity: 1; transform: translateY(-14px); }
+  60%  { opacity: 0; transform: translateY(-22px); }
+  100% { opacity: 0; transform: translateY(-22px); }
 }
 
 /* Dawn sky: soft lavender overhead fading to a warm, bright horizon. */
@@ -425,7 +505,9 @@ h1, h2, h3 {
    The scenery keeps moving, just slower (see SceneDecor); Aura's own
    "Animated scenery" setting is what turns it off. */
 @media (prefers-reduced-motion: reduce) {
-  .aura-float { animation: none !important; }
+  .aura-float, .aura-preview-float, .aura-cue, .aura-halo-aura,
+  .aura-cta, .btn-primary, .aura-glass-card::before { animation: none !important; }
+  .aura-plus { animation: none; opacity: 0; }
   .aura-rise { animation: none; opacity: 1; }
   .aura-scribble { animation: none; stroke-dashoffset: 0; }
 }
@@ -537,14 +619,13 @@ h1, h2, h3 {
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 56px -28px rgba(124, 58, 237, 0.4);
 }
-.dark .aura-highlight {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+.dark .aura-glass-card {
+  background-image:
+    radial-gradient(circle 260px at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--aura-400) / calc(var(--spot) * 0.18)), transparent 70%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 45%);
 }
-.dark .aura-highlight.is-open { background-color: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
-@media (hover: hover) {
-  .dark .aura-highlight:hover { background-color: rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.6); }
-}
+.dark .aura-avatar { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15); }
 
 /* Halo-shaped constellation: dark mode on wide screens only, where there's
    empty sky beside the content. The dashed lines draw in, then each star
@@ -569,6 +650,93 @@ h1, h2, h3 {
 @media (min-width: 1440px) {
   .dark .aura-app-sky .aura-constellation { display: block; }
 }
+
+/* ── Signed-in app chrome ──────────────────────────────────────────── */
+
+/* Themes without scenery (Light, Dark) get two very faint glows in the
+   theme's colors drifting slowly behind the content, so the page isn't one
+   flat color. Settings' scenery switch turns it off with the scenery. */
+.aura-ambient::before,
+.aura-ambient::after {
+  content: '';
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 9999px;
+  opacity: 0.1;
+}
+.aura-ambient::before {
+  top: -30vmax;
+  right: -20vmax;
+  background: radial-gradient(circle, var(--brand-2), transparent 62%);
+  animation: ambientDrift 46s ease-in-out infinite;
+}
+.aura-ambient::after {
+  bottom: -35vmax;
+  left: -25vmax;
+  background: radial-gradient(circle, var(--brand-3), transparent 62%);
+  animation: ambientDrift 58s ease-in-out infinite reverse;
+}
+.dark .aura-ambient::before, .dark .aura-ambient::after { opacity: 0.16; }
+@keyframes ambientDrift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8vmax, 6vmax) scale(1.12); } }
+
+/* The sidebar fades into a hint of the theme's color at the bottom. */
+.aura-sidebar {
+  background: linear-gradient(180deg, var(--bg-secondary) 40%, color-mix(in srgb, var(--bg-secondary) 90%, var(--brand-2)));
+}
+/* The current page in the sidebar: a gradient wash with a glowing bar. */
+.aura-nav-active {
+  position: relative;
+  color: var(--accent);
+  background: linear-gradient(90deg, rgb(var(--aura-500) / 0.18), rgb(var(--aura-500) / 0.03));
+}
+.aura-nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--brand-1), var(--brand-3));
+  box-shadow: 0 0 10px var(--brand-2);
+}
+/* Phone top and bottom bars: frosted glass with a gradient hairline. */
+/* (No position here: the bars are sticky/fixed, which already anchors the
+   hairline, and this unlayered rule would override Tailwind's classes.) */
+.aura-bar {
+  background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+.aura-bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-1), var(--brand-3), transparent);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.aura-bar-top::after { bottom: -1px; }
+.aura-bar-bottom::after { top: -1px; }
+/* The current tab on the phone bar: a glowing gradient dash above it. */
+.aura-tab-active { position: relative; color: var(--accent); }
+.aura-tab-active::before {
+  content: '';
+  position: absolute;
+  top: -0.25rem;
+  left: 50%;
+  width: 1.5rem;
+  height: 3px;
+  margin-left: -0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--brand-1), var(--brand-3));
+  box-shadow: 0 0 10px var(--brand-2);
+}
+/* Unread counts. */
+.aura-fill { background: linear-gradient(135deg, var(--brand-1), var(--brand-3)); box-shadow: 0 0 8px color-mix(in srgb, var(--brand-2) 60%, transparent); }
 
 /* ── Daytime details: light mode only ──────────────────────────────── */
 

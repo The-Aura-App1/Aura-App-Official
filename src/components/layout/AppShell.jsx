@@ -19,9 +19,13 @@ export default function AppShell() {
           <SceneDecor scene={themeInfo.scene} variant="app" />
         </div>
       )}
+      {/* Themes without scenery get a faint drifting glow instead */}
+      {skyDetails && !themeInfo.scene && (
+        <div aria-hidden="true" className="aura-ambient pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden" />
+      )}
 
       <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-30
-                        border-r border-[var(--border)] bg-[var(--bg-secondary)]">
+                        border-r border-[var(--border)] aura-sidebar">
         <Sidebar />
       </aside>
 

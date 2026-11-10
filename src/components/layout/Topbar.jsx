@@ -16,14 +16,13 @@ export default function Topbar() {
   const iconClass = ({ isActive }) =>
     `relative p-2 rounded-xl transition-all duration-200 ${
       isActive
-        ? 'text-aura-400 bg-aura-500/15'
+        ? 'text-[var(--accent)] bg-aura-500/15 shadow-aura-sm'
         : 'text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]'
     }`;
 
   return (
     <header className="lg:hidden sticky top-0 z-20
-                       bg-[var(--bg-secondary)]/90 backdrop-blur-md
-                       border-b border-[var(--border)]
+                       aura-bar aura-bar-top
                        flex items-center justify-between px-4 h-14">
       <Link to="/" aria-label="Aura App home" className="flex items-center pt-1">
         <Wordmark className="text-3xl" />
@@ -32,7 +31,7 @@ export default function Topbar() {
         <NavLink to="/notifications" aria-label="Notifications" className={iconClass}>
           <Bell size={20} />
           {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-aura-500
+            <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full aura-fill
                              text-white text-[9px] font-bold flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>

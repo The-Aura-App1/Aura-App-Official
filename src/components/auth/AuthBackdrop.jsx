@@ -155,7 +155,7 @@ function HaloConstellation({ className = 'top-[120px] right-[5%] w-60 xl:w-72' }
 // the big halo, so without its own) or the compact one above the auth forms.
 export function Wordmark({ size = 'lg', linked = false }) {
   const text = size === 'lg'
-    ? <BrandWordmark halo={false} className="text-6xl sm:text-8xl md:text-9xl" />
+    ? <BrandWordmark halo={false} className="text-6xl min-[400px]:text-7xl sm:text-8xl md:text-[min(8rem,16vh)] xl:text-[min(9rem,17vh)]" />
     : <BrandWordmark className="text-4xl sm:text-5xl" />;
   return linked ? <Link to="/welcome" aria-label="Aura App home">{text}</Link> : text;
 }
@@ -479,12 +479,12 @@ function SceneLayers({ index }) {
   });
 }
 
-// Tells the glass card or highlight under the mouse where the cursor is, for
+// Tells the glass card under the mouse where the cursor is, for
 // its hover glow (.aura-glass-card in index.css).
 function useCardSpotlight() {
   useEffect(() => {
     function onMove(e) {
-      const card = e.target.closest?.('.aura-glass-card, .aura-highlight');
+      const card = e.target.closest?.('.aura-glass-card');
       if (!card) return;
       const rect = card.getBoundingClientRect();
       card.style.setProperty('--mx', `${e.clientX - rect.left}px`);

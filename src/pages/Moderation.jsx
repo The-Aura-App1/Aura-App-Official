@@ -101,7 +101,7 @@ export default function Moderation() {
           placeholder="Reason (optional, for your records)" className="input" />
         <div className="flex gap-2">
           <button onClick={() => ban(true)} disabled={!username.trim() || !!busy}
-            className="btn-primary !bg-red-600 hover:!bg-red-700">
+            className="btn-primary !bg-none !bg-red-600 hover:!bg-red-700">
             {busy === 'ban' ? 'Working...' : 'Ban'}
           </button>
           <button onClick={() => ban(false)} disabled={!username.trim() || !!busy}

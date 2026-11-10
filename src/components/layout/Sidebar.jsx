@@ -45,7 +45,7 @@ export default function Sidebar() {
               `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
                transition-all duration-200 ${
                 isActive
-                  ? 'bg-aura-500/15 text-aura-400 font-semibold'
+                  ? 'aura-nav-active font-semibold'
                   : 'text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]'
               }`
             }>
@@ -53,7 +53,7 @@ export default function Sidebar() {
               <Icon size={20} />
               {badge > 0 && (
                 <span className="absolute -top-1.5 -right-1.5
-                                 w-4 h-4 rounded-full bg-aura-500
+                                 w-4 h-4 rounded-full aura-fill
                                  text-white text-[9px] font-bold
                                  flex items-center justify-center">
                   {badge > 9 ? '9+' : badge}
