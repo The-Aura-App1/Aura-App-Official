@@ -7,6 +7,7 @@ import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
 import TwinklingStars from '../scenes/TwinklingStars';
+import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
 import '../scenes/scenes.css';
 import BrandWordmark from '../brand/Wordmark';
 
@@ -106,122 +107,6 @@ function FloatingCloud({ seed, className, style }) {
   );
 }
 
-// Stars on a tilted ellipse, like the halo logo (tilted about 12 degrees and
-// squashed to half its width). Each star is nudged off the ellipse a little so
-// it reads as a constellation rather than a drawn ring.
-const HALO_STARS = [
-  { angle: 0,   nudge: 2,  r: 2.6 },
-  { angle: 38,  nudge: -3, r: 1.8 },
-  { angle: 80,  nudge: 3,  r: 2.2 },
-  { angle: 122, nudge: -2, r: 1.6 },
-  { angle: 160, nudge: 4,  r: 2.8 },
-  { angle: 200, nudge: -3, r: 1.7 },
-  { angle: 243, nudge: 2,  r: 2.3 },
-  { angle: 285, nudge: -4, r: 1.6 },
-  { angle: 322, nudge: 3,  r: 2.0 },
-].map(({ angle, nudge, r }) => {
-  const a = (angle * Math.PI) / 180;
-  const tilt = (-12 * Math.PI) / 180;
-  const x = (88 + nudge) * Math.cos(a);
-  const y = (36 + nudge / 2) * Math.sin(a);
-  return {
-    x: 110 + x * Math.cos(tilt) - y * Math.sin(tilt),
-    y: 62 + x * Math.sin(tilt) + y * Math.cos(tilt),
-    r,
-  };
-});
-
-const star = (x, y, r) => ({ x, y, r });
-
-// The night sky's constellations, drawn like the halo one. Star sizes follow
-// how bright each star really is. `lines` lists the stars each line passes
-// through, in order.
-const CONSTELLATIONS = {
-  aura: {
-    name: 'Aura', viewBox: '0 0 220 140', label: [110, 128],
-    stars: HALO_STARS,
-    lines: [[0, 1, 2, 3, 4, 5, 6, 7, 8, 0]],
-  },
-  // Alkaid, Mizar, Alioth, Megrez, then the bowl: Phecda, Merak, Dubhe.
-  bigDipper: {
-    name: 'Big Dipper', viewBox: '0 0 220 140', label: [110, 128],
-    stars: [star(18, 38, 2.2), star(52, 26, 2.3), star(86, 34, 2.4), star(116, 50, 1.6),
-      star(124, 88, 2.0), star(178, 94, 2.2), star(184, 52, 2.6)],
-    lines: [[0, 1, 2, 3, 4, 5, 6, 3]],
-  },
-  // Polaris at the tip of the handle, then Yildun, Epsilon, Zeta and the
-  // bowl: Eta, Pherkad, Kochab.
-  littleDipper: {
-    name: 'Little Dipper', viewBox: '0 0 160 130', label: [80, 126], labelSize: 18,
-    stars: [star(16, 18, 2.8), star(42, 30, 1.5), star(66, 44, 1.6), star(86, 62, 1.7),
-      star(92, 94, 1.5), star(136, 100, 2.0), star(130, 66, 2.6)],
-    lines: [[0, 1, 2, 3, 4, 5, 6, 3]],
-  },
-  // The W.
-  cassiopeia: {
-    name: 'Cassiopeia', viewBox: '0 0 200 120', label: [100, 114], labelSize: 17,
-    stars: [star(16, 42, 2.2), star(56, 80, 2.4), star(98, 48, 2.6), star(140, 84, 2.0), star(184, 34, 2.2)],
-    lines: [[0, 1, 2, 3, 4]],
-  },
-  // Meissa (the head), Betelgeuse and Bellatrix (shoulders), the belt
-  // (Alnitak, Alnilam, Mintaka), Saiph and Rigel (knees).
-  orion: {
-    name: 'Orion', viewBox: '0 0 160 210', label: [80, 204], labelSize: 20,
-    stars: [star(80, 14, 1.6), star(38, 42, 2.8), star(118, 50, 2.2), star(66, 108, 2.1),
-      star(80, 102, 2.2), star(94, 96, 2.0), star(50, 168, 2.0), star(126, 162, 2.8)],
-    lines: [[1, 0, 2], [1, 3, 4, 5, 2], [3, 6], [5, 7]],
-  },
-};
-
-// Faint dashed lines that draw in, glowing stars that each twinkle on their
-// own rhythm, and the name in italics. `delay` staggers when each one
-// appears. The smaller drawings get bigger `labelSize`s so every name ends
-// up about the same size on screen.
-function Constellation({ id, className, delay = 0 }) {
-  const { name, viewBox, label, labelSize = 14, stars, lines } = CONSTELLATIONS[id];
-  const path = lines
-    .map(line => line.map((s, i) => `${i ? 'L' : 'M'}${stars[s].x.toFixed(1)} ${stars[s].y.toFixed(1)}`).join(' '))
-    .join(' ');
-  return (
-    <svg className={`aura-constellation absolute ${className}`} viewBox={viewBox} aria-hidden="true">
-      <path className="aura-constellation-line" d={path} fill="none" stroke="rgba(221, 214, 254, 0.35)"
-        strokeWidth="0.8" strokeDasharray="3 3" style={{ animationDelay: `${0.8 + delay}s` }} />
-      {stars.map((s, i) => (
-        <g key={i} className="aura-constellation-star" style={{ animationDelay: `${(i * 0.7 + delay) % 4}s` }}>
-          <circle cx={s.x} cy={s.y} r={s.r * 2.6} fill="rgba(196, 181, 253, 0.18)" />
-          <circle cx={s.x} cy={s.y} r={s.r} fill="#f5f3ff" />
-        </g>
-      ))}
-      <text x={label[0]} y={label[1]} textAnchor="middle" className="font-heading" fontSize={labelSize} fontStyle="italic" fill="rgba(221, 214, 254, 0.55)">
-        {name}
-      </text>
-    </svg>
-  );
-}
-
-// Where each constellation sits. On the public pages they keep to the sky
-// beside the logo and headings: the Aura halo and Big Dipper from large
-// screens up, the rest only where the screen is wide enough to leave room
-// (`aura-xl-only`). Behind the app they keep to the margins beside the feed.
-function Constellations({ page }) {
-  return page ? (
-    <>
-      <Constellation id="aura" className="top-[120px] right-[5%] w-60 xl:w-72" />
-      <Constellation id="bigDipper" className="top-[96px] left-[4%] w-56 xl:w-64" delay={0.5} />
-      <Constellation id="littleDipper" className="aura-xl-only top-[260px] left-[15%] w-32" delay={0.9} />
-      <Constellation id="cassiopeia" className="aura-xl-only top-[310px] right-[3%] w-40" delay={1.3} />
-      <Constellation id="orion" className="aura-xl-only bottom-[180px] right-[1%] w-28" delay={1.7} />
-    </>
-  ) : (
-    <>
-      <Constellation id="aura" className="top-[96px] right-[3%] w-52" />
-      <Constellation id="bigDipper" className="top-[12%] left-[3%] w-48" delay={0.5} />
-      <Constellation id="orion" className="top-[52%] left-[4%] w-28" delay={0.9} />
-      <Constellation id="cassiopeia" className="top-[60%] right-[4%] w-40" delay={1.3} />
-    </>
-  );
-}
-
 // A shooting star now and then. Each one starts somewhere new in the part of
 // the sky that's on screen, at its own angle, length and direction. Only
 // runs while the night sky is showing (in the day sky this layer is hidden,
@@ -256,7 +141,7 @@ function ShootingStars() {
   }, []);
 
   return (
-    <span ref={ref} className="aura-night-only absolute inset-0">
+    <span ref={ref} className="aura-night-only aura-above-clouds absolute inset-0">
       {shot && (
         <span key={shot.id} className="aura-shooting-star"
           style={{
@@ -429,13 +314,14 @@ export function SkyDecor({ variant = 'page' }) {
     <>
       <div className="aura-sky absolute inset-0" />
       <div className="aura-night-only absolute inset-0 aura-galaxy-band" />
-      <div className="aura-night-only absolute inset-0 aura-stars-1" />
-      <div className="aura-night-only absolute inset-0 aura-stars-2" />
-      <div className="aura-night-only absolute inset-0">
+      {/* Stars fade out above the cloud bank rather than shining through it */}
+      <div className="aura-night-only aura-above-clouds absolute inset-0 aura-stars-1" />
+      <div className="aura-night-only aura-above-clouds absolute inset-0 aura-stars-2" />
+      <div className="aura-night-only aura-above-clouds absolute inset-0">
         <TwinklingStars seed={page ? 3 : 4} count={page ? 70 : 55} />
       </div>
       <ShootingStars />
-      <Constellations page={page} />
+      {page ? <SkyField /> : <AppSkyConstellations />}
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}
@@ -623,17 +509,21 @@ export default function AuthBackdrop({ children, className = '' }) {
   const scenes = useSceneRotation();
   const theme = getTheme(PUBLIC_ROTATION[scenes.foreground]);
   useCardSpotlight();
+  // The sky keeps its constellations clear of what's in here
+  const contentRef = useRef(null);
   return (
     <SceneContext.Provider value={scenes}>
-      <div className={`aura-scenery relative min-h-screen overflow-hidden bg-[#0d0618] ${className}`}>
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <SceneLayers index={scenes.index} />
+      <SkyContentContext.Provider value={contentRef}>
+        <div className={`aura-scenery relative min-h-screen overflow-hidden bg-[#0d0618] ${className}`}>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <SceneLayers index={scenes.index} />
+          </div>
+          <div ref={contentRef} data-theme={theme.id}
+            className={`aura-heaven ${theme.base === 'dark' ? 'dark' : ''} relative z-10 min-h-screen flex flex-col text-[var(--text-primary)]`}>
+            {children}
+          </div>
         </div>
-        <div data-theme={theme.id}
-          className={`aura-heaven ${theme.base === 'dark' ? 'dark' : ''} relative z-10 min-h-screen flex flex-col text-[var(--text-primary)]`}>
-          {children}
-        </div>
-      </div>
+      </SkyContentContext.Provider>
     </SceneContext.Provider>
   );
 }
