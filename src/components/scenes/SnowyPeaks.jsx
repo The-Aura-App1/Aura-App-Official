@@ -54,16 +54,22 @@ function snowPath(apexes, rand, depth) {
 
 // Shade the right face of each peak, as if lit from the upper left. The
 // shadow's edge runs down from the summit as a crooked ridge crest, angled
-// down the slope so it doesn't read as a vertical stripe.
-function shadePath(apexes, rand) {
+// down the slope so it doesn't read as a vertical stripe. Each shadow fades
+// out towards its far side (`from`/`to`), so where it reaches into the next
+// peak it doesn't end in a hard vertical edge.
+function shadePaths(apexes, rand) {
   return apexes.map(a => {
     const crest = [];
     for (let t = 0; t <= 1.001; t += 0.125) {
       const x = a.x + a.half * 0.55 * t + (t > 0 && t < 1 ? (rand() - 0.5) * 16 : 0);
       crest.push(`L ${x.toFixed(1)} ${(a.y + (HEIGHT - a.y) * t).toFixed(1)}`);
     }
-    return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} ${crest.join(' ')} L ${(a.x + a.half * 1.6).toFixed(1)} ${HEIGHT} L ${(a.x + a.half * 1.6).toFixed(1)} ${a.y.toFixed(1)} Z`;
-  }).join(' ');
+    return {
+      d: `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} ${crest.join(' ')} L ${(a.x + a.half * 1.6).toFixed(1)} ${HEIGHT} L ${(a.x + a.half * 1.6).toFixed(1)} ${a.y.toFixed(1)} Z`,
+      from: a.x,
+      to: a.x + a.half * 1.6,
+    };
+  });
 }
 
 // Back to front: hazy and pale far away, deeper blue up close.
@@ -111,9 +117,22 @@ function pines(seed, { base, minH, maxH, gap, clearing = [0, 0] }) {
   return { bodies, lit, snow };
 }
 
+// A bank of valley fog: a band with rolling top and bottom edges, so it
+// never reads as a straight stripe across the mountains.
+function fogPath(seed, valley) {
+  const rand = seeded(seed * 7 + 3);
+  const top = [];
+  const bottom = [];
+  for (let x = -120; x <= WIDTH + 120; x += 80) {
+    top.push(`${x} ${(valley - 90 + Math.sin(x / 170 + seed) * 14 + (rand() - 0.5) * 10).toFixed(1)}`);
+    bottom.push(`${x} ${(valley + 64 + Math.sin(x / 230 + seed * 2) * 16 + (rand() - 0.5) * 10).toFixed(1)}`);
+  }
+  return `M ${top.join(' L ')} L ${bottom.reverse().join(' L ')} Z`;
+}
+
 const RIDGES = RANGES.map(r => {
   const { path, apexes, rand } = ridge(r.seed, r);
-  return { ...r, path, snowD: snowPath(apexes, rand, r.depth), shadeD: shadePath(apexes, rand) };
+  return { ...r, path, snowD: snowPath(apexes, rand, r.depth), shades: shadePaths(apexes, rand), fogD: fogPath(r.seed, r.valley) };
 });
 const BACK_PINES  = pines(57, { base: HEIGHT - 26, minH: 34, maxH: 60, gap: [12, 16] });
 const CABIN_X = 1190;
@@ -164,27 +183,118 @@ const SNOW = {
   close: snowTile(19, { size: 1200, count: 7,  minR: 3.2, maxR: 5.5 }),
 };
 
+// ── The winter sky ────────────────────────────────────────────────────
+// What a cold, clear day in the mountains actually shows: an ice halo
+// around the sun with a sun dog on either side (ice crystals bending the
+// light, faintly rainbow-edged), high wisps of cirrus drifting slowly, and
+// "diamond dust", tiny ice crystals glinting in the air.
+
+function IceHalo() {
+  return (
+    <div className="aura-peaks-halo absolute" aria-hidden="true">
+      <span className="aura-peaks-parhelic" />
+      <span className="aura-peaks-sundog aura-peaks-sundog-left" />
+      <span className="aura-peaks-sundog aura-peaks-sundog-right" />
+    </div>
+  );
+}
+
+// Streaky noise stretched sideways reads as feathery cirrus. It's kept to
+// two bands high in the sky and drifts very slowly.
+function Cirrus() {
+  return (
+    <div className="aura-peaks-cirrus absolute inset-x-0 top-0 overflow-hidden" aria-hidden="true">
+      <svg className="aura-peaks-cirrus-drift absolute top-0 h-full" viewBox="0 0 1600 500" preserveAspectRatio="none">
+        <defs>
+          <filter id="cirrus-fibers" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.0021 0.03" numOctaves="4" seed="11" />
+            {/* White, with only the noise's brightest streaks showing */}
+            <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.2 0 0 0 -1.85" />
+            <feGaussianBlur stdDeviation="1.4" />
+          </filter>
+          <linearGradient id="cirrus-bands" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+            <stop offset="14%" stopColor="#fff" stopOpacity="0.9" />
+            <stop offset="26%" stopColor="#fff" stopOpacity="0.15" />
+            <stop offset="40%" stopColor="#fff" stopOpacity="0.75" />
+            <stop offset="58%" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+          <mask id="cirrus-mask"><rect width="1600" height="500" fill="url(#cirrus-bands)" /></mask>
+        </defs>
+        <rect width="1600" height="500" fill="#fff" filter="url(#cirrus-fibers)" mask="url(#cirrus-mask)" />
+      </svg>
+    </div>
+  );
+}
+
+// Diamond dust: small four-point glints in soft prism colors, mostly on the
+// sun's side of the sky, each catching the light on its own rhythm.
+const GLINT_TINTS = ['#ffffff', '#ffe4f1', '#dbe8ff', '#fff3d6', '#ffffff'];
+const GLINTS = (() => {
+  const rand = seeded(23);
+  return Array.from({ length: 26 }, () => ({
+    left: 30 + rand() * 68,
+    top: 4 + rand() * 54,
+    size: 5 + rand() ** 2 * 7,
+    tint: GLINT_TINTS[Math.floor(rand() * GLINT_TINTS.length)],
+    duration: 3.5 + rand() * 4,
+    delay: -rand() * 8,
+  }));
+})();
+
+function DiamondDust() {
+  return (
+    <div className="absolute inset-0" aria-hidden="true">
+      {GLINTS.map((g, i) => (
+        <svg key={i} className="aura-peaks-glint absolute" viewBox="0 0 24 24" width={g.size} height={g.size}
+          style={{ left: `${g.left}%`, top: `${g.top}%`, color: g.tint, animationDuration: `${g.duration}s`, animationDelay: `${g.delay}s` }}>
+          <path d="M12 0c.5 5.6 6.4 11.5 12 12-5.6.5-11.5 6.4-12 12-.5-5.6-6.4-11.5-12-12C5.6 11.5 11.5 5.6 12 0z" fill="currentColor" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
 // Layered mountain ranges with snowcaps, a two-row treeline with a lit
-// cabin in a clearing, and snow
-// falling in three layers (small and slow far away, large and drifting up
-// close) under a pale winter sky. `page` is the full version for the public
+// cabin in a clearing, and snow falling in three layers (small and slow far
+// away, large and drifting up close) under a pale winter sky with an ice
+// halo, cirrus and glinting ice crystals. `page` is the full version for the public
 // pages; `app` sits lower and quieter behind the signed-in app.
 export default function SnowyPeaks({ variant = 'page' }) {
   const page = variant === 'page';
   return (
     <>
       <div className="aura-peaks-sky absolute inset-0" />
+      <Cirrus />
       <div className="aura-peaks-sun absolute" />
+      <IceHalo />
+      <DiamondDust />
       <div className={`aura-peaks-range absolute inset-x-0 bottom-0 ${page ? 'h-[70vh] min-h-[340px]' : 'h-[46vh] min-h-[240px]'}`}>
         <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
           <defs>
             {RIDGES.map((r, i) => (
               <clipPath key={i} id={`peaks-clip-${i}`}><path d={r.path} /></clipPath>
             ))}
+            {/* Mist that thickens towards the valley floor and thins out again
+                below it, so neither edge of the band shows */}
             <linearGradient id="peaks-mist" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.75" />
+              <stop offset="35%" stopColor="#ffffff" stopOpacity="0.3" />
+              <stop offset="62%" stopColor="#ffffff" stopOpacity="0.6" />
+              <stop offset="82%" stopColor="#ffffff" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
             </linearGradient>
+            <filter id="peaks-fog-soft" x="-5%" y="-50%" width="110%" height="200%">
+              <feGaussianBlur stdDeviation="10" />
+            </filter>
+            {RIDGES.flatMap((r, i) => r.shades.map((s, j) => (
+              <linearGradient key={`${i}-${j}`} id={`peaks-shade-${i}-${j}`} gradientUnits="userSpaceOnUse"
+                x1={s.from} y1="0" x2={s.to} y2="0">
+                <stop offset="0%" stopColor="#2a3f78" />
+                <stop offset="45%" stopColor="#2a3f78" />
+                <stop offset="100%" stopColor="#2a3f78" stopOpacity="0" />
+              </linearGradient>
+            )))}
           </defs>
 
           {RIDGES.map((r, i) => (
@@ -192,10 +302,10 @@ export default function SnowyPeaks({ variant = 'page' }) {
               <path d={r.path} fill={r.rock} />
               <g clipPath={`url(#peaks-clip-${i})`}>
                 <path d={r.snowD} fill={r.snow} />
-                <path d={r.shadeD} fill="#2a3f78" opacity={r.shade} />
+                {r.shades.map((s, j) => <path key={j} d={s.d} fill={`url(#peaks-shade-${i}-${j})`} opacity={r.shade} />)}
               </g>
               {/* Mist settling in the valleys in front of each range */}
-              <rect x="-60" y={r.valley - 90} width={WIDTH + 120} height="140" fill="url(#peaks-mist)" opacity="0.7" />
+              <path d={r.fogD} fill="url(#peaks-mist)" filter="url(#peaks-fog-soft)" opacity="0.7" />
             </g>
           ))}
 

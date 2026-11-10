@@ -16,6 +16,85 @@
   filter: blur(8px);
 }
 
+/* An ice halo around the sun (the sun's center is 5rem down and 6% + 13rem
+   in from the right): a faint ring, warm on its inner edge and cool on its
+   outer, with a bright sun dog on each side and the pale parhelic circle
+   running through them. It shimmers slowly. */
+.aura-peaks-halo {
+  --halo: min(26rem, 92vw);
+  width: var(--halo);
+  height: var(--halo);
+  top: calc(5rem - var(--halo) / 2);
+  right: calc(6% + 13rem - var(--halo) / 2);
+  border-radius: 9999px;
+  background: radial-gradient(circle closest-side, transparent 80%, rgba(255, 176, 156, 0.26) 85%,
+    rgba(255, 242, 224, 0.4) 88.5%, rgba(196, 214, 255, 0.32) 92%, rgba(176, 196, 255, 0.12) 96%, transparent 100%);
+  filter: blur(1.5px);
+  animation: haloShimmer 14s ease-in-out infinite;
+  pointer-events: none;
+}
+.aura-peaks-parhelic {
+  position: absolute;
+  top: 50%;
+  left: -55%;
+  width: 210%;
+  height: 2px;
+  margin-top: -1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32) 28%, rgba(255, 255, 255, 0.32) 72%, transparent);
+  filter: blur(1px);
+}
+.aura-peaks-sundog {
+  position: absolute;
+  top: 50%;
+  width: 3.4rem;
+  height: 1.5rem;
+  margin-top: -0.75rem;
+  border-radius: 9999px;
+  filter: blur(2.5px);
+  animation: sundogGlow 9s ease-in-out infinite;
+}
+/* Red edge towards the sun, a white heart, a blue tail pointing away */
+.aura-peaks-sundog-left {
+  left: -1.7rem;
+  background: radial-gradient(ellipse at 60% 50%, rgba(255, 255, 255, 0.95), rgba(255, 214, 190, 0.55) 30%, transparent 62%),
+    linear-gradient(270deg, rgba(255, 150, 130, 0.45), rgba(255, 236, 200, 0.4) 30%, rgba(190, 206, 255, 0.3) 62%, transparent);
+}
+.aura-peaks-sundog-right {
+  right: -1.7rem;
+  background: radial-gradient(ellipse at 40% 50%, rgba(255, 255, 255, 0.95), rgba(255, 214, 190, 0.55) 30%, transparent 62%),
+    linear-gradient(90deg, rgba(255, 150, 130, 0.45), rgba(255, 236, 200, 0.4) 30%, rgba(190, 206, 255, 0.3) 62%, transparent);
+  animation-delay: -4.5s;
+}
+@keyframes haloShimmer { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+/* On phones it sits behind the logo's own halo, so it stays fainter there. */
+@media (max-width: 639px) {
+  .aura-peaks-halo { filter: blur(1.5px) opacity(0.55); }
+}
+@keyframes sundogGlow  { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+/* High cirrus: wider than the screen so it can drift without showing an edge. */
+.aura-peaks-cirrus { height: 62vh; opacity: 0.6; }
+.aura-peaks-cirrus-drift {
+  left: -15%;
+  width: 130%;
+  will-change: transform;
+  animation: cirrusDrift 140s ease-in-out infinite alternate;
+}
+@keyframes cirrusDrift { from { transform: translateX(-5%); } to { transform: translateX(5%); } }
+
+/* Diamond dust glints */
+.aura-peaks-glint {
+  opacity: 0;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 6px rgba(190, 210, 255, 0.6));
+  animation: glint 5s ease-in-out infinite;
+}
+@keyframes glint {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  45%      { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  60%      { opacity: 1; transform: scale(1) rotate(45deg); }
+  75%      { opacity: 0; transform: scale(0.5) rotate(90deg); }
+}
+
 /* Falling snow: a tall strip of repeated flake tiles (drawn in
    SnowyPeaks.jsx) that slides down by exactly one tile per cycle, so it
    loops seamlessly. Sliding the whole strip (a transform) is much cheaper
@@ -214,6 +293,7 @@
 /* ── Behind the signed-in app: quieter versions ───────────────────── */
 
 .aura-app-sky .aura-peaks-sky { opacity: 0.7; }
+.aura-app-sky .aura-peaks-cirrus { opacity: 0.4; }
 .aura-app-sky .aura-peaks-range { opacity: 0.8; transform: translateY(18%); }
 .aura-app-sky .aura-snow-near { opacity: 0.6; }
 .aura-app-sky .aura-snow-close { opacity: 0.5; }
@@ -258,3 +338,7 @@
 /* ── Snowy Peaks cabin ─────────────────────────────────────────────── */
 .aura-cabin-smoke { color: rgba(255, 255, 255, 0.85); }
 .aura-cabin-window { filter: drop-shadow(0 0 5px rgba(255, 196, 110, 0.85)); }
+
+/* Duskfall's foam line washes in and out a little. */
+.aura-dusk-foam { animation: foamWash 7s ease-in-out infinite; }
+@keyframes foamWash { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

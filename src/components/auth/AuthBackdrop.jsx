@@ -44,6 +44,9 @@ function cloudPuffs(seed, { width, baseline, minR, maxR, step }) {
 
 const BANK_WIDTH = 1600;
 const BANK_HEIGHT = 420;
+// Room above the bank for the tallest cloud tops. Without it, wide screens
+// (which scale the drawing up) cut them off in a flat line.
+const BANK_HEADROOM = 200;
 
 // Back to front: hazier, lavender-tinted clouds behind, brightest in front.
 const CLOUD_LAYERS = [
@@ -58,9 +61,13 @@ function CloudBank() {
       {CLOUD_LAYERS.map((layer, i) => {
         const puffs = cloudPuffs(layer.seed, { width: BANK_WIDTH, ...layer });
         return (
-          <svg key={layer.seed} className="aura-cloud-layer absolute -inset-x-16 bottom-0 h-full w-[calc(100%+8rem)]"
-            viewBox={`0 0 ${BANK_WIDTH} ${BANK_HEIGHT}`} preserveAspectRatio="xMidYMax slice"
-            style={{ opacity: layer.opacity, animation: `${layer.drift} ease-in-out infinite` }}>
+          <svg key={layer.seed} className="aura-cloud-layer absolute -inset-x-16 bottom-0 w-[calc(100%+8rem)]"
+            viewBox={`0 ${-BANK_HEADROOM} ${BANK_WIDTH} ${BANK_HEIGHT + BANK_HEADROOM}`} preserveAspectRatio="xMidYMax slice"
+            style={{
+              height: `${((BANK_HEIGHT + BANK_HEADROOM) / BANK_HEIGHT) * 100}%`,
+              opacity: layer.opacity,
+              animation: `${layer.drift} ease-in-out infinite`,
+            }}>
             <defs>
               <linearGradient id={`cloud-fill-${i}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={layer.top} />

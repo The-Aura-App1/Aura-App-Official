@@ -202,10 +202,28 @@ export default function Duskfall({ variant = 'page' }) {
               <stop offset="35%" stopColor="#24183f" />
               <stop offset="100%" stopColor="#120e2a" />
             </linearGradient>
+            {/* Damp sand: darkest at the water's edge, drying out up the beach */}
+            <linearGradient id="dusk-damp" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#4b3a6a" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#4b3a6a" stopOpacity="0" />
+            </linearGradient>
+            {/* The sea's last thin wash over the sand, fading at both edges */}
+            <linearGradient id="dusk-foam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#efe6ff" stopOpacity="0" />
+              <stop offset="45%" stopColor="#efe6ff" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#efe6ff" stopOpacity="0" />
+            </linearGradient>
+            {/* Wet sand at the water's edge is as dark as the shallows, so the
+                shoreline blends rather than cuts; it lightens as it dries */}
             <linearGradient id="dusk-sand" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3a2738" />
+              <stop offset="0%" stopColor="#151027" />
+              <stop offset="28%" stopColor="#2e2034" />
+              <stop offset="60%" stopColor="#2a1c2e" />
               <stop offset="100%" stopColor="#170f1c" />
             </linearGradient>
+            <filter id="dusk-soft" x="-5%" y="-100%" width="110%" height="300%">
+              <feGaussianBlur stdDeviation="4" />
+            </filter>
             {/* The afterglow lives in the SVG, not the CSS sky, so it always
                 sits right on the horizon whatever the screen shape. */}
             <linearGradient id="dusk-glow-band" x1="0" y1="0" x2="0" y2="1">
@@ -253,10 +271,13 @@ export default function Duskfall({ variant = 'page' }) {
               the clip hides whatever part of it is still underwater. */}
           {PODS.map((pod, i) => <DolphinPod key={i} {...pod} />)}
 
-          {/* The beach, with a darker damp band along the water's edge */}
+          {/* The beach, with damp sand along the water's edge that fades as
+              it dries, and a soft wash of foam where sea meets sand */}
           <path d={`M -100 ${SHORE} C 400 ${SHORE - 12} 1100 ${SHORE + 10} ${WIDTH + 100} ${SHORE - 6} L ${WIDTH + 100} ${BOTTOM} L -100 ${BOTTOM} Z`} fill="url(#dusk-sand)" />
-          <path d={`M -100 ${SHORE} C 400 ${SHORE - 12} 1100 ${SHORE + 10} ${WIDTH + 100} ${SHORE - 6} L ${WIDTH + 100} ${SHORE + 40} C 1000 ${SHORE + 50} 500 ${SHORE + 34} -100 ${SHORE + 44} Z`}
-            fill="#4b3a6a" opacity="0.35" />
+          <path d={`M -100 ${SHORE} C 400 ${SHORE - 12} 1100 ${SHORE + 10} ${WIDTH + 100} ${SHORE - 6} L ${WIDTH + 100} ${SHORE + 70} C 1000 ${SHORE + 80} 500 ${SHORE + 64} -100 ${SHORE + 74} Z`}
+            fill="url(#dusk-damp)" />
+          <path className="aura-dusk-foam" d={`M -100 ${SHORE - 10} C 400 ${SHORE - 22} 1100 ${SHORE} ${WIDTH + 100} ${SHORE - 16} L ${WIDTH + 100} ${SHORE + 8} C 1100 ${SHORE + 22} 400 ${SHORE + 2} -100 ${SHORE + 12} Z`}
+            fill="url(#dusk-foam)" filter="url(#dusk-soft)" />
         </svg>
       </div>
     </>
