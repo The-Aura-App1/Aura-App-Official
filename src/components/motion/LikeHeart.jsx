@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Heart } from 'lucide-react';
 
-// The like heart. Liking pops it with a ring that spreads out like a halo.
+const DOTS = 7;
+
+// The like heart. Liking pops it with a halo ring and a small burst of dots.
 export default function LikeHeart({ liked, size = 20 }) {
   const prev = useRef(liked);
   const [pops, setPops] = useState(0);
@@ -9,11 +11,19 @@ export default function LikeHeart({ liked, size = 20 }) {
     if (liked && !prev.current) setPops(n => n + 1);
     prev.current = liked;
   }, [liked]);
+  const popping = pops > 0 && liked;
 
   return (
-    <span key={pops} className={`relative inline-flex ${pops && liked ? 'aura-like-pop' : ''}`}>
+    <span key={pops} className={`relative inline-flex ${popping ? 'aura-like-pop' : ''}`}>
       <Heart size={size} fill={liked ? 'currentColor' : 'none'} />
-      {pops > 0 && liked && <span className="aura-like-ring" aria-hidden="true" />}
+      {popping && (
+        <span aria-hidden="true" className="aura-like-fx" style={{ '--s': `${size}px` }}>
+          <span className="aura-like-ring" />
+          {Array.from({ length: DOTS }, (_, i) => (
+            <span key={i} className="aura-like-dot" style={{ '--a': `${(i / DOTS) * 360 - 90}deg` }} />
+          ))}
+        </span>
+      )}
     </span>
   );
 }

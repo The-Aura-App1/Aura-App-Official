@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { getTheme, defaultThemeId } from '../themes';
 
 const ThemeContext = createContext(null);
@@ -28,8 +29,25 @@ function initialThemeId() {
 // The theme applies on this device straight away. useChooseTheme also saves
 // it to the account, and ThemeSync applies the account's theme on sign-in.
 export function ThemeProvider({ children }) {
-  const [themeId, setThemeId] = useState(initialThemeId);
+  const [themeId, setThemeIdNow] = useState(initialThemeId);
   const themeInfo = getTheme(themeId) ?? getTheme('day');
+  const currentId = useRef(themeId);
+  currentId.current = themeId;
+
+  // Switching themes crossfades the whole screen, scenery included. Browsers
+  // without view transitions blend the colors instead.
+  const setThemeId = useCallback(id => {
+    if (!id || id === currentId.current) return;
+    const root = document.documentElement;
+    if (document.startViewTransition) {
+      document.startViewTransition(() => flushSync(() => setThemeIdNow(id)));
+      return;
+    }
+    root.classList.add('aura-theme-blend');
+    setThemeIdNow(id);
+    clearTimeout(setThemeId.timer);
+    setThemeId.timer = setTimeout(() => root.classList.remove('aura-theme-blend'), 700);
+  }, []);
 
   // Clouds, stars and other scenery behind the app. On unless turned off.
   const [skyDetails, setSkyDetails] = useState(() => readStorage('aura-sky-details') !== 'off');
@@ -39,7 +57,8 @@ export function ThemeProvider({ children }) {
   // itself must not be `dark`, or Day's scenery would pick up Night's styles.
   const [publicScenes, setPublicScenes] = useState(false);
 
-  useEffect(() => {
+  // Layout effect, so the new theme is on the page before a crossfade captures it
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = themeInfo.id;
     root.classList.toggle('dark', themeInfo.base === 'dark' && !publicScenes);

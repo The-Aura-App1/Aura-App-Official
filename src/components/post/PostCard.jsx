@@ -74,14 +74,20 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
     setShowAuraModal(true);
   }
 
+  // The card glows for a give and dims for a take
+  const [reaction, setReaction] = useState(null);   // { id, type }
+
   function handleAuraSuccess(delta) {
     setAuraScore(prev => prev + delta);
+    if (delta) setReaction({ id: Date.now(), type: delta > 0 ? 'give' : 'take' });
     setShowAuraModal(false);
   }
 
   return (
     <>
-      <article className="card p-0 overflow-hidden">
+      <article
+        className={`card p-0 overflow-hidden ${reaction ? `aura-card-${reaction.type}` : ''}`}
+        onAnimationEnd={e => { if (e.target === e.currentTarget) setReaction(null); }}>
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-4 py-3">
