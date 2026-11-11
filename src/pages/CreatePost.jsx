@@ -6,6 +6,10 @@ import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
 import { postEmbeddingText } from '../utils/embeddings';
 import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
+import { prefersReducedMotion } from '../utils/motion';
+
+// Where the little sparks rise from as a new post drifts away
+const SPARKS = [12, 24, 37, 50, 63, 76, 88].map((left, i) => ({ left, delay: (i * 137) % 420 }));
 
 const EMBED_TIMEOUT_MS = 15000;
 
@@ -39,6 +43,7 @@ export default function CreatePost() {
   const [files, setFiles]           = useState([]);
   const [previews, setPreviews]     = useState([]);
   const [loading, setLoading]       = useState(false);
+  const [sent, setSent]             = useState(false);
   const [error, setError]           = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
 
@@ -184,6 +189,9 @@ export default function CreatePost() {
         ...(groupId && { groupId }),
       });
 
+      // The post drifts up into the sky, then you land back where you came from
+      setSent(true);
+      await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 350 : 750));
       navigate(doneUrl);
     } catch (err) {
       setError(err.message);
@@ -194,7 +202,12 @@ export default function CreatePost() {
   }
 
   return (
-    <div className="max-w-lg mx-auto pb-8">
+    <>
+    {sent && SPARKS.map(spark => (
+      <span key={spark.left} className="aura-send-spark" aria-hidden="true"
+        style={{ left: `${spark.left}%`, animationDelay: `${spark.delay}ms` }} />
+    ))}
+    <div className={`max-w-lg mx-auto pb-8 ${sent ? 'aura-send-off' : ''}`}>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -446,5 +459,6 @@ export default function CreatePost() {
         )}
       </button>
     </div>
+    </>
   );
 }

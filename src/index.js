@@ -7,6 +7,7 @@ import '@fontsource-variable/sora';
 import '@fontsource-variable/fraunces/full.css';
 import '@fontsource-variable/fraunces/full-italic.css';
 import './index.css';
+import './motion.css';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

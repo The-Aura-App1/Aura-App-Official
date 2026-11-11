@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import Wordmark from '../brand/Wordmark';
 import { ThemeMenu } from '../theme/ThemePicker';
 import useUnreadCount from '../../hooks/useUnreadCount';
+import NotifyBell from './NotifyBell';
 
 export default function Sidebar() {
   const { displayName, username, logout, dbProfile } = useAuth();
@@ -18,7 +19,7 @@ export default function Sidebar() {
 
   const NAV = [
     { to: '/',                           icon: Home,       label: 'Feed'          },
-    { to: '/notifications',              icon: Bell,       label: 'Notifications', badge: unreadCount },
+    { to: '/notifications',              icon: Bell,       label: 'Notifications', bell: true },
     { to: '/groups',                     icon: Users,      label: 'Groups'        },
     { to: '/create',                     icon: PlusSquare, label: 'Post'          },
     { to: `/profile/${username || displayName}`, icon: User, label: 'Profile'    },
@@ -39,7 +40,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">
-        {NAV.map(({ to, icon: Icon, label, badge }) => (
+        {NAV.map(({ to, icon: Icon, label, bell }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
@@ -49,17 +50,7 @@ export default function Sidebar() {
                   : 'text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]'
               }`
             }>
-            <div className="relative">
-              <Icon size={20} />
-              {badge > 0 && (
-                <span className="absolute -top-1.5 -right-1.5
-                                 w-4 h-4 rounded-full aura-fill
-                                 text-white text-[9px] font-bold
-                                 flex items-center justify-center">
-                  {badge > 9 ? '9+' : badge}
-                </span>
-              )}
-            </div>
+            {bell ? <NotifyBell count={unreadCount} size={20} /> : <Icon size={20} />}
             {label}
           </NavLink>
         ))}

@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Heart, MessageCircle, Share2, MoreHorizontal,
-  ChevronLeft, ChevronRight, Sparkles
-} from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import AuraModal   from './AuraModal';
 import { recordEngagement } from '../../utils/tasteProfile';
 import PostMedia   from './PostMedia';
-import { formatAura, timeAgo } from '../../utils/format';
+import { timeAgo } from '../../utils/format';
+import AuraScore   from '../motion/AuraScore';
+import LikeHeart   from '../motion/LikeHeart';
 import { topicLabel } from '../../utils/topics';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
@@ -198,12 +197,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
             </button>
 
             {/* Aura score */}
-            <span className={`text-sm font-bold tabular-nums
-              ${auraScore > 0 ? 'text-aura-400' :
-                auraScore < 0 ? 'text-red-400' :
-                'text-[var(--text-muted)]'}`}>
-              {formatAura(auraScore)}
-            </span>
+            <AuraScore value={auraScore} className="text-sm" />
 
             {/* Take Aura, unless the author or the group turned taking off */}
             {post.allowTakes !== false && !takesOff && <button
@@ -232,7 +226,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
                   : 'text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10'
                 }`}
             >
-              <Heart size={20} fill={liked ? 'currentColor' : 'none'} />
+              <LikeHeart liked={liked} size={20} />
               {likeCount !== undefined && (
                 <span className="text-xs font-semibold">{likeCount}</span>
               )}

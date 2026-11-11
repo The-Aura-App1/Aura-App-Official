@@ -101,14 +101,19 @@ function cleanText(raw) {
 // ones (who reported it, report counts, aura breakdowns) never leak. The
 // like count goes to the comment's own author only; canDelete is true for the
 // author and site moderators.
-function publicComment(comment, viewerId, likedIds) {
+//
+// `author` is the author's current profile when known, so a comment always
+// shows the name and picture they have now. (Names copied onto old comments
+// could otherwise point at whoever later takes a freed-up username.)
+function publicComment(comment, viewerId, likedIds, author = null) {
   const isAuthor = !!viewerId && comment.authorId === viewerId;
   return {
     commentId:       comment.commentId,
     postId:          comment.postId,
     authorId:        comment.authorId,
-    authorUsername:  comment.authorUsername,
-    authorDisplay:   comment.authorDisplay,
+    authorUsername:  author?.username ?? comment.authorUsername,
+    authorDisplay:   author?.displayName ?? comment.authorDisplay,
+    authorPicKey:    author?.profilePicKey ?? '',
     text:            comment.text,
     parentCommentId: comment.parentCommentId ?? null,
     auraScore:       comment.auraScore ?? 0,
@@ -117,6 +122,26 @@ function publicComment(comment, viewerId, likedIds) {
     canDelete:       isAuthor || ADMIN_IDS.has(viewerId),
     ...(isAuthor && { likeCount: comment.likeCount ?? 0 }),
   };
+}
+
+// Current public profile details for each author, by userId
+async function authorsOf(comments) {
+  const ids = [...new Set(comments.map(c => c.authorId).filter(Boolean))];
+  const authors = new Map();
+  for (let i = 0; i < ids.length; i += 100) {
+    let request = {
+      [USERS_TABLE]: {
+        Keys: ids.slice(i, i + 100).map(userId => ({ userId })),
+        ProjectionExpression: 'userId, username, displayName, profilePicKey',
+      },
+    };
+    while (request && Object.keys(request).length) {
+      const result = await dynamo.send(new BatchGetCommand({ RequestItems: request }));
+      for (const user of result.Responses?.[USERS_TABLE] ?? []) authors.set(user.userId, user);
+      request = result.UnprocessedKeys;
+    }
+  }
+  return authors;
 }
 
 // The comment ids, out of `comments`, that the viewer has liked
@@ -255,7 +280,7 @@ async function createComment(userId, postId, body) {
     ],
   }));
 
-  return response(201, { ...publicComment(comment, userId, new Set()), replies: [] });
+  return response(201, { ...publicComment(comment, userId, new Set(), user), replies: [] });
 }
 
 // ─── Get comments for a post ──────────────────────────────────
@@ -298,10 +323,11 @@ async function getComments(postId, viewerId, limit = 50) {
   }
 
   const shown = [...topLevel, ...[...repliesByParent.values()].flat()];
-  const liked = await likedByViewer(shown, viewerId);
+  const [liked, authors] = await Promise.all([likedByViewer(shown, viewerId), authorsOf(shown)]);
+  const view = c => publicComment(c, viewerId, liked, authors.get(c.authorId));
   const threaded = topLevel.map(comment => ({
-    ...publicComment(comment, viewerId, liked),
-    replies: repliesByParent.get(comment.commentId).map(r => publicComment(r, viewerId, liked)),
+    ...view(comment),
+    replies: repliesByParent.get(comment.commentId).map(view),
   }));
 
   return response(200, { comments: threaded, total: items.length });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Moon, Sun, Bell, User } from 'lucide-react';
+import { Moon, Sun, User } from 'lucide-react';
+import NotifyBell from './NotifyBell';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeMenu } from '../theme/ThemePicker';
 import { useAuth } from '../../context/AuthContext';
@@ -29,13 +30,7 @@ export default function Topbar() {
       </Link>
       <div className="flex items-center gap-1">
         <NavLink to="/notifications" aria-label="Notifications" className={iconClass}>
-          <Bell size={20} />
-          {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full aura-fill
-                             text-white text-[9px] font-bold flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
+          <NotifyBell count={unreadCount} size={20} />
         </NavLink>
         <NavLink to={`/profile/${username || displayName}`} aria-label="Profile" className={iconClass}>
           <User size={20} />

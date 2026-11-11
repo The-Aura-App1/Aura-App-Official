@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Gift, Tv, Clock, Coins, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import OrbBurst from '../components/motion/OrbBurst';
+import useCountUp from '../hooks/useCountUp';
+import { prefersReducedMotion } from '../utils/motion';
 
 function formatNumber(n) {
   return (n ?? 0).toLocaleString();
@@ -48,23 +51,32 @@ function Section({ icon: Icon, title, aside, children }) {
   );
 }
 
-function Balance({ label, amount, description }) {
+// Balances roll up from 0 when the page opens, and glow when aura lands in them.
+const Balance = React.forwardRef(function Balance({ label, amount, description, glow = 0 }, ref) {
   const negative = amount < 0;
+  const shown = useCountUp(amount, { duration: 900, fromZero: true });
   return (
-    <div className="flex-1 min-w-[10rem] rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)] p-4">
+    <div ref={ref} key={glow}
+      className={`flex-1 min-w-[10rem] rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)] p-4 ${glow ? 'aura-balance-glow' : ''}`}>
       <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${negative ? 'text-red-400' : 'text-[var(--text-primary)]'}`}>
-        {formatNumber(amount)}
+        {formatNumber(shown)}
       </p>
       <p className={`text-xs mt-1 ${negative ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>{description}</p>
     </div>
   );
-}
+});
 
 function Meter({ label, used, limit }) {
   const left = Math.max(0, limit - used);
   // The bar shows what's left, matching the label
   const percent = limit > 0 ? Math.min(100, (left / limit) * 100) : 0;
+  // Starts empty and fills to its level once the page has drawn
+  const [filled, setFilled] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setFilled(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   return (
     <div>
       <div className="flex items-baseline justify-between text-sm mb-1.5">
@@ -75,16 +87,17 @@ function Meter({ label, used, limit }) {
       </div>
       <div className="h-2 rounded-full bg-[var(--bg-elevated)] overflow-hidden"
         role="progressbar" aria-label={`${label} left`} aria-valuemin={0} aria-valuemax={limit} aria-valuenow={left}>
-        <div className="h-full rounded-full bg-aura-500 transition-all duration-300" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full aura-fill aura-meter-fill" style={{ width: `${filled ? percent : 0}%` }} />
       </div>
     </div>
   );
 }
 
 function Stat({ label, value }) {
+  const shown = useCountUp(value ?? 0, { duration: 900, fromZero: true });
   return (
     <div>
-      <p className="text-lg font-bold text-[var(--text-primary)]">{formatNumber(value)}</p>
+      <p className="text-lg font-bold text-[var(--text-primary)] tabular-nums">{formatNumber(shown)}</p>
       <p className="text-xs text-[var(--text-muted)]">{label}</p>
     </div>
   );
@@ -104,13 +117,23 @@ export default function AuraWallet() {
   const now      = useNow(nextAdAt);
   const adReady  = !nextAdAt || Date.parse(nextAdAt) <= now;
 
-  async function run(action, request) {
+  // Claiming floats orbs from the button into the spendable balance
+  const spendableRef = useRef(null);
+  const [burst, setBurst] = useState(null);   // { from, to }
+  const [glow, setGlow]   = useState(0);
+  const landed = useCallback(() => { setBurst(null); setGlow(n => n + 1); }, []);
+
+  async function run(action, request, button) {
     setBusy(action);
     setError('');
     setSuccess('');
     try {
       const result = await request();
       setSuccess(result.message);
+      const from = button?.getBoundingClientRect();
+      const to = spendableRef.current?.getBoundingClientRect();
+      if (from && to && !prefersReducedMotion()) setBurst({ from, to });
+      else setGlow(n => n + 1);
       await refreshUser();
     } catch (err) {
       setError(err.message);
@@ -144,6 +167,8 @@ export default function AuraWallet() {
       <Section icon={Wallet} title="Balances">
         <div className="flex flex-wrap gap-3">
           <Balance
+            ref={spendableRef}
+            glow={glow}
             label="Spendable"
             amount={dbProfile.auraSpendable ?? 0}
             description={(dbProfile.auraSpendable ?? 0) < 0
@@ -171,7 +196,7 @@ export default function AuraWallet() {
                 </div>
               </div>
               <button
-                onClick={() => run('bonus', api.claimDailyBonus)}
+                onClick={e => run('bonus', api.claimDailyBonus, e.currentTarget)}
                 disabled={today.bonus.claimed || busy !== null}
                 className="btn-primary px-4 py-2 flex-shrink-0">
                 {today.bonus.claimed ? 'Claimed' : busy === 'bonus' ? 'Claiming...' : 'Claim'}
@@ -187,7 +212,7 @@ export default function AuraWallet() {
                 </div>
               </div>
               <button
-                onClick={() => run('ad', api.watchAd)}
+                onClick={e => run('ad', api.watchAd, e.currentTarget)}
                 disabled={!adReady || busy !== null}
                 className="btn-secondary px-4 py-2 flex-shrink-0 text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
                 {!adReady
@@ -221,6 +246,8 @@ export default function AuraWallet() {
           <Stat label="Lost"     value={dbProfile.lifetimeLost} />
         </div>
       </Section>
+
+      {burst && <OrbBurst from={burst.from} to={burst.to} onDone={landed} />}
 
       <p className="text-xs text-[var(--text-muted)] px-1">
         Aura has no cash value. Coming later: transaction history. Creator payouts are on the roadmap.

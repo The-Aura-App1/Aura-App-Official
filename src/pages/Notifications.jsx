@@ -166,11 +166,12 @@ export default function Notifications() {
 
       {/* Notification list */}
       <div className="flex flex-col gap-2">
-        {notifications.map(notification => (
+        {notifications.map((notification, i) => (
           <div
             key={notification.notificationId}
             onClick={() => handleClick(notification)}
-            className={`card flex items-start gap-3 cursor-pointer
+            style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
+            className={`aura-arrive card flex items-start gap-3 cursor-pointer
                         hover:border-aura-500/30 transition-all duration-200
                         ${!notification.read
                           ? 'border-aura-500/20 bg-aura-500/5'

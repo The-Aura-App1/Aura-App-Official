@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { api } from '../../api';
 import PostCard from '../post/PostCard';
+import Reveal from '../motion/Reveal';
 import LoadingSpinner from '../common/LoadingSpinner';
 import useInfiniteList from '../../hooks/useInfiniteList';
 
@@ -24,7 +25,7 @@ export default function GroupPosts({ groupId, takesOff = false }) {
   return (
     <div className="flex flex-col gap-4">
       {posts.map(post => (
-        <PostCard key={post.postId} post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} />
+        <Reveal key={post.postId}><PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} /></Reveal>
       ))}
 
       {done && posts.length === 0 && (

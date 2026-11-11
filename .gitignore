@@ -27,3 +27,6 @@ yarn-error.log*
 
 # lambda deployment packages
 *.zip
+
+# Personal Claude Code settings
+.claude/settings.local.json

@@ -3,7 +3,8 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/post/PostCard';
 import TuneFeed from '../components/feed/TuneFeed';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import Reveal from '../components/motion/Reveal';
+import { FeedSkeleton } from '../components/motion/Skeleton';
 import { loadPrefs, savePrefs, setTopics } from '../utils/feedPrefs';
 import { rankFeed } from '../utils/feedRanking';
 import { EMPTY_TASTE, isLearningOn, loadTaste } from '../utils/tasteProfile';
@@ -83,7 +84,7 @@ export default function Feed() {
     storePrefs(current => setTopics(current, post.tags ?? [], choice));
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <FeedSkeleton />;
   if (error) return (
     <div className="flex items-center justify-center py-20">
       <p className="text-red-400 text-sm">{error}</p>
@@ -101,9 +102,11 @@ export default function Feed() {
         </div>
       )}
 
-      {ranked.slice(0, shown).map(post => (
-        <PostCard key={post.postId} post={post} onUpdate={loadFeed} onPrefer={preferPost}
-          onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
+      {ranked.slice(0, shown).map((post, i) => (
+        <Reveal key={post.postId} delay={i < 4 ? i * 80 : 0}>
+          <PostCard post={post} onUpdate={loadFeed} onPrefer={preferPost}
+            onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
+        </Reveal>
       ))}
 
       {shown < ranked.length && <div ref={sentinelRef} aria-hidden="true" />}
