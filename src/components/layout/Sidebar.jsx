@@ -1,31 +1,40 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  Home, PlusSquare, Wallet, Settings,
-  LogOut, Moon, Sun, User, Bell, Users, ShieldAlert
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Home, PlusSquare, LogOut, Moon, Sun, User, Users, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import Wordmark from '../brand/Wordmark';
 import { ThemeMenu } from '../theme/ThemePicker';
 import useUnreadCount from '../../hooks/useUnreadCount';
 import NotifyBell from './NotifyBell';
+import { moreItems, isMorePath } from './navItems';
 
+const linkClass = ({ isActive }) =>
+  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+    isActive
+      ? 'aura-nav-active font-semibold'
+      : 'text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]'
+  }`;
+
+// Five main destinations, then everything else folded under "More" so the
+// sidebar stays calm as the app grows.
 export default function Sidebar() {
   const { displayName, username, logout, dbProfile } = useAuth();
-  const { theme, themeInfo }             = useTheme();
-  const navigate                          = useNavigate();
-  const unreadCount                       = useUnreadCount();
+  const { theme, themeInfo } = useTheme();
+  const navigate    = useNavigate();
+  const { pathname } = useLocation();
+  const unreadCount = useUnreadCount();
+  const [moreOpen, setMoreOpen] = useState(() => isMorePath(pathname));
 
-  const NAV = [
-    { to: '/',                           icon: Home,       label: 'Feed'          },
-    { to: '/notifications',              icon: Bell,       label: 'Notifications', bell: true },
-    { to: '/groups',                     icon: Users,      label: 'Groups'        },
-    { to: '/create',                     icon: PlusSquare, label: 'Post'          },
-    { to: `/profile/${username || displayName}`, icon: User, label: 'Profile'    },
-    { to: '/wallet',                     icon: Wallet,     label: 'Aura Wallet'  },
-    { to: '/settings',                   icon: Settings,   label: 'Settings'     },
-    ...(dbProfile?.isAdmin ? [{ to: '/moderation', icon: ShieldAlert, label: 'Moderation' }] : []),
+  // Opening a page from "More" (from a link elsewhere, say) unfolds it
+  useEffect(() => { if (isMorePath(pathname)) setMoreOpen(true); }, [pathname]);
+
+  const MAIN = [
+    { to: '/',              icon: Home,       label: 'Feed' },
+    { to: '/groups',        icon: Users,      label: 'Groups' },
+    { to: '/create',        icon: PlusSquare, label: 'Post' },
+    { to: '/notifications', bell: true,       label: 'Notifications' },
+    { to: `/profile/${encodeURIComponent(username || displayName || '')}`, icon: User, label: 'Profile' },
   ];
 
   async function handleLogout() {
@@ -34,29 +43,39 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="flex flex-col h-full px-4 py-6">
+    <div className="flex flex-col h-full px-4 py-6 overflow-y-auto">
       <div className="flex items-center px-2 pt-2 mb-10">
         <Wordmark className="text-4xl" />
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">
-        {NAV.map(({ to, icon: Icon, label, bell }) => (
-          <NavLink key={to} to={to} end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
-               transition-all duration-200 ${
-                isActive
-                  ? 'aura-nav-active font-semibold'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]'
-              }`
-            }>
+        {MAIN.map(({ to, icon: Icon, label, bell }) => (
+          <NavLink key={label} to={to} end={to === '/'} className={linkClass}>
             {bell ? <NotifyBell count={unreadCount} size={20} /> : <Icon size={20} />}
             {label}
           </NavLink>
         ))}
+
+        <button onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
+          className="mt-2 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[var(--text-muted)]
+                     hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200">
+          <MoreHorizontal size={20} />
+          More
+          <ChevronDown size={16} className={`ml-auto transition-transform duration-300 ${moreOpen ? 'rotate-180' : ''}`} />
+        </button>
+        <div className={`aura-fold ${moreOpen ? '' : 'is-leaving'}`} aria-hidden={!moreOpen}>
+          <div className="flex flex-col gap-1 pl-3">
+            {moreItems(!!dbProfile?.isAdmin).map(({ to, icon: Icon, label }) => (
+              <NavLink key={to} to={to} className={linkClass} tabIndex={moreOpen ? 0 : -1}>
+                <Icon size={18} />
+                {label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
       </nav>
 
-      <div className="flex flex-col gap-2 mt-auto">
+      <div className="flex flex-col gap-2 mt-6">
         <ThemeMenu placement="above" align="left" buttonClassName="btn-ghost w-full justify-start gap-3 text-sm">
           {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
           Theme: {themeInfo.name}

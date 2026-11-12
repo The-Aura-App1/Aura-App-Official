@@ -80,6 +80,9 @@
 - Group games (no house, no rake, player vs player): Connect 4, Poker, Crazy 8s, Go Fish, Dice Duel, Flip a Coin. Skill games first. Stake cap applies.
 - Moments: group-only dual-camera photos/video, 24-hour expiry unless saved, aura on them counts as earned.
 - Profile: 3 pins max, 10 tags max, badges, global aura rank (hideable).
+- Navigation (2026-11-12): five main tabs only (Feed, Groups, Post, Notifications, Profile/Me). Everything else goes in `moreItems` (`src/components/layout/navItems.js`): the sidebar's "More" section on desktop and the "Me" sheet on phones. Add new pages there, not as new tabs.
+- Motion (2026-11-12): app animations live in `src/motion.css` and `src/components/motion/`. Small feedback moments (give, take, like, bell, wallet orbs, count-ups) always play, even with reduced motion (user's decision); only big movement (posts rising, the publish send-off) turns into fades there. Theme switches crossfade (ThemeContext).
+- Suggestions & Reviews (2026-11-12): one page, `/feedback`, with two tabs. aura-users serves `/feedback/*` (`backend/lambdas/aura-users/feedback.mjs`, table `aura-feedback`, key `feedbackId`). Suggestions are signed-in only: 3 a day, one vote each. Reviews are one per person, 1–5 stars; a moderator approves them in /moderation before they show publicly, and editing sends them back for approval. The welcome page shows approved reviews via the public `GET /feedback/reviews`.
 
 ## Likes and shares
 

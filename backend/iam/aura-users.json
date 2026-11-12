@@ -39,6 +39,25 @@
         "arn:aws:s3:::aura-app-media-570934198135/avatars/*",
         "arn:aws:s3:::aura-app-media-570934198135/banners/*"
       ]
+    },
+    {
+      "Sid": "SuggestionsAndReviews",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Scan",
+        "dynamodb:BatchGetItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-feedback"
+    },
+    {
+      "Sid": "FeedbackAuthorProfiles",
+      "Effect": "Allow",
+      "Action": "dynamodb:BatchGetItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
     }
   ]
 }

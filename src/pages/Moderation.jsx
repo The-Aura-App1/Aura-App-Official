@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { ShieldAlert, UserX, Trash2, MessageSquareX } from 'lucide-react';
+import { ShieldAlert, UserX, Trash2, MessageSquareX, MessageSquareHeart } from 'lucide-react';
+import Stars from '../components/common/Stars';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 
@@ -36,6 +37,80 @@ function idFrom(input, segment) {
   const trimmed = input.trim();
   const match = trimmed.match(new RegExp(`/${segment}/([^/?#]+)`));
   return match ? decodeURIComponent(match[1]) : trimmed;
+}
+
+// Reviews waiting for approval, and suggestion statuses. Approved reviews show
+// on the welcome page, so nothing goes public without a moderator's OK.
+function FeedbackQueue() {
+  const [queue, setQueue] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.getFeedbackQueue().then(setQueue).catch(err => setError(err.message));
+  }, []);
+
+  async function act(kind, itemId, action) {
+    setError('');
+    try {
+      await api.moderateFeedback(kind, itemId, action);
+      setQueue(q => (kind === 'review'
+        ? { ...q, reviews: q.reviews.filter(r => r.reviewId !== itemId) }
+        : { ...q, suggestions: action === 'remove'
+            ? q.suggestions.filter(s => s.suggestionId !== itemId)
+            : q.suggestions.map(s => (s.suggestionId === itemId ? { ...s, status: action } : s)) }));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <Section icon={MessageSquareHeart} title="Suggestions & reviews"
+      hint="Approve reviews before they appear on the welcome page. Editing a review sends it back here.">
+      {error && <Result result={{ error }} />}
+      {!queue && !error && <p className="text-sm text-[var(--text-muted)]">Loading...</p>}
+      {queue && (
+        <>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Reviews waiting ({queue.reviews.length})
+          </h3>
+          {queue.reviews.length === 0 && <p className="text-sm text-[var(--text-muted)]">Nothing waiting.</p>}
+          {queue.reviews.map(r => (
+            <div key={r.reviewId} className="rounded-xl border border-[var(--border)] p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-[var(--text-primary)]">@{r.authorUsername}</span>
+                <Stars value={r.rating} size={13} />
+              </div>
+              {r.text && <p className="mt-1 text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-words">{r.text}</p>}
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => act('review', r.reviewId, 'approve')} className="btn-primary px-4 py-1.5 text-xs">Approve</button>
+                <button onClick={() => act('review', r.reviewId, 'reject')} className="btn-secondary px-4 py-1.5 text-xs text-[var(--text-primary)]">Reject</button>
+              </div>
+            </div>
+          ))}
+
+          <h3 className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            Suggestions ({queue.suggestions.length})
+          </h3>
+          {queue.suggestions.map(sg => (
+            <div key={sg.suggestionId} className="rounded-xl border border-[var(--border)] p-3">
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words">{sg.text}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">@{sg.authorUsername} · {sg.votes} votes</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <select value={sg.status} onChange={e => act('suggestion', sg.suggestionId, e.target.value)}
+                  className="input !w-auto !py-1.5 text-xs" aria-label="Status">
+                  <option value="open">Open</option>
+                  <option value="planned">Planned</option>
+                  <option value="done">Shipped</option>
+                </select>
+                <button onClick={() => window.confirm('Remove this suggestion?') && act('suggestion', sg.suggestionId, 'remove')}
+                  className="btn-ghost text-xs text-red-400">Remove</button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </Section>
+  );
 }
 
 export default function Moderation() {
@@ -135,6 +210,8 @@ export default function Moderation() {
         </div>
         <Result result={results.comment} />
       </Section>
+
+      <FeedbackQueue />
     </div>
   );
 }

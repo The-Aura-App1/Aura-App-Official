@@ -20,6 +20,7 @@ import Onboarding from './pages/Onboarding';
 import Notifications from './pages/Notifications';
 import Groups from './pages/Groups';
 import GroupPage from './pages/GroupPage';
+import Feedback from './pages/Feedback';
 
 function ProtectedRoute({ children }) {
   const { user, loading, profileComplete } = useAuth();
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="profile/:username"  element={<Profile />} />
         <Route path="profile"            element={<Profile />} />
         <Route path="post/:postId"       element={<PostView />} />
+        <Route path="feedback"           element={<Feedback />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

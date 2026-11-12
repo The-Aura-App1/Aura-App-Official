@@ -179,17 +179,23 @@
 @keyframes auraFadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes auraFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* Reduced motion (user's decision, 2026-11-12): small feedback moments (give,
+   take, like, the bell, wallet orbs) always play, like the scenery does. Only
+   larger movement calms down: posts fade in instead of rising, and the
+   publish send-off is a quick fade. */
 @media (prefers-reduced-motion: reduce) {
   .aura-reveal, .aura-reveal.is-shown { transform: none; transition: opacity 0.4s ease; }
   .aura-arrive, .aura-comment-new { animation-name: auraFadeIn; }
-  .aura-score-up, .aura-score-down, .aura-like-pop, .aura-bell-ring, .aura-badge-pop { animation: none; }
-  .aura-score-chip.is-up, .aura-score-chip.is-down { animation-name: auraFadeOut; }
-  .aura-like-fx, .aura-score-halo, .aura-score-spark, .aura-score-ember, .aura-orb, .aura-send-spark { display: none; }
-  .aura-card-give, .aura-card-take { animation: none; }
-  .aura-fold, .aura-fold.is-leaving { transform: none; transition: opacity 0.25s ease; }
-  .aura-shimmer { animation-duration: 3s; }
+  .aura-fold, .aura-fold.is-leaving { transform: none; }
   .aura-send-off { animation-name: auraFadeOut; animation-duration: 0.35s; }
+  .aura-send-spark { display: none; }
+  div.aura-sheet { animation-name: auraFadeIn; }
 }
+
+/* Phone "Me" sheet: slides up over a soft dimmed backdrop. */
+.aura-sheet { animation: sheetUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+.aura-sheet-backdrop { animation: auraFadeIn 0.25s ease both; }
 
 /* Switching themes: a slow crossfade of the whole screen (ThemeContext). */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.7s; animation-timing-function: ease-in-out; }

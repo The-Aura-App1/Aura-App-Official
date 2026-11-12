@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown, Heart, MessageCircle } from 'lucide-react';
+import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown, Heart, MessageCircle, Lightbulb, Star } from 'lucide-react';
+import { api } from '../api';
+import Avatar from '../components/common/Avatar';
+import Stars from '../components/common/Stars';
 import AuthBackdrop, { SiteHeader, Wordmark } from '../components/auth/AuthBackdrop';
 
 const FEATURES = [
@@ -85,6 +88,72 @@ function PreviewTune({ className = '', style }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// Reviews from real members (moderator-approved), plus ways to add your own
+// or suggest a feature once signed in.
+function Community() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let live = true;
+    api.getPublicReviews().then(d => { if (live) setData(d); }).catch(() => { if (live) setData({ reviews: [], count: 0 }); });
+    return () => { live = false; };
+  }, []);
+  const reviews = data?.reviews ?? [];
+
+  return (
+    <section id="reviews" className="scroll-mt-6 px-5 sm:px-10 pb-16 sm:pb-24">
+      <div className="mx-auto max-w-6xl">
+        <p className="aura-kicker text-center text-xs font-bold uppercase tracking-[0.22em]">From the community</p>
+        <h2 className="aura-heading mt-3 text-center text-3xl sm:text-5xl leading-tight">
+          What people are <span className="aura-em">saying</span>.
+        </h2>
+        {data?.count > 0 && (
+          <p className="mt-4 flex items-center justify-center gap-2 text-sm text-aura-800/80 dark:text-aura-100/80">
+            <Stars value={data.average} size={16} /> {data.average} out of 5 from {data.count} review{data.count === 1 ? '' : 's'}
+          </p>
+        )}
+
+        {reviews.length > 0 ? (
+          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {reviews.slice(0, 6).map(review => (
+              <li key={`${review.authorUsername}-${review.createdAt}`} className="aura-glass-card aura-lift text-left">
+                <Stars value={review.rating} size={15} />
+                {review.text && (
+                  <p className="mt-3 text-sm leading-relaxed text-aura-900 dark:text-aura-50 whitespace-pre-wrap break-words line-clamp-6">
+                    {review.text}
+                  </p>
+                )}
+                <div className="mt-4 flex items-center gap-2.5">
+                  <Avatar name={review.authorDisplay} picKey={review.authorPicKey} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-aura-950 dark:text-white truncate">{review.authorDisplay}</p>
+                    {review.authorUsername && <p className="text-xs text-aura-800/60 dark:text-aura-100/60 truncate">@{review.authorUsername}</p>}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : data && (
+          <p className="mt-6 text-center text-sm text-aura-800/70 dark:text-aura-100/70">
+            Aura is brand new. Be one of the first to leave a review.
+          </p>
+        )}
+
+        <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-xs sm:max-w-none mx-auto">
+          <Link to="/signin" className="aura-glass-btn">
+            <Star size={16} /> Write a review
+          </Link>
+          <Link to="/signin" className="aura-glass-btn">
+            <Lightbulb size={16} /> Suggest a feature
+          </Link>
+        </div>
+        <p className="mt-3 text-center text-xs text-aura-800/60 dark:text-aura-100/60">
+          Sign in to share yours. Reviews appear here after a quick check by our team.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -182,6 +251,8 @@ export default function Landing() {
           </div>
         </section>
 
+        <Community />
+
         {/* Closing call to action */}
         <section className="px-5 sm:px-10 pb-16 sm:pb-24">
           <div className="aura-glass-card mx-auto max-w-5xl sm:!p-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
@@ -211,6 +282,7 @@ export default function Landing() {
           </div>
           <nav className="flex items-center gap-5 text-sm font-medium text-aura-800 dark:text-aura-100">
             <Link to="/about" className="hover:text-aura-500 transition-colors">About</Link>
+            <a href="#reviews" className="hover:text-aura-500 transition-colors">Reviews</a>
             <Link to="/signin" className="hover:text-aura-500 transition-colors">Sign in</Link>
             <Link to="/signup" className="hover:text-aura-500 transition-colors">Create account</Link>
           </nav>

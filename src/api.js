@@ -32,6 +32,17 @@ async function request(method, path, body = null, requiresAuth = true) {
 const id = value => encodeURIComponent(String(value ?? ''));
 
 export const api = {
+  // ─── Suggestions & reviews ────────────────────────────────
+  getPublicReviews:  ()             => request('GET',    '/feedback/reviews', null, false),
+  getMyReview:       ()             => request('GET',    '/feedback/reviews/me'),
+  saveMyReview:      (rating, text) => request('PUT',    '/feedback/reviews/me', { rating, text }),
+  deleteMyReview:    ()             => request('DELETE', '/feedback/reviews/me'),
+  getSuggestions:    ()             => request('GET',    '/feedback/suggestions'),
+  createSuggestion:  (text)         => request('POST',   '/feedback/suggestions', { text }),
+  voteSuggestion:    (suggestionId, on) => request(on ? 'POST' : 'DELETE', `/feedback/suggestions/${id(suggestionId)}/vote`),
+  getFeedbackQueue:  ()             => request('GET',    '/feedback/admin'),
+  moderateFeedback:  (kind, itemId, action) => request('POST', `/feedback/admin/${id(kind)}/${id(itemId)}`, { action }),
+
   // ─── Users ────────────────────────────────────────────────
   getMe:       ()                        => request('GET',  '/users/me'),
   getUser:     (username)                => request('GET',  `/users/${id(username)}`, null, false),

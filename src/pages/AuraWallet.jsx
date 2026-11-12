@@ -5,7 +5,6 @@ import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import OrbBurst from '../components/motion/OrbBurst';
 import useCountUp from '../hooks/useCountUp';
-import { prefersReducedMotion } from '../utils/motion';
 
 function formatNumber(n) {
   return (n ?? 0).toLocaleString();
@@ -132,7 +131,7 @@ export default function AuraWallet() {
       setSuccess(result.message);
       const from = button?.getBoundingClientRect();
       const to = spendableRef.current?.getBoundingClientRect();
-      if (from && to && !prefersReducedMotion()) setBurst({ from, to });
+      if (from && to) setBurst({ from, to });
       else setGlow(n => n + 1);
       await refreshUser();
     } catch (err) {

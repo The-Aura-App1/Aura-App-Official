@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { handleFeedback } from './feedback.mjs';
 
 const client = new DynamoDBClient({ region: 'us-east-1' });
 const db     = DynamoDBDocumentClient.from(client);
@@ -662,6 +663,13 @@ export const handler = async (event) => {
       const actionLimited = await firstLimit([userId, 'profile', 10, 60]);
       if (actionLimited) return actionLimited;
     }
+
+    // /feedback/... — suggestions and reviews (feedback.mjs)
+    const feedback = await handleFeedback({
+      method, segments, userId, isAdmin: !!userId && ADMIN_IDS.has(userId),
+      rawBody: event.body, rateLimited, response,
+    });
+    if (feedback) return feedback;
 
     // POST /users — create user
     if (method === 'POST' && path === '/users') {
