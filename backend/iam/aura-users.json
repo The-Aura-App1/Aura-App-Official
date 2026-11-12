@@ -9,7 +9,8 @@
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:BatchGetItem"
       ],
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
     },
@@ -48,16 +49,9 @@
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
-        "dynamodb:Scan",
-        "dynamodb:BatchGetItem"
+        "dynamodb:Scan"
       ],
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-feedback"
-    },
-    {
-      "Sid": "FeedbackAuthorProfiles",
-      "Effect": "Allow",
-      "Action": "dynamodb:BatchGetItem",
-      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
     }
   ]
 }
