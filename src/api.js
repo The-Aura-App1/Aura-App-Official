@@ -31,13 +31,21 @@ async function request(method, path, body = null, requiresAuth = true) {
 // Ids are encoded so a crafted link (an id containing ../ or ?) can't point a request at another route
 const id = value => encodeURIComponent(String(value ?? ''));
 
+// ?a=1&b=2 from an object, skipping empty values
+function query(params) {
+  const pairs = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '');
+  return pairs.length ? `?${new URLSearchParams(pairs.map(([k, v]) => [k, String(v)]))}` : '';
+}
+
 export const api = {
   // ─── Suggestions & reviews ────────────────────────────────
-  getPublicReviews:  ()             => request('GET',    '/feedback/reviews', null, false),
+  // { stars: 1-5, sort: 'newest' | 'highest' | 'lowest' }
+  getPublicReviews:  (params = {})  => request('GET',    `/feedback/reviews${query(params)}`, null, false),
   getMyReview:       ()             => request('GET',    '/feedback/reviews/me'),
   saveMyReview:      (rating, text) => request('PUT',    '/feedback/reviews/me', { rating, text }),
   deleteMyReview:    ()             => request('DELETE', '/feedback/reviews/me'),
-  getSuggestions:    ()             => request('GET',    '/feedback/suggestions'),
+  // { sort: 'top' | 'new', status: 'open' | 'planned' | 'done' }
+  getSuggestions:    (params = {})  => request('GET',    `/feedback/suggestions${query(params)}`),
   createSuggestion:  (text)         => request('POST',   '/feedback/suggestions', { text }),
   voteSuggestion:    (suggestionId, on) => request(on ? 'POST' : 'DELETE', `/feedback/suggestions/${id(suggestionId)}/vote`),
   getFeedbackQueue:  ()             => request('GET',    '/feedback/admin'),

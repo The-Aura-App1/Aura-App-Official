@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lightbulb, Star, ChevronUp, MessageSquareHeart } from 'lucide-react';
+import { Lightbulb, Star, ChevronUp, MessageSquareHeart, X } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/common/Avatar';
@@ -25,6 +25,25 @@ const TABS = [
   { id: 'reviews',     label: 'Reviews',     icon: Star },
 ];
 
+const SUGGESTION_SORTS = [{ id: 'top', label: 'Top' }, { id: 'new', label: 'New' }];
+const SUGGESTION_FILTERS = [
+  { id: 'all',     label: 'All' },
+  { id: 'open',    label: 'Open' },
+  { id: 'planned', label: 'Planned' },
+  { id: 'done',    label: 'Shipped' },
+];
+const EMPTY_SUGGESTIONS = {
+  all:     'No suggestions yet. Be the first.',
+  open:    'No open suggestions right now.',
+  planned: 'Nothing planned yet. Vote for what you want next.',
+  done:    'Nothing shipped from here yet.',
+};
+const REVIEW_SORTS = [
+  { id: 'newest',  label: 'Newest' },
+  { id: 'highest', label: 'Highest' },
+  { id: 'lowest',  label: 'Lowest' },
+];
+
 function Notice({ error, children }) {
   return (
     <p className={`text-sm rounded-xl px-3 py-2 border ${error
@@ -33,6 +52,51 @@ function Notice({ error, children }) {
       {children}
     </p>
   );
+}
+
+// A row of pill buttons where one is chosen (sort order, status filter)
+function Chips({ options, value, onChange, label, counts }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+      {options.map(({ id, label: text }) => {
+        const on = value === id;
+        return (
+          <button key={id} type="button" role="radio" aria-checked={on} onClick={() => onChange(id)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-200
+              ${on
+                ? 'aura-fill text-white border-transparent'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:border-aura-500/50 hover:text-[var(--accent)]'}`}>
+            {text}
+            {counts && counts[id] !== undefined && (
+              <span className={`ml-1.5 tabular-nums ${on ? 'text-white/80' : 'opacity-70'}`}>{counts[id]}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Loads `load(params)` whenever params change. The last result stays on screen
+// (dimmed) while the next loads, and a slow, older answer never replaces a newer one.
+function useFiltered(load, params) {
+  const [data, setData]       = useState(null);
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(true);
+  const latest = useRef(0);
+  const key = JSON.stringify(params);
+
+  useEffect(() => {
+    const ticket = ++latest.current;
+    setLoading(true);
+    setError('');
+    load(JSON.parse(key))
+      .then(result => { if (ticket === latest.current) setData(result); })
+      .catch(err => { if (ticket === latest.current) setError(err.message || 'This didn’t load. Try again.'); })
+      .finally(() => { if (ticket === latest.current) setLoading(false); });
+  }, [load, key]);
+
+  return { data, setData, error, loading };
 }
 
 function Suggestion({ item, index, onVote }) {
@@ -61,18 +125,16 @@ function Suggestion({ item, index, onVote }) {
   );
 }
 
-function Suggestions() {
-  const [items, setItems]   = useState(null);
-  const [error, setError]   = useState('');
-  const [text, setText]     = useState('');
-  const [sending, setSending] = useState(false);
-  const [notice, setNotice] = useState(null);
+const loadSuggestions = params => api.getSuggestions(params);
 
-  useEffect(() => {
-    api.getSuggestions()
-      .then(data => setItems(data.suggestions ?? []))
-      .catch(err => setError(err.message || 'Suggestions didn’t load.'));
-  }, []);
+function Suggestions() {
+  const [sort, setSort]       = useState('top');
+  const [status, setStatus]   = useState('all');
+  const { data, setData, error, loading } = useFiltered(loadSuggestions, { sort, status: status === 'all' ? '' : status });
+  const [text, setText]       = useState('');
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice]   = useState(null);
+  const items = data?.suggestions;
 
   async function send(e) {
     e.preventDefault();
@@ -82,7 +144,12 @@ function Suggestions() {
     setNotice(null);
     try {
       const created = await api.createSuggestion(clean);
-      setItems(list => [created, ...(list ?? [])]);
+      setData(d => d && {
+        ...d,
+        // New suggestions are open, so they belong in "All" and "Open"
+        suggestions: status === 'all' || status === 'open' ? [created, ...d.suggestions] : d.suggestions,
+        counts: d.counts && { ...d.counts, all: d.counts.all + 1, open: d.counts.open + 1 },
+      });
       setText('');
       setNotice({ message: 'Thanks! Others can vote on it now.' });
     } catch (err) {
@@ -95,16 +162,15 @@ function Suggestions() {
   // Updates straight away and rolls back if the request fails
   const vote = useCallback(async item => {
     const on = !item.votedByMe;
-    const flip = list => list.map(s => (s.suggestionId === item.suggestionId
-      ? { ...s, votedByMe: on, votes: s.votes + (on ? 1 : -1) } : s));
-    setItems(flip);
+    const swap = next => d => d && { ...d, suggestions: d.suggestions.map(s => (s.suggestionId === item.suggestionId ? next(s) : s)) };
+    setData(swap(s => ({ ...s, votedByMe: on, votes: s.votes + (on ? 1 : -1) })));
     try {
       await api.voteSuggestion(item.suggestionId, on);
     } catch (err) {
-      setItems(list => list.map(s => (s.suggestionId === item.suggestionId ? item : s)));
+      setData(swap(() => item));
       setNotice({ error: true, message: err.message });
     }
-  }, []);
+  }, [setData]);
 
   const left = SUGGESTION_MAX - text.length;
   return (
@@ -127,13 +193,23 @@ function Suggestions() {
       </form>
 
       <section className="card">
-        <h2 className="text-sm font-semibold text-[var(--text-primary)]">Top suggestions</h2>
-        <p className="text-xs text-[var(--text-muted)] mt-0.5">Vote for the ones you want most. You get 3 suggestions a day.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Suggestions</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Vote for the ones you want most. You get 3 suggestions a day.</p>
+          </div>
+          <Chips label="Sort suggestions" options={SUGGESTION_SORTS} value={sort} onChange={setSort} />
+        </div>
+        <div className="mt-3">
+          <Chips label="Show" options={SUGGESTION_FILTERS} value={status} onChange={setStatus} counts={data?.counts} />
+        </div>
+
         {error && <div className="mt-3"><Notice error>{error}</Notice></div>}
         {!items && !error && <div className="mt-4"><CommentSkeleton count={4} /></div>}
-        {items?.length === 0 && <p className="mt-4 text-sm text-[var(--text-muted)]">No suggestions yet. Be the first.</p>}
+        {items?.length === 0 && !loading && <p className="mt-4 text-sm text-[var(--text-muted)]">{EMPTY_SUGGESTIONS[status]}</p>}
         {items?.length > 0 && (
-          <ul className="mt-2 divide-y divide-[var(--border)]">
+          <ul key={`${sort}-${status}`} aria-busy={loading}
+            className={`mt-2 divide-y divide-[var(--border)] transition-opacity duration-200 ${loading ? 'opacity-50' : ''}`}>
             {items.map((item, i) => <Suggestion key={item.suggestionId} item={item} index={i} onVote={vote} />)}
           </ul>
         )}
@@ -142,9 +218,9 @@ function Suggestions() {
   );
 }
 
-export function ReviewList({ data }) {
+export function ReviewList({ data, empty = 'No reviews yet.' }) {
   if (!data) return <CommentSkeleton count={3} />;
-  if (!data.reviews.length) return <p className="text-sm text-[var(--text-muted)]">No reviews yet.</p>;
+  if (!data.reviews.length) return <p className="text-sm text-[var(--text-muted)]">{empty}</p>;
   return (
     <ul className="flex flex-col gap-4">
       {data.reviews.map((review, i) => (
@@ -155,6 +231,7 @@ export function ReviewList({ data }) {
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-sm font-semibold text-[var(--text-primary)] truncate">{review.authorDisplay}</span>
               <Stars value={review.rating} size={13} />
+              {review.createdAt && <span className="text-xs text-[var(--text-muted)]">{timeAgo(review.createdAt)}</span>}
             </div>
             {review.text && (
               <p className="mt-1 text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-words">{review.text}</p>
@@ -166,13 +243,56 @@ export function ReviewList({ data }) {
   );
 }
 
+// Average on the left, a bar for each star on the right. Tapping a bar shows
+// only reviews with that many stars; tapping it again shows them all.
+function RatingSummary({ data, stars, onStars }) {
+  const breakdown = data?.breakdown ?? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const most = Math.max(1, ...Object.values(breakdown));
+  return (
+    <div className="flex items-center gap-5">
+      <div className="flex flex-col items-center flex-shrink-0 w-20">
+        <span className="text-3xl font-bold tabular-nums text-[var(--text-primary)]">{data?.count ? data.average.toFixed(1) : '–'}</span>
+        <Stars value={data?.average ?? 0} size={12} />
+        <span className="mt-1 text-xs text-[var(--text-muted)]">{data?.count ?? 0} review{data?.count === 1 ? '' : 's'}</span>
+      </div>
+      <div className="flex-1 flex flex-col gap-1" role="group" aria-label="Filter by stars">
+        {[5, 4, 3, 2, 1].map(n => {
+          const count = breakdown[n] ?? 0;
+          const on = stars === n;
+          return (
+            <button key={n} type="button" onClick={() => onStars(on ? null : n)} aria-pressed={on}
+              disabled={!count && !on}
+              aria-label={`${n} star reviews: ${count}${on ? ', showing only these' : ''}`}
+              className={`group flex items-center gap-2 px-2 py-1 rounded-lg text-xs transition-colors duration-200
+                ${on ? 'bg-[var(--accent-subtle)]' : 'enabled:hover:bg-[var(--accent-subtle)]'}
+                disabled:opacity-40 disabled:cursor-default`}>
+              <span className={`w-6 flex items-center gap-0.5 font-semibold tabular-nums ${on ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
+                {n}<Star size={10} className="text-amber-400" fill="currentColor" />
+              </span>
+              <span className="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
+                <span className="block h-full rounded-full bg-amber-400 transition-[width] duration-500 ease-out"
+                  style={{ width: `${(count / most) * 100}%` }} />
+              </span>
+              <span className={`w-6 text-right tabular-nums ${on ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-muted)]'}`}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const loadReviews = params => api.getPublicReviews(params);
+
 function Reviews() {
   const [mine, setMine]       = useState(undefined);   // undefined while loading, null when none
   const [rating, setRating]   = useState(0);
   const [text, setText]       = useState('');
   const [saving, setSaving]   = useState(false);
   const [notice, setNotice]   = useState(null);
-  const [publicData, setPublicData] = useState(null);
+  const [stars, setStars]     = useState(null);
+  const [sort, setSort]       = useState('newest');
+  const { data, error, loading } = useFiltered(loadReviews, { stars, sort });
 
   useEffect(() => {
     api.getMyReview()
@@ -181,7 +301,6 @@ function Reviews() {
         if (review) { setRating(review.rating); setText(review.text); }
       })
       .catch(() => setMine(null));
-    api.getPublicReviews().then(setPublicData).catch(() => setPublicData({ reviews: [], count: 0, average: 0 }));
   }, []);
 
   async function save(e) {
@@ -230,16 +349,30 @@ function Reviews() {
         {notice && <Notice error={notice.error}>{notice.message}</Notice>}
       </form>
 
-      <section className="card">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">What people are saying</h2>
-          {publicData?.count > 0 && (
-            <span className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-              <Stars value={publicData.average} size={12} /> {publicData.average} · {publicData.count}
-            </span>
+      <section className="card flex flex-col gap-4">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">What people are saying</h2>
+        <RatingSummary data={data} stars={stars} onStars={setStars} />
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3">
+          {stars ? (
+            <button type="button" onClick={() => setStars(null)}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold aura-fill text-white">
+              {stars}-star reviews <X size={12} aria-label="Show all reviews" />
+            </button>
+          ) : (
+            <span className="text-xs text-[var(--text-muted)]">All reviews</span>
           )}
+          <Chips label="Sort reviews" options={REVIEW_SORTS} value={sort} onChange={setSort} />
         </div>
-        <ReviewList data={publicData} />
+
+        {error && <Notice error>{error}</Notice>}
+        {!error && (
+          <div key={`${stars}-${sort}`} aria-busy={loading}
+            className={`transition-opacity duration-200 ${loading && data ? 'opacity-50' : ''}`}>
+            <ReviewList data={data}
+              empty={stars ? `No ${stars}-star reviews yet.` : 'No reviews yet. Yours could be the first.'} />
+          </div>
+        )}
       </section>
     </div>
   );

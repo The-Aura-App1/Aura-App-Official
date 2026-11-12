@@ -666,7 +666,7 @@ export const handler = async (event) => {
 
     // /feedback/... — suggestions and reviews (feedback.mjs)
     const feedback = await handleFeedback({
-      method, segments, userId, isAdmin: !!userId && ADMIN_IDS.has(userId),
+      method, segments, query: event.queryStringParameters ?? {}, userId, isAdmin: !!userId && ADMIN_IDS.has(userId),
       rawBody: event.body, rateLimited, response,
     });
     if (feedback) return feedback;
