@@ -26,6 +26,7 @@ const pages = {
   Groups:        () => import('./pages/Groups'),
   GroupPage:     () => import('./pages/GroupPage'),
   Feedback:      () => import('./pages/Feedback'),
+  Search:        () => import('./pages/Search'),
 };
 const SignIn        = lazy(pages.SignIn);
 const SignUp        = lazy(pages.SignUp);
@@ -42,6 +43,7 @@ const Notifications = lazy(pages.Notifications);
 const Groups        = lazy(pages.Groups);
 const GroupPage     = lazy(pages.GroupPage);
 const Feedback      = lazy(pages.Feedback);
+const Search        = lazy(pages.Search);
 
 // Once the first page has settled, fetch the rest quietly in the background
 // so tapping around later is instant.
@@ -93,6 +95,7 @@ function AppRoutes() {
         <Route path="profile"            element={<Profile />} />
         <Route path="post/:postId"       element={<PostView />} />
         <Route path="feedback"           element={<Feedback />} />
+        <Route path="search"             element={<Search />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

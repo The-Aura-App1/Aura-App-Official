@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, PlusSquare, LogOut, Moon, Sun, User, Users, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Home, PlusSquare, LogOut, Moon, Sun, User, Users, ChevronDown, MoreHorizontal, Search } from 'lucide-react';
 import { useAuth }  from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import Wordmark from '../brand/Wordmark';
@@ -44,9 +44,17 @@ export default function Sidebar() {
 
   return (
     <div className="flex flex-col h-full px-4 py-6 overflow-y-auto">
-      <div className="flex items-center px-2 pt-2 mb-10">
+      <div className="flex items-center px-2 pt-2 mb-8">
         <Wordmark className="text-4xl" />
       </div>
+
+      {/* Search is a field, not a tab, so the five main tabs stay five */}
+      <Link to="/search"
+        className="mb-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm border border-[var(--border)]
+                   bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-aura-500/40 hover:text-[var(--text-primary)] transition-colors">
+        <Search size={16} />
+        Search
+      </Link>
 
       <nav className="flex flex-col gap-1 flex-1">
         {MAIN.map(({ to, icon: Icon, label, bell }) => (
