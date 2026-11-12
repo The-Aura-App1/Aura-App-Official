@@ -5,6 +5,22 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { cleanText } from './text.mjs';
+
+// Request bodies must be JSON objects; anything else is a 400, not a crash
+function parseBody(raw) {
+  if (raw === undefined || raw === null || raw === '') return {};
+  try {
+    const body = JSON.parse(raw);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeSegment(value) {
+  try { return decodeURIComponent(value ?? ''); } catch { return null; }
+}
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 const s3     = new S3Client({ region: 'us-east-1' });
@@ -198,7 +214,9 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, caption, mediaKeys, tags, hashtags, groupId, embedding, allowTakes } = body;
+  const { type, mediaKeys, tags, hashtags, groupId, embedding, allowTakes } = body;
+  // Invisible and direction-flipping characters are removed before any check
+  const caption = typeof body.caption === 'string' ? cleanText(body.caption) : body.caption;
 
   let group = null;
   if (groupId !== undefined) {
@@ -673,11 +691,19 @@ export const handler = async (event) => {
     const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
     if (limited) return limited;
 
+    const body = parseBody(event.body);
+    if (!body && method === 'POST') return response(400, { error: 'The request body must be a JSON object.' });
+    // Ids in the path arrive URL-encoded
+    for (let i = 1; i < segments.length; i++) {
+      const decoded = decodeSegment(segments[i]);
+      if (decoded === null) return response(404, { error: 'Route not found.' });
+      segments[i] = decoded;
+    }
+
     if (method === 'POST' && path === '/posts/upload-urls') {
       if (!userId) return response(401, { error: 'Unauthorized' });
       const actionLimited = await firstLimit([userId, 'upload', 10, 60]);
       if (actionLimited) return actionLimited;
-      const body = JSON.parse(event.body ?? '{}');
       return await handleUploadUrls(userId, body);
     }
 
@@ -692,7 +718,6 @@ export const handler = async (event) => {
       if (!userId) return response(401, { error: 'Unauthorized' });
       const actionLimited = await firstLimit([userId, 'post', 5, 60], [userId, 'post', 30, 3600]);
       if (actionLimited) return actionLimited;
-      const body = JSON.parse(event.body ?? '{}');
       return await createPost(userId, body);
     }
 
@@ -720,7 +745,8 @@ export const handler = async (event) => {
 
     if (method === 'GET' && segments[0] === 'users' && segments.length === 3 && segments[2] === 'posts') {
       const authorId = segments[1];
-      const limit    = parseInt(event.queryStringParameters?.limit ?? '20');
+      const asked    = parseInt(event.queryStringParameters?.limit ?? '20', 10);
+      const limit    = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 50) : 20;
       return await getUserPosts(authorId, userId, limit);
     }
 

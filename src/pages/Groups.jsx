@@ -20,7 +20,7 @@ function GroupRow({ group, children }) {
   const count = memberCountText(group);
   return (
     <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-      <Link to={`/groups/${group.groupId}`} className="flex items-center gap-3 flex-1 min-w-0 group">
+      <Link to={`/groups/${encodeURIComponent(group.groupId)}`} className="flex items-center gap-3 flex-1 min-w-0 group">
         <GroupAvatar name={group.name} />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-aura-400 truncate flex items-center gap-1.5">
@@ -53,7 +53,7 @@ function CreateGroupForm({ onCancel }) {
     setError('');
     try {
       const group = await api.createGroup({ ...form, name: form.name.trim(), description: form.description.trim() });
-      navigate(`/groups/${group.groupId}`);
+      navigate(`/groups/${encodeURIComponent(group.groupId)}`);
     } catch (err) {
       setError(err.message);
       setSaving(false);

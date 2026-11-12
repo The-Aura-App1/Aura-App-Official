@@ -23,7 +23,7 @@ export default function CreatePost() {
   // ?group=<id> posts into that group instead of the main feed
   const [searchParams] = useSearchParams();
   const groupId  = searchParams.get('group');
-  const doneUrl  = groupId ? `/groups/${groupId}` : '/';
+  const doneUrl  = groupId ? `/groups/${encodeURIComponent(groupId)}` : '/';
   const [groupName, setGroupName] = useState('');
 
   useEffect(() => {

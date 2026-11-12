@@ -251,7 +251,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
               </button>
             ) : (
               <Link
-                to={`/post/${post.postId}`}
+                to={`/post/${encodeURIComponent(post.postId)}`}
                 aria-label="Comments"
                 className="p-2 rounded-lg text-[var(--text-muted)]
                            hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]
@@ -296,7 +296,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         {/* ── Comment count ── */}
         {post.commentCount > 0 && !onComment && (
           <Link
-            to={`/post/${post.postId}`}
+            to={`/post/${encodeURIComponent(post.postId)}`}
             className="block px-4 pb-3 text-xs text-[var(--text-muted)]
                        hover:text-[var(--accent)] transition-colors"
           >

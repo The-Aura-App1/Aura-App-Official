@@ -21,6 +21,7 @@ const AURA_VERSION = 2;
 const MAX_TAKE_PER_TARGET    = 50;
 const MAX_EARNED_PER_SOURCE  = 500;   // per giver, per recipient, per day
 const NEW_ACCOUNT_DAYS       = 7;     // gifts from younger accounts are spendable
+const ADS_ENABLED            = false; // see watchAd; keep in sync with ADS_ENABLED in src/pages/AuraWallet.jsx
 const AD_REWARD              = 25;
 const AD_COOLDOWN_MS         = 60 * 60 * 1000;
 
@@ -486,6 +487,11 @@ async function claimDailyBonus(user) {
 // ─── Watch ad for aura ────────────────────────────────────────
 // The cooldown lives on the user record so it doesn't reset at midnight.
 async function watchAd(user) {
+  // Nothing proves an ad was actually watched yet, so the reward would be free
+  // aura for anyone who calls this route. Off until a real ad network verifies views.
+  if (!ADS_ENABLED) {
+    return response(403, { error: 'Ad rewards are paused until ads launch.' });
+  }
   const cutoff = new Date(Date.now() - AD_COOLDOWN_MS).toISOString();
   if (user.lastAdAt && user.lastAdAt > cutoff) {
     const minutesLeft = Math.ceil((Date.parse(user.lastAdAt) + AD_COOLDOWN_MS - Date.now()) / 60000);
@@ -528,8 +534,18 @@ export const handler = async (event) => {
     const limited = await firstLimit([userId, 'api', 120, 60]);
     if (limited) return limited;
 
-    const body     = JSON.parse(event.body ?? '{}');
-    const segments = path.split('/').filter(Boolean);
+    // Request bodies must be JSON objects; anything else is a 400, not a crash
+    let body = {};
+    if (event.body) {
+      try { body = JSON.parse(event.body); } catch { body = null; }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return response(400, { error: 'The request body must be a JSON object.' });
+      }
+    }
+    // Ids in the path arrive URL-encoded
+    const segments = path.split('/').filter(Boolean)
+      .map(s => { try { return decodeURIComponent(s); } catch { return null; } });
+    if (segments.includes(null)) return response(404, { error: 'Route not found.' });
 
     const user = await getAuraAccount(userId);
     if (!user) return response(404, { error: 'User not found.' });

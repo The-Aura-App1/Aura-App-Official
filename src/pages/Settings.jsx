@@ -204,7 +204,7 @@ export default function Settings() {
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
             {usernameStatusText(dbProfile?.usernameStatus)}{' '}
             {dbProfile?.usernameStatus?.canChange && (
-              <Link to={`/profile/${username}`} className="text-aura-400 hover:underline">
+              <Link to={`/profile/${encodeURIComponent(username ?? '')}`} className="text-aura-400 hover:underline">
                 Change it on your profile.
               </Link>
             )}
@@ -279,7 +279,7 @@ export default function Settings() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm text-[var(--text-primary)]">Default comment visibility</p>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">You can still change this on each post.</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Takes effect when following launches. Until then, anyone can comment.</p>
               </div>
               <select
                 value={settings.commentVisibilityDefault}

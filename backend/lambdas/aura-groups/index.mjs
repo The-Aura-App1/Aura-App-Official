@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient, GetCommand, UpdateCommand, QueryCommand,
   ScanCommand, TransactWriteCommand, BatchGetCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -82,7 +83,33 @@ function generateId() {
 }
 
 function normalizeName(name) {
-  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return cleanLine(name).toLowerCase();
+}
+
+// Request bodies must be JSON objects; anything else is a 400, not a crash
+function parseBody(raw) {
+  if (raw === undefined || raw === null || raw === '') return {};
+  try {
+    const body = JSON.parse(raw);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeSegment(value) {
+  try { return decodeURIComponent(value ?? ''); } catch { return null; }
+}
+
+// Accounts banned site-wide can still look around, but can't create, join,
+// invite, moderate or change anything
+async function isSiteBanned(userId) {
+  const result = await dynamo.send(new GetCommand({
+    TableName:            USERS_TABLE,
+    Key:                  { userId },
+    ProjectionExpression: 'isBanned',
+  }));
+  return !!result.Item?.isBanned;
 }
 
 function cancellationCodes(err) {
@@ -217,16 +244,19 @@ function publicGroup(group, perms) {
 
 // ─── Create group ─────────────────────────────────────────────
 async function createGroup(userId, body) {
-  const { name, description, joinType, hideMemberList, allowTakes } = body;
+  const { joinType, hideMemberList, allowTakes } = body;
+  // Invisible and direction-flipping characters are removed before any check
+  const name        = typeof body.name === 'string' ? cleanLine(body.name) : body.name;
+  const description = typeof body.description === 'string' ? cleanText(body.description) : body.description;
 
-  if (typeof name !== 'string' || name.trim().length < 3) {
+  if (typeof name !== 'string' || name.length < 3 || !hasVisibleText(name)) {
     return response(400, { error: 'Group name must be at least 3 characters.' });
   }
-  if (name.trim().length > 50) {
+  if (name.length > 50) {
     return response(400, { error: 'Group name must be under 50 characters.' });
   }
-  if (RESERVED_WORDS.test(name)) {
-    return response(400, { error: 'Group names cannot use the words aura, admin, official or moderator.' });
+  if (RESERVED_WORDS.test(name) || impersonatesStaff(name)) {
+    return response(400, { error: 'Group names cannot use the words aura, admin, official or moderator, or pose as Aura staff.' });
   }
   if (description !== undefined && (typeof description !== 'string' || description.length > MAX_DESCRIPTION)) {
     return response(400, { error: `Description must be under ${MAX_DESCRIPTION} characters.` });
@@ -252,13 +282,11 @@ async function createGroup(userId, body) {
 
   const groupId = generateId();
   const now     = new Date().toISOString();
-  const cleanName = name.trim().replace(/\s+/g, ' ');
-
   const group = {
     groupId,
-    name:           cleanName,
-    nameLower:      normalizeName(cleanName),
-    description:    description?.trim() ?? '',
+    name,
+    nameLower:      normalizeName(name),
+    description:    description ?? '',
     ownerId:        userId,
     joinType:       joinType ?? 'open',
     hideMemberList: !!hideMemberList,
@@ -391,7 +419,8 @@ async function updateGroup(groupId, userId, body) {
   const role = activeRole(group, await getMember(groupId, userId));
   if (role !== 'owner' && role !== 'moderator') return response(403, { error: 'Only owners and moderators can change settings.' });
 
-  const { description, joinType, hideMemberList, momentsEnabled, allowTakes } = body;
+  const { joinType, hideMemberList, momentsEnabled, allowTakes } = body;
+  const description = typeof body.description === 'string' ? cleanText(body.description) : body.description;
   const ownerOnly = description !== undefined || joinType !== undefined || hideMemberList !== undefined
     || allowTakes !== undefined;
   if (ownerOnly && role !== 'owner') return response(403, { error: 'Only the owner can change these settings.' });
@@ -407,7 +436,7 @@ async function updateGroup(groupId, userId, body) {
   }
 
   const updates = { updatedAt: new Date().toISOString() };
-  if (description    !== undefined) updates.description    = description.trim();
+  if (description    !== undefined) updates.description    = description;
   if (joinType       !== undefined) updates.joinType       = joinType;
   if (hideMemberList !== undefined) updates.hideMemberList = hideMemberList;
   if (momentsEnabled !== undefined) updates.momentsEnabled = momentsEnabled;
@@ -708,13 +737,27 @@ export const handler = async (event) => {
     if (segments[0] !== 'groups') return response(404, { error: 'Route not found.' });
     const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
     if (limited) return limited;
-    const body = JSON.parse(event.body ?? '{}');
+    const body = parseBody(event.body);
+    if (!body) return response(400, { error: 'The request body must be a JSON object.' });
+    // Ids in the path arrive URL-encoded
+    for (let i = 1; i < segments.length; i++) {
+      const decoded = decodeSegment(segments[i]);
+      if (decoded === null) return response(404, { error: 'Route not found.' });
+      segments[i] = decoded;
+    }
 
     // GET /groups — browse
-    if (method === 'GET' && segments.length === 1) return await browseGroups(userId, query.q);
+    if (method === 'GET' && segments.length === 1) {
+      return await browseGroups(userId, typeof query.q === 'string' ? query.q : '');
+    }
 
     // Everything else needs a login
     if (!userId) return response(401, { error: 'Unauthorized' });
+
+    // Banned accounts can't change anything
+    if (method !== 'GET' && await isSiteBanned(userId)) {
+      return response(403, { error: 'Account banned.' });
+    }
 
     // POST /groups — create
     if (method === 'POST' && segments.length === 1) {

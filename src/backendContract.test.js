@@ -71,6 +71,18 @@ test('aura-posts accepts vectors the app produces and rejects bad ones', () => {
   expect(check(12345)).toBe(false);
 });
 
+test('the wallet and aura-aura agree on whether ad rewards are on', () => {
+  const wallet = fs.readFileSync(path.join(__dirname, 'pages', 'AuraWallet.jsx'), 'utf8');
+  expect(constant(lambdaSource('aura-aura'), 'ADS_ENABLED').split(/\s/)[0])
+    .toBe(constant(wallet, 'ADS_ENABLED'));
+});
+
+test('every Lambda that cleans text uses the same rules', () => {
+  const copies = ['aura-users', 'aura-posts', 'aura-comments', 'aura-groups']
+    .map(name => fs.readFileSync(path.join(LAMBDAS, name, 'text.mjs'), 'utf8').replace(/\r\n/g, '\n'));
+  for (const copy of copies) expect(copy).toBe(copies[0]);
+});
+
 test('the self-hosted model file is the verified original', () => {
   const hash = crypto.createHash('sha256').update(fs.readFileSync(MODEL)).digest('hex');
   expect(hash).toBe(MODEL_SHA256);

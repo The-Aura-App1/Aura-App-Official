@@ -24,7 +24,7 @@ function Message({ error, success }) {
 function MemberRow({ member, children }) {
   return (
     <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-      <Link to={`/profile/${member.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+      <Link to={`/profile/${encodeURIComponent(member.username ?? '')}`} className="flex items-center gap-3 flex-1 min-w-0">
         <div className="w-9 h-9 rounded-full bg-aura-500/20 overflow-hidden flex-shrink-0 flex items-center justify-center">
           {member.profilePicKey
             ? <img src={`${S3_URL}/${member.profilePicKey}`} alt="" className="w-full h-full object-cover" />
@@ -374,7 +374,7 @@ export default function GroupPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {group.myStatus === 'active' && (
             <>
-              <button onClick={() => navigate(`/create?group=${group.groupId}`)} className="btn-primary px-4 py-2">
+              <button onClick={() => navigate(`/create?group=${encodeURIComponent(group.groupId)}`)} className="btn-primary px-4 py-2">
                 <Plus size={16} /> New post
               </button>
               <button disabled={busy} onClick={() => act(() => api.muteGroup(group.groupId, !group.muted))}

@@ -54,13 +54,13 @@ function notificationRoute(type, data) {
     case 'aura_taken':
     case 'comment':
     case 'reply':
-      return data?.postId ? `/post/${data.postId}` : null;
+      return data?.postId ? `/post/${encodeURIComponent(data.postId)}` : null;
     case 'follow':
-      return data?.fromUsername ? `/profile/${data.fromUsername}` : null;
+      return data?.fromUsername ? `/profile/${encodeURIComponent(data.fromUsername)}` : null;
     case 'group_join':
     case 'group_request':
     case 'group_approved':
-      return data?.groupId ? `/groups/${data.groupId}` : null;
+      return data?.groupId ? `/groups/${encodeURIComponent(data.groupId)}` : null;
     case 'cashout_ready':
       return '/wallet';
     default:

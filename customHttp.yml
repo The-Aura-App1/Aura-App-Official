@@ -1,0 +1,42 @@
+# Security headers that Amplify Hosting adds to every page and file.
+#
+# The Content Security Policy is REPORT-ONLY for now: the browser logs anything
+# that breaks the rules (in the console) but still loads it. Once a few days of
+# normal use show no reports, rename the header to Content-Security-Policy to
+# enforce it.
+#
+# What the policy allows, and why:
+#   script-src 'wasm-unsafe-eval'  the on-device keyword model (ONNX runtime, WebAssembly)
+#   style-src 'unsafe-inline'      React style={...} attributes
+#   img-src/media-src S3 + blob:   post media, and previews of files picked for upload
+#   connect-src                    the Aura API, Cognito sign-in, and S3 uploads
+#   worker-src 'self' blob:        the keyword model's web worker
+customHeaders:
+  - pattern: '**/*'
+    headers:
+      - key: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - key: X-Frame-Options
+        value: DENY
+      - key: X-Content-Type-Options
+        value: nosniff
+      - key: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - key: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+      - key: Cross-Origin-Opener-Policy
+        value: same-origin
+      - key: Content-Security-Policy-Report-Only
+        value: >-
+          default-src 'self';
+          script-src 'self' 'wasm-unsafe-eval';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data: blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          media-src 'self' blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          font-src 'self' data:;
+          connect-src 'self' https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          worker-src 'self' blob:;
+          object-src 'none';
+          base-uri 'self';
+          form-action 'self';
+          frame-ancestors 'none'

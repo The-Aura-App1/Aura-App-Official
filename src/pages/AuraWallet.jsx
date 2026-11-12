@@ -6,6 +6,10 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import OrbBurst from '../components/motion/OrbBurst';
 import useCountUp from '../hooks/useCountUp';
 
+// Ad rewards stay off until a real ad network verifies views. aura-aura
+// enforces this (its own ADS_ENABLED); this only hides the button.
+export const ADS_ENABLED = false;
+
 function formatNumber(n) {
   return (n ?? 0).toLocaleString();
 }
@@ -207,17 +211,23 @@ export default function AuraWallet() {
                 <Tv size={18} className="text-[var(--text-muted)] flex-shrink-0" />
                 <div>
                   <p className="text-sm text-[var(--text-primary)]">Watch an ad</p>
-                  <p className="text-xs text-[var(--text-muted)]">25 spendable aura, once an hour</p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {ADS_ENABLED ? '25 spendable aura, once an hour' : '25 spendable aura, once an hour, when ads launch'}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={e => run('ad', api.watchAd, e.currentTarget)}
-                disabled={!adReady || busy !== null}
-                className="btn-secondary px-4 py-2 flex-shrink-0 text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
-                {!adReady
-                  ? `Available in ${formatCountdown(Date.parse(nextAdAt) - now)}`
-                  : busy === 'ad' ? 'Loading...' : 'Watch'}
-              </button>
+              {ADS_ENABLED ? (
+                <button
+                  onClick={e => run('ad', api.watchAd, e.currentTarget)}
+                  disabled={!adReady || busy !== null}
+                  className="btn-secondary px-4 py-2 flex-shrink-0 text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
+                  {!adReady
+                    ? `Available in ${formatCountdown(Date.parse(nextAdAt) - now)}`
+                    : busy === 'ad' ? 'Loading...' : 'Watch'}
+                </button>
+              ) : (
+                <span className="text-xs text-[var(--text-muted)] flex-shrink-0">Coming soon</span>
+              )}
             </div>
           </div>
 

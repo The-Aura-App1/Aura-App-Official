@@ -20,6 +20,7 @@ import {
   DeleteCommand, BatchGetCommand, TransactWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { randomBytes } from 'node:crypto';
+import { cleanText as sharedCleanText } from './text.mjs';
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -38,15 +39,11 @@ const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 let publicCache = { at: 0, list: null };
 const PUBLIC_CACHE_MS = 60_000;
 
-// Same cleaning as aura-comments: no control characters, no invisible
-// direction marks (they can disguise text), no walls of blank lines.
+// Same cleaning as comments and captions (text.mjs): no control characters,
+// no invisible or direction-flipping marks (they can disguise text), no walls
+// of blank lines.
 function cleanText(raw) {
-  return String(raw ?? '').normalize('NFC')
-    .replace(/\r\n?/g, '\n')
-    .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '')
-    .replace(/[؜‎‏‪-‮⁦-⁩]/g, '')
-    .replace(/\n{4,}/g, '\n\n\n')
-    .trim();
+  return sharedCleanText(raw ?? '');
 }
 
 function newId() {

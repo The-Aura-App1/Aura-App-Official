@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, Transac
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handleFeedback } from './feedback.mjs';
+import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
 const client = new DynamoDBClient({ region: 'us-east-1' });
 const db     = DynamoDBDocumentClient.from(client);
@@ -54,14 +55,13 @@ const COMMENT_VISIBILITY = ['anyone', 'followers'];
 // App themes an account can save. Keep in sync with THEME_IDS in src/themes/index.js.
 const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'custom'];
 
-// Fields only the owner may see
-const PRIVATE_FIELDS = [
-  'email', 'followerCount', 'followingCount', 'totalPostViews',
-  'notificationPrefs', 'commentVisibilityDefault', 'theme',
-  'usernameChangeCount', 'usernameChangedAt', 'usernameReserved',
-  'usernamePlaceholder', 'usernameConflict',
-  'auraEarned', 'auraSpendable', 'lifetimeEarned', 'lifetimeReceived',
-  'lifetimeGiven', 'lifetimeTaken', 'lifetimeLost', 'lastAdAt', 'auraVersion',
+// The only fields anyone else may see on a profile. Everything else on the
+// record (email, balances, settings, moderation notes, and any field added
+// later) stays private unless it is added here on purpose.
+const PUBLIC_FIELDS = [
+  'userId', 'username', 'displayName', 'bio', 'tags', 'profilePicKey', 'bannerKey',
+  'badges', 'pins', 'accountType', 'isPremium', 'isCreator', 'isPrivate',
+  'hideAuraRank', 'auraBalance', 'createdAt',
 ];
 
 // ─── Rate limits ──────────────────────────────────────────────
@@ -124,11 +124,35 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
-function stripPrivate(user) {
+// What a profile shows to someone other than its owner. Moderators also see
+// whether the account is banned.
+function publicProfile(user, viewerIsAdmin = false) {
+  const visible = {};
+  for (const field of PUBLIC_FIELDS) if (user[field] !== undefined) visible[field] = user[field];
   // Balances from before the earned/spendable split are reset on first use, so show them as 0 until then
-  if (user.auraVersion !== AURA_VERSION) user.auraBalance = 0;
-  for (const field of PRIVATE_FIELDS) delete user[field];
-  return user;
+  if (user.auraVersion !== AURA_VERSION) visible.auraBalance = 0;
+  if (viewerIsAdmin && user.isBanned) visible.isBanned = true;
+  return visible;
+}
+
+// Request bodies must be JSON objects; anything else is a 400, not a crash
+function parseBody(raw) {
+  if (raw === undefined || raw === null || raw === '') return {};
+  try {
+    const body = JSON.parse(raw);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeSegment(value) {
+  try { return decodeURIComponent(value ?? ''); } catch { return null; }
+}
+
+// Usernames that pose as the app or its staff are kept for the team
+function isReservedUsername(username, userId) {
+  return impersonatesStaff(username) && !ADMIN_IDS.has(userId);
 }
 
 // Same reset as aura-aura's getAuraAccount
@@ -145,7 +169,7 @@ async function migrateAura(user) {
   } catch (err) {
     if (err.name !== 'ConditionalCheckFailedException') throw err;
   }
-  return getUser(user.userId, true);
+  return getUser(user.userId);
 }
 
 function reservationKey(username) {
@@ -156,7 +180,8 @@ function cancellationCodes(err) {
   return (err.CancellationReasons ?? []).map(r => r?.Code);
 }
 
-async function getUser(userId, isOwner = false) {
+// The full record; callers decide what to show (see publicProfile)
+async function getUser(userId) {
   if (userId.startsWith(RESERVATION_PREFIX)) return null;
 
   const result = await db.send(new GetCommand({
@@ -164,8 +189,7 @@ async function getUser(userId, isOwner = false) {
     Key: { userId },
   }));
 
-  if (!result.Item) return null;
-  return isOwner ? result.Item : stripPrivate(result.Item);
+  return result.Item ?? null;
 }
 
 // Placeholder, invalid or duplicated usernames can be changed once without using up the limit
@@ -215,7 +239,7 @@ async function findUserByUsername(username, asTyped = username) {
     TableName: USERS_TABLE,
     Key: { userId: reservationKey(username) },
   }));
-  if (reservation.Item) return getUser(reservation.Item.ownerId, true);
+  if (reservation.Item) return getUser(reservation.Item.ownerId);
 
   const legacy = await scanForUsername(username, asTyped);
   return legacy.find(u => u.username === username) ?? legacy[0] ?? null;
@@ -347,8 +371,10 @@ async function createUser(userId, email, requestedUsername, fallbackOnConflict =
   let username = (requestedUsername ?? '').trim().toLowerCase();
   let placeholder = false;
 
-  if (!USERNAME_RE.test(username) || await isUsernameTaken(username, userId)) {
+  const reserved = USERNAME_RE.test(username) && isReservedUsername(username, userId);
+  if (!USERNAME_RE.test(username) || reserved || await isUsernameTaken(username, userId)) {
     if (!fallbackOnConflict) {
+      if (reserved) return { error: response(400, { error: 'That username is reserved.' }) };
       return USERNAME_RE.test(username)
         ? { error: response(409, { error: 'That username is taken.' }) }
         : { error: response(400, { error: 'Username must be 3-30 characters, letters, numbers, and underscores only.' }) };
@@ -509,18 +535,31 @@ async function getToday(user) {
 
 async function updateProfile(userId, body) {
   const {
-    displayName, bio, username, tags, profilePicKey, bannerKey,
+    username, profilePicKey, bannerKey,
     isPrivate, hideAuraRank, commentVisibilityDefault, notificationPrefs, theme,
   } = body;
+  // Invisible and direction-flipping characters are removed before any check
+  const displayName = typeof body.displayName === 'string' ? cleanLine(body.displayName) : body.displayName;
+  const bio         = typeof body.bio === 'string' ? cleanText(body.bio) : body.bio;
+  const tags        = Array.isArray(body.tags)
+    ? body.tags.map(t => (typeof t === 'string' ? cleanLine(t) : t)).filter(t => t !== '')
+    : body.tags;
 
   const newUsername = typeof username === 'string' ? username.trim().toLowerCase() : username;
   if (newUsername !== undefined && !USERNAME_RE.test(newUsername ?? '')) {
     return response(400, { error: 'Username must be 3-30 characters, letters, numbers, and underscores only.' });
   }
 
-  if (displayName !== undefined && (typeof displayName !== 'string' || !displayName.trim()
-      || displayName.trim().length > MAX_DISPLAY_NAME)) {
+  if (newUsername !== undefined && isReservedUsername(newUsername, userId)) {
+    return response(400, { error: 'That username is reserved.' });
+  }
+
+  if (displayName !== undefined && (typeof displayName !== 'string' || !hasVisibleText(displayName)
+      || displayName.length > MAX_DISPLAY_NAME)) {
     return response(400, { error: `Display name must be 1-${MAX_DISPLAY_NAME} characters.` });
+  }
+  if (typeof displayName === 'string' && impersonatesStaff(displayName) && !ADMIN_IDS.has(userId)) {
+    return response(400, { error: "Display names can't pose as Aura staff." });
   }
 
   if (bio !== undefined && (typeof bio !== 'string' || bio.length > 160)) {
@@ -551,7 +590,7 @@ async function updateProfile(userId, body) {
     return response(400, { error: 'notificationPrefs must be an object.' });
   }
 
-  const current = await getUser(userId, true);
+  const current = await getUser(userId);
   if (!current) return response(404, { error: 'User not found.' });
 
   // New pictures must be ones this user uploaded through /users/me/upload-urls.
@@ -569,8 +608,8 @@ async function updateProfile(userId, body) {
   }
 
   const updates = {};
-  if (displayName    !== undefined) updates.displayName    = displayName.trim();
-  if (bio            !== undefined) updates.bio            = bio.trim();
+  if (displayName    !== undefined) updates.displayName    = displayName;
+  if (bio            !== undefined) updates.bio            = bio;
   if (tags           !== undefined) updates.tags           = tags.slice(0, 10);
   if (profilePicKey  !== undefined) updates.profilePicKey  = profilePicKey;
   if (bannerKey      !== undefined) updates.bannerKey      = bannerKey;
@@ -671,10 +710,14 @@ export const handler = async (event) => {
     });
     if (feedback) return feedback;
 
+    const body = parseBody(event.body);
+    if (!body && (method === 'POST' || method === 'PUT')) {
+      return response(400, { error: 'The request body must be a JSON object.' });
+    }
+
     // POST /users — create user
     if (method === 'POST' && path === '/users') {
       if (!userId) return response(401, { error: 'Unauthorized' });
-      const body = JSON.parse(event.body ?? '{}');
       // The account is always the logged-in user's; a userId in the body is ignored
       const email = event.requestContext?.authorizer?.jwt?.claims?.email ?? body.email;
       const { username } = body;
@@ -689,14 +732,12 @@ export const handler = async (event) => {
     // PUT /users/me — update profile
     if (method === 'PUT' && path === '/users/me') {
       if (!userId) return response(401, { error: 'Unauthorized' });
-      const body = JSON.parse(event.body ?? '{}');
       return await updateProfile(userId, body);
     }
 
     // POST /users/me/upload-urls — get S3 presigned URLs
     if (method === 'POST' && path === '/users/me/upload-urls') {
       if (!userId) return response(401, { error: 'Unauthorized' });
-      const body = JSON.parse(event.body ?? '{}');
       return await getProfileUploadUrls(userId, body);
     }
 
@@ -704,7 +745,7 @@ export const handler = async (event) => {
     if (method === 'GET' && path === '/users/me') {
       if (!userId) return response(401, { error: 'Unauthorized' });
 
-      let user = await getUser(userId, true);
+      let user = await getUser(userId);
       if (!user) {
         // preferred_username is the name picked at sign-up; cognito:username is the email
         const claims  = event.requestContext?.authorizer?.jwt?.claims ?? {};
@@ -725,8 +766,8 @@ export const handler = async (event) => {
 
     // GET /users/{username} — get public profile
     if (method === 'GET' && segments[0] === 'users' && segments.length === 2) {
-      const asTyped  = decodeURIComponent(segments[1] ?? '');
-      const username = asTyped.toLowerCase();
+      const asTyped  = decodeSegment(segments[1]);
+      const username = asTyped?.toLowerCase();
       if (!username || username === 'me') {
         return response(400, { error: 'Invalid username.' });
       }
@@ -737,13 +778,14 @@ export const handler = async (event) => {
         return response(404, { error: 'User not found.' });
       }
 
-      return response(200, stripPrivate(user));
+      // Your own profile through this route shows the same fields everyone sees
+      return response(200, publicProfile(user, !!userId && ADMIN_IDS.has(userId)));
     }
 
     // POST /admin/ban — ban or unban an account (site moderators only)
     if (method === 'POST' && path === '/admin/ban') {
       if (!userId || !ADMIN_IDS.has(userId)) return response(403, { error: 'Moderators only.' });
-      return await setBanned(userId, JSON.parse(event.body ?? '{}'));
+      return await setBanned(userId, body);
     }
 
     return response(404, { error: 'Route not found.' });

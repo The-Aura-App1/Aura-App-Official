@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient, GetCommand, PutCommand, BatchGetCommand,
   UpdateCommand, ScanCommand, TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
+import { cleanText, hasVisibleText } from './text.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -84,17 +85,25 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// Comment text as stored: Unicode-normalized, without invisible control
-// characters or the direction-override marks that can make text display as
-// something other than what it says, line endings unified and long runs of
-// blank lines shortened. It's still plain text; the app never renders it as HTML.
-function cleanText(raw) {
-  return raw.normalize('NFC')
-    .replace(/\r\n?/g, '\n')
-    .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '')
-    .replace(/[؜‎‏‪-‮⁦-⁩]/g, '')
-    .replace(/\n{4,}/g, '\n\n\n')
-    .trim();
+// Comment text is stored through cleanText (text.mjs): Unicode-normalized,
+// without invisible characters or the direction-override marks that can make
+// text display as something other than what it says, line endings unified and
+// long runs of blank lines shortened. It's still plain text; the app never
+// renders it as HTML.
+
+// Request bodies must be JSON objects; anything else is a 400, not a crash
+function parseBody(raw) {
+  if (raw === undefined || raw === null || raw === '') return {};
+  try {
+    const body = JSON.parse(raw);
+    return body && typeof body === 'object' && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeSegment(value) {
+  try { return decodeURIComponent(value ?? ''); } catch { return null; }
 }
 
 // What anyone may see of a comment. Only listed fields go out, so internal
@@ -178,7 +187,7 @@ async function createComment(userId, postId, body) {
   const { parentCommentId } = body;
   if (typeof body.text !== 'string') return response(400, { error: 'Comment text is required.' });
   const text = cleanText(body.text);
-  if (!text) return response(400, { error: 'Comment text is required.' });
+  if (!text || !hasVisibleText(text)) return response(400, { error: 'Comment text is required.' });
 
   // Get post to check visibility settings and type
   const postResult = await dynamo.send(new GetCommand({
@@ -206,11 +215,11 @@ async function createComment(userId, postId, body) {
     });
   }
 
-  // Check comment visibility setting on post
-  // postCommentVisibility: 'anyone' | 'followers'
-  if (post.commentVisibility === 'followers') {
-    // TODO: check if userId follows post.authorId
-    // For now allow — follower check added when follow system is built
+  // Followers-only posts: until following exists nobody counts as a follower,
+  // so only the author may comment. Fails closed rather than letting anyone in.
+  // (No post stores commentVisibility yet; the setting takes effect with follows.)
+  if (post.commentVisibility === 'followers' && post.authorId !== userId) {
+    return response(403, { error: 'Only followers can comment on this post.' });
   }
 
   // Get commenter info
@@ -435,7 +444,14 @@ export const handler = async (event) => {
     const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
     if (limited) return limited;
 
-    const body = JSON.parse(event.body ?? '{}');
+    const body = parseBody(event.body);
+    if (!body && method === 'POST') return response(400, { error: 'The request body must be a JSON object.' });
+    // Ids in the path arrive URL-encoded
+    for (let i = 1; i < segments.length; i++) {
+      const decoded = decodeSegment(segments[i]);
+      if (decoded === null) return response(404, { error: 'Route not found.' });
+      segments[i] = decoded;
+    }
 
     // GET /posts/{id}/comments
     if (method === 'GET' && segments[0] === 'posts' && segments[2] === 'comments') {

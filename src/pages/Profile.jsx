@@ -217,7 +217,7 @@ export default function Profile() {
 
       // Update URL if username changed
       if (editUsername !== profile.username) {
-        navigate(`/profile/${editUsername}`, { replace: true });
+        navigate(`/profile/${encodeURIComponent(editUsername)}`, { replace: true });
       }
       
     } catch (err) {
