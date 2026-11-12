@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import shrinkImage from '../utils/shrinkImage';
 import PostCard from '../components/post/PostCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { formatAura, timeAgo, usernameStatusText } from '../utils/format';
@@ -165,29 +166,22 @@ export default function Profile() {
       let profilePicKey = profile.profilePicKey;
       let bannerKey     = profile.bannerKey;
 
-      // Upload avatar if changed
-      if (avatarFile) {
+      // Photos are scaled down first (avatars show small; banners span the page),
+      // then uploaded. A failed upload stops the save instead of linking a missing file.
+      async function upload(file, type, maxEdge) {
+        const small = await shrinkImage(file, { maxEdge });
         const { urls } = await api.getProfileUploadUrls([
-          { name: avatarFile.name, contentType: avatarFile.type, size: avatarFile.size, type: 'avatar' }
+          { name: small.name, contentType: small.type, size: small.size, type }
         ]);
-        await fetch(urls[0].url, {
-          method: 'PUT', body: avatarFile,
-          headers: { 'Content-Type': avatarFile.type },
+        const res = await fetch(urls[0].url, {
+          method: 'PUT', body: small,
+          headers: { 'Content-Type': small.type },
         });
-        profilePicKey = urls[0].key;
+        if (!res.ok) throw new Error('The picture didn’t upload. Please try again.');
+        return urls[0].key;
       }
-
-      // Upload banner if changed
-      if (bannerFile) {
-        const { urls } = await api.getProfileUploadUrls([
-          { name: bannerFile.name, contentType: bannerFile.type, size: bannerFile.size, type: 'banner' }
-        ]);
-        await fetch(urls[0].url, {
-          method: 'PUT', body: bannerFile,
-          headers: { 'Content-Type': bannerFile.type },
-        });
-        bannerKey = urls[0].key;
-      }
+      if (avatarFile) profilePicKey = await upload(avatarFile, 'avatar', 512);
+      if (bannerFile) bannerKey     = await upload(bannerFile, 'banner', 1600);
 
       // Save all profile fields together
       const updated = await api.updateProfile({

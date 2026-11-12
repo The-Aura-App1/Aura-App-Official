@@ -1,26 +1,59 @@
-import React from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import SignIn        from './pages/auth/SignIn';
-import SignUp        from './pages/auth/SignUp';
-import ConfirmEmail  from './pages/auth/ConfirmEmail';
 import Landing       from './pages/Landing';
-import About         from './pages/About';
 import AppShell      from './components/layout/AppShell';
 import Feed          from './pages/Feed';
-import Profile       from './pages/Profile';
-import CreatePost    from './pages/CreatePost';
-import Settings      from './pages/Settings';
-import Moderation from './pages/Moderation';
 import { ThemeSync } from './hooks/useChooseTheme';
-import AuraWallet    from './pages/AuraWallet';
-import PostView from './components/post/PostView';
-import Onboarding from './pages/Onboarding';
-import Notifications from './pages/Notifications';
-import Groups from './pages/Groups';
-import GroupPage from './pages/GroupPage';
-import Feedback from './pages/Feedback';
+
+// The welcome page and the feed come with the first download. Every other
+// page is its own small file, fetched the first time it's opened, so phones
+// don't download and parse the whole app up front.
+const pages = {
+  SignIn:        () => import('./pages/auth/SignIn'),
+  SignUp:        () => import('./pages/auth/SignUp'),
+  ConfirmEmail:  () => import('./pages/auth/ConfirmEmail'),
+  About:         () => import('./pages/About'),
+  Profile:       () => import('./pages/Profile'),
+  CreatePost:    () => import('./pages/CreatePost'),
+  Settings:      () => import('./pages/Settings'),
+  Moderation:    () => import('./pages/Moderation'),
+  AuraWallet:    () => import('./pages/AuraWallet'),
+  PostView:      () => import('./components/post/PostView'),
+  Onboarding:    () => import('./pages/Onboarding'),
+  Notifications: () => import('./pages/Notifications'),
+  Groups:        () => import('./pages/Groups'),
+  GroupPage:     () => import('./pages/GroupPage'),
+  Feedback:      () => import('./pages/Feedback'),
+};
+const SignIn        = lazy(pages.SignIn);
+const SignUp        = lazy(pages.SignUp);
+const ConfirmEmail  = lazy(pages.ConfirmEmail);
+const About         = lazy(pages.About);
+const Profile       = lazy(pages.Profile);
+const CreatePost    = lazy(pages.CreatePost);
+const Settings      = lazy(pages.Settings);
+const Moderation    = lazy(pages.Moderation);
+const AuraWallet    = lazy(pages.AuraWallet);
+const PostView      = lazy(pages.PostView);
+const Onboarding    = lazy(pages.Onboarding);
+const Notifications = lazy(pages.Notifications);
+const Groups        = lazy(pages.Groups);
+const GroupPage     = lazy(pages.GroupPage);
+const Feedback      = lazy(pages.Feedback);
+
+// Once the first page has settled, fetch the rest quietly in the background
+// so tapping around later is instant.
+function PrefetchPages() {
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? (fn => setTimeout(fn, 2500));
+    const cancel = window.cancelIdleCallback ?? clearTimeout;
+    const handle = idle(() => Object.values(pages).forEach(load => load().catch(() => {})), { timeout: 6000 });
+    return () => cancel(handle);
+  }, []);
+  return null;
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading, profileComplete } = useAuth();
@@ -72,7 +105,10 @@ export default function App() {
       <AuthProvider>
         <ThemeSync />
         <BrowserRouter>
-          <AppRoutes />
+          <Suspense fallback={<div className="min-h-screen bg-[var(--bg-primary)]" />}>
+            <AppRoutes />
+          </Suspense>
+          <PrefetchPages />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

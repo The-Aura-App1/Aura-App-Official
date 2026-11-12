@@ -37,9 +37,9 @@ export default function LoadingSpinner({ size = 80 }) {
             transformStyle: 'preserve-3d',
             animation: 'haloWobble 2.6s ease-in-out infinite',
           }}>
-          <img src="/aura-halo.png" alt="" style={layerStyle} />
+          <img src="/aura-halo.webp" alt="" style={layerStyle} />
           <img
-            src="/aura-halo-shine.png"
+            src="/aura-halo-shine.webp"
             alt=""
             style={{ ...layerStyle, animation: 'haloShine 2s linear infinite', transformOrigin: 'center center' }}
           />

@@ -6,6 +6,7 @@ import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
 import { postEmbeddingText } from '../utils/embeddings';
 import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
+import shrinkImage from '../utils/shrinkImage';
 import { prefersReducedMotion } from '../utils/motion';
 
 // Where the little sparks rise from as a new post drifts away
@@ -151,9 +152,14 @@ export default function CreatePost() {
 
       // Upload media files to S3
       if (files.length > 0) {
-        setUploadProgress('Getting upload URLs...');
+        // Photos are scaled down first, so they upload and load quickly
+        setUploadProgress('Preparing...');
+        const uploads = postType === 'image'
+          ? await Promise.all(files.map(f => shrinkImage(f, { maxEdge: 1600 })))
+          : files;
 
-        const fileInfos = files.map(f => ({
+        setUploadProgress('Getting upload URLs...');
+        const fileInfos = uploads.map(f => ({
           name:        f.name,
           contentType: f.type,
           size:        f.size,
@@ -161,15 +167,17 @@ export default function CreatePost() {
 
         const { urls } = await api.getUploadUrls(fileInfos);
 
-        setUploadProgress(`Uploading ${files.length} file(s)...`);
+        setUploadProgress(`Uploading ${uploads.length} file(s)...`);
 
-        await Promise.all(urls.map(async ({ url, key }, i) => {
-          await fetch(url, {
+        // Keys stay in the order the photos were picked
+        mediaKeys = await Promise.all(urls.map(async ({ url, key }, i) => {
+          const res = await fetch(url, {
             method:  'PUT',
-            body:    files[i],
-            headers: { 'Content-Type': files[i].type },
+            body:    uploads[i],
+            headers: { 'Content-Type': uploads[i].type },
           });
-          mediaKeys.push(key);
+          if (!res.ok) throw new Error('A file didn’t upload. Please try again.');
+          return key;
         }));
       }
 

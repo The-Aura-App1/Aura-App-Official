@@ -25,7 +25,7 @@ export default function GroupPosts({ groupId, takesOff = false }) {
   return (
     <div className="flex flex-col gap-4">
       {posts.map(post => (
-        <Reveal key={post.postId}><PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} /></Reveal>
+        <Reveal key={post.postId} className="aura-offscreen"><PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} /></Reveal>
       ))}
 
       {done && posts.length === 0 && (

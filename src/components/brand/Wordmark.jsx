@@ -8,7 +8,7 @@ export default function Wordmark({ className = '', halo = true }) {
   return (
     <span className={`relative inline-block ${className}`}>
       <span className="aura-wordmark">Aura<span className="aura-wordmark-app"> App</span></span>
-      {halo && <img src="/aura-halo.png" alt="" aria-hidden="true" className="aura-wordmark-halo" />}
+      {halo && <img src="/aura-halo.webp" alt="" aria-hidden="true" className="aura-wordmark-halo" />}
     </span>
   );
 }

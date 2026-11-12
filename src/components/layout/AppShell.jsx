@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar   from './Sidebar';
 import MobileNav from './MobileNav';
 import Topbar    from './Topbar';
 import { SceneDecor } from '../auth/AuthBackdrop';
 import { useTheme } from '../../context/ThemeContext';
+import { FeedSkeleton as PageSkeleton } from '../motion/Skeleton';
 
 // Large screens: fixed sidebar on the left. Phones and tablets: a top bar and
 // a bottom tab bar instead, so the content gets the full width.
@@ -33,7 +34,10 @@ export default function AppShell() {
         <Topbar />
         {/* Bottom padding clears the phone tab bar */}
         <main className="flex-1 w-full max-w-[672px] mx-auto px-4 pt-4 pb-28 lg:pb-16">
-          <Outlet />
+          {/* Pages load on first visit; the bars stay put meanwhile */}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

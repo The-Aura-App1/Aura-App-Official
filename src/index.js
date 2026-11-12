@@ -9,6 +9,9 @@ import '@fontsource-variable/fraunces/full-italic.css';
 import './index.css';
 import './motion.css';
 import App from './App';
+import startScrollCalm from './utils/scrollCalm';
+
+startScrollCalm();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -103,7 +103,7 @@ export default function Feed() {
       )}
 
       {ranked.slice(0, shown).map((post, i) => (
-        <Reveal key={post.postId} delay={i < 4 ? i * 80 : 0}>
+        <Reveal key={post.postId} delay={i < 4 ? i * 80 : 0} className="aura-offscreen">
           <PostCard post={post} onUpdate={loadFeed} onPrefer={preferPost}
             onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
         </Reveal>

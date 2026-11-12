@@ -364,10 +364,23 @@ h1, h2, h3 {
      forth, with a soft glow underneath. */
   .aura-cta {
     @apply relative overflow-hidden inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-aura-500 focus-visible:ring-offset-2;
-    background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 30%, var(--brand-3) 55%, var(--brand-2) 80%, var(--brand-1));
-    background-size: 250% 100%;
-    animation: auraDrift 9s ease-in-out infinite;
+    isolation: isolate;
+    background: var(--brand-1);
     box-shadow: 0 10px 30px -10px rgb(var(--aura-500) / 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  /* The gradient is a wide layer that slides (a transform, which the GPU
+     handles), not a moving background-position, which repaints every frame. */
+  .aura-cta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 250%;
+    z-index: -1;
+    background: linear-gradient(110deg, var(--brand-1), var(--brand-2) 30%, var(--brand-3) 55%, var(--brand-2) 80%, var(--brand-1));
+    animation: auraDriftX 9s ease-in-out infinite;
+    pointer-events: none;
   }
   .aura-cta:hover { transform: translateY(-1px); box-shadow: 0 16px 36px -10px rgb(var(--aura-500) / 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
   /* A band of light that sweeps across on hover. */
@@ -428,7 +441,8 @@ h1, h2, h3 {
 .aura-faq summary::-webkit-details-marker { display: none; }
 
 @keyframes auraSpin  { to { --aura-angle: 360deg; } }
-@keyframes auraDrift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+/* Slides the 250%-wide gradient from its left edge to its right edge (-60% of its own width) and back */
+@keyframes auraDriftX { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-60%); } }
 
 /* ── Landing page details ──────────────────────────────────────────── */
 
@@ -546,7 +560,7 @@ h1, h2, h3 {
    "Animated scenery" setting is what turns it off. */
 @media (prefers-reduced-motion: reduce) {
   .aura-float, .aura-preview-float, .aura-cue, .aura-halo-aura,
-  .aura-cta, .btn-primary, .aura-glass-card::before { animation: none !important; }
+  .aura-cta, .aura-cta::before, .btn-primary, .aura-glass-card::before { animation: none !important; }
   .aura-plus { animation: none; opacity: 0; }
   .aura-rise { animation: none; opacity: 1; }
   .aura-scribble { animation: none; stroke-dashoffset: 0; }
@@ -861,3 +875,38 @@ h1, h2, h3 {
 }
 .aura-bird-bob { animation: birdBob 3s ease-in-out infinite; }
 @keyframes birdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* ── Phones and tablets: smoother scrolling ───────────────────────────────
+   Frosted-glass blur is recalculated every frame anything moves behind it
+   (the sky, or the page while scrolling), which is the heaviest thing a
+   phone's graphics chip does here. On touch screens the bars and glass
+   panels use a slightly more solid fill instead, which looks almost the same. */
+@media (hover: none) and (pointer: coarse) {
+  .aura-bar {
+    background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .aura-glass-card, .aura-glass-btn, .aura-faq {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .aura-glass-card { background-color: rgb(255 255 255 / 0.86); }
+  .aura-glass-btn  { background-color: rgb(255 255 255 / 0.8); }
+  .dark .aura-faq  { background-color: rgb(255 255 255 / 0.08); }
+  .dark .aura-glass-card { background-color: rgba(20, 10, 38, 0.86); }
+}
+
+/* While the page is scrolling, the scenery holds still (see utils/scrollCalm.js),
+   so the phone spends its effort on the scroll. It picks up again a moment
+   after scrolling stops. */
+html.is-scrolling .aura-app-sky *,
+html.is-scrolling .aura-scenery > [aria-hidden] * {
+  animation-play-state: paused !important;
+}
+
+/* Posts far off screen skip layout and painting until they come close */
+.aura-offscreen {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}

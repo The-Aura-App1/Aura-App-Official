@@ -76,7 +76,7 @@ export default function Onboarding() {
         {/* Step content */}
         {currentStep === 'welcome' && (
           <div className="flex flex-col items-center gap-4 text-center">
-            <img src="/aura-logo.png" alt="Aura" className="w-20 h-20 rounded-2xl shadow-aura-lg" />
+            <img src="/logo192.png" alt="Aura" className="w-20 h-20 rounded-2xl shadow-aura-lg" />
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">
               Welcome to Aura App
             </h1>

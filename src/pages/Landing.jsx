@@ -167,7 +167,7 @@ export default function Landing() {
         <section className="aura-hero flex flex-col items-center text-center px-5">
           <div className="aura-rise relative w-36 sm:w-[min(12rem,22vh)] -mb-2 sm:-mb-6" aria-hidden="true">
             <span className="aura-halo-aura" />
-            <img src="/aura-halo.png" alt="" className="aura-float aura-halo-glow relative w-full" />
+            <img src="/aura-halo.webp" alt="" className="aura-float aura-halo-glow relative w-full" />
           </div>
 
           <h1 className="aura-rise" style={{ animationDelay: '0.1s' }}>
@@ -277,7 +277,7 @@ export default function Landing() {
       <footer className="relative px-5 sm:px-10 py-8 border-t border-white/50 dark:border-white/10">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/aura-logo.png" alt="" className="w-7 h-7 rounded-lg" />
+            <img src="/logo192.png" alt="" className="w-7 h-7 rounded-lg" />
             <span className="text-xs text-aura-800/70 dark:text-aura-200/70">© {new Date().getFullYear()} Aura App</span>
           </div>
           <nav className="flex items-center gap-5 text-sm font-medium text-aura-800 dark:text-aura-100">

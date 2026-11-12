@@ -207,7 +207,7 @@ export function SiteHeader() {
   return (
     <header className="flex items-center justify-between px-5 sm:px-10 py-6">
       <Link to="/welcome" aria-label="Aura App home">
-        <img src="/aura-logo.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
+        <img src="/logo192.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
       </Link>
       <nav className="flex items-center gap-1 sm:gap-3 text-sm">
         <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">About</Link>
