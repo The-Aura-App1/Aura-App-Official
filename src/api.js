@@ -58,8 +58,21 @@ export const api = {
   updateProfile:      (data)  => request('PUT',  '/users/me', data),
   getProfileUploadUrls: (files) => request('POST', '/users/me/upload-urls', { files }),
 
+  // ─── Follows ──────────────────────────────────────────────
+  // { status: 'none' | 'pending' | 'active' | 'self', followsYou, canSeePosts, followerCount, followingCount }
+  getFollowStatus: (username)            => request('GET',    `/follows/user/${id(username)}`),
+  follow:          (username)            => request('POST',   `/follows/user/${id(username)}`),
+  unfollow:        (username)            => request('DELETE', `/follows/user/${id(username)}`),
+  // which: 'followers' | 'following'; returns { users, next }
+  getFollowList:   (username, which, cursor = null) =>
+    request('GET', `/follows/user/${id(username)}/${id(which)}${query({ cursor })}`),
+  getFollowRequests: (cursor = null)     => request('GET',    `/follows/requests${query({ cursor })}`),
+  answerFollowRequest: (userId, approve) =>
+    request('POST', `/follows/requests/${id(userId)}/${approve ? 'approve' : 'decline'}`),
+  removeFollower:  (userId)              => request('DELETE', `/follows/followers/${id(userId)}`),
+
   // ─── Posts ────────────────────────────────────────────────
-  getFeed:        ()                     => request('GET',  '/posts'),
+  getFeed:       ()                     => request('GET',  '/posts'),
   getPost:        (postId)               => request('GET',  `/posts/${id(postId)}`),
   createPost:     (data)                 => request('POST', '/posts', data),
   deletePost:     (postId)               => request('DELETE', `/posts/${id(postId)}`),

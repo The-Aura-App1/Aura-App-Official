@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Grid, Heart, TrendingUp, Camera, Edit3,
-  Save, X, Plus, Sparkles
+  Save, X, Plus, Sparkles, Lock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -12,6 +12,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { formatAura, timeAgo, usernameStatusText } from '../utils/format';
 import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
 import LikedPosts from '../components/profile/LikedPosts';
+import { FollowButton, FollowCount, FollowListSheet } from '../components/profile/FollowBits';
 import { updateUserAttributes } from 'aws-amplify/auth';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
@@ -57,6 +58,8 @@ export default function Profile() {
   const [error, setError]         = useState('');
   const [activeTab, setActiveTab] = useState('posts');
   const [isOwner, setIsOwner]     = useState(false);
+  const [rel, setRel]             = useState(null);    // follow relationship (see api.getFollowStatus)
+  const [listOpen, setListOpen]   = useState(null);    // 'followers' | 'following'
   const [editing, setEditing]     = useState(false);
 
   // Edit state
@@ -79,9 +82,12 @@ export default function Profile() {
 
   useEffect(() => { loadProfile(); }, [profileUsername]);
 
+  // Private accounts' posts load only for the owner and approved followers
+  const canSeePosts = isOwner || !profile?.isPrivate || rel?.canSeePosts === true;
   useEffect(() => {
-    if (profile?.userId) loadPosts(profile.userId);
-  }, [profile]);
+    if (profile?.userId && canSeePosts) loadPosts(profile.userId);
+    else setPosts([]);
+  }, [profile, canSeePosts]);
 
   async function loadProfile() {
     try {
@@ -90,6 +96,11 @@ export default function Profile() {
       setProfile(data);
       const mine = data.userId === user?.userId;
       setIsOwner(mine);
+      setRel(null);
+      if (!mine && user) {
+        // Before the follows route exists this fails quietly and the button stays hidden
+        api.getFollowStatus(data.username).then(setRel, () => setRel(null));
+      }
       if (mine) {
         setEditDisplayName(data.displayName ?? '');
         setEditUsername(data.username ?? '');
@@ -110,6 +121,12 @@ export default function Profile() {
     } catch (err) {
       console.error('Failed to load posts:', err);
     }
+  }
+
+  // The server answers with the new relationship and counts
+  function applyFollow(next) {
+    setRel(next);
+    setProfile(prev => prev && { ...prev, followerCount: next.followerCount, followingCount: next.followingCount });
   }
 
   // Errors propagate so PostCard can show them
@@ -322,7 +339,7 @@ export default function Profile() {
                 </button>
               )
             ) : (
-              <button className="btn-primary text-sm px-5 py-2">Follow</button>
+              <FollowButton username={profile.username} rel={rel} onChange={applyFollow} />
             )}
           </div>
         </div>
@@ -417,12 +434,10 @@ export default function Profile() {
             </p>
             <p className="text-[var(--text-muted)] text-xs">Aura</p>
           </div>
-          <div className="text-center">
-            <p className="font-bold text-[var(--text-primary)]">
-              {profile.mutualFollowers ?? 0}
-            </p>
-            <p className="text-[var(--text-muted)] text-xs">Mutuals</p>
-          </div>
+          <FollowCount value={profile.followerCount} label="Followers"
+            onClick={canSeePosts ? () => setListOpen('followers') : undefined} />
+          <FollowCount value={profile.followingCount} label="Following"
+            onClick={canSeePosts ? () => setListOpen('following') : undefined} />
         </div>
 
         {/* ── Tags ── */}
@@ -531,7 +546,15 @@ export default function Profile() {
       <div className="flex-1 px-4 pt-4">
         {activeTab === 'posts' && (
           <div className="flex flex-col gap-4">
-            {posts.length === 0 ? (
+            {!canSeePosts ? (
+              <div className="card text-center py-10 flex flex-col items-center gap-2">
+                <Lock size={22} className="text-[var(--text-muted)]" />
+                <p className="font-semibold text-[var(--text-primary)]">This account is private</p>
+                <p className="text-sm text-[var(--text-muted)]">
+                  {rel?.status === 'pending' ? 'Your request is waiting for approval.' : 'Follow to see their posts.'}
+                </p>
+              </div>
+            ) : posts.length === 0 ? (
               <p className="text-center text-[var(--text-muted)] text-sm py-10">
                 No posts yet.
               </p>
@@ -545,6 +568,12 @@ export default function Profile() {
         )}
         {activeTab === 'liked' && isOwner && <LikedPosts />}
       </div>
+
+      {listOpen && (
+        <FollowListSheet username={profile.username} which={listOpen} isOwner={isOwner}
+          onClose={() => setListOpen(null)}
+          onRemoved={() => setProfile(prev => ({ ...prev, followerCount: Math.max(0, (prev.followerCount ?? 1) - 1) }))} />
+      )}
     </div>
   );
 }

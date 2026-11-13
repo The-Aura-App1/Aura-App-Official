@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { canSeeAccount } from './privacy.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -213,7 +214,8 @@ async function getTarget(collection, targetId) {
   return { ...target, id: targetId, item: result.Item };
 }
 
-// Aura on group content is for group members only. Returns null when allowed,
+// Aura on group content is for group members only, and on a private account's
+// content for its followers only. Returns null when allowed,
 // otherwise the error response (404 when the viewer can't even see it).
 async function checkGroupAccess(target, userId) {
   const post = target.type === 'post'
@@ -221,7 +223,10 @@ async function checkGroupAccess(target, userId) {
     : (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: target.item.postId } }))).Item;
   // Comments on a removed post are gone with it
   if (!post || post.status !== 'active') return response(404, { error: 'Post or comment not found.' });
-  if (!post.groupId) return null;
+  // Outside groups, private accounts' posts are for their followers only
+  if (!post.groupId) {
+    return (await canSeeAccount(dynamo, userId, post.authorId)) ? null : response(404, { error: 'Post or comment not found.' });
+  }
 
   const group  = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId: post.groupId } }))).Item;
   const member = (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId: post.groupId, userId } }))).Item;

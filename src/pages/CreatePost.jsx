@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
 import { postEmbeddingText } from '../utils/embeddings';
 import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
@@ -20,6 +21,7 @@ const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
 
 export default function CreatePost() {
   const navigate = useNavigate();
+  const { dbProfile } = useAuth();
   // ?group=<id> posts into that group instead of the main feed
   const [searchParams] = useSearchParams();
   const groupId  = searchParams.get('group');
@@ -39,6 +41,9 @@ export default function CreatePost() {
   const [hashtags, setHashtags]     = useState([]);
   const [allowTakes, setAllowTakes] = useState(true);
   const [groupTakesOff, setGroupTakesOff] = useState(false);
+  // Starts at the account's default (Settings > Privacy); group posts are open to members
+  const [commentVisibility, setCommentVisibility] = useState(null);
+  const whoCanComment = commentVisibility ?? dbProfile?.commentVisibilityDefault ?? 'anyone';
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtagError, setHashtagError] = useState('');
   const [files, setFiles]           = useState([]);
@@ -194,7 +199,7 @@ export default function CreatePost() {
         hashtags:  tags,
         ...(embedding && { embedding }),
         allowTakes: allowTakes && !groupTakesOff,
-        ...(groupId && { groupId }),
+        ...(groupId ? { groupId } : { commentVisibility: whoCanComment }),
       });
 
       // The post drifts up into the sky, then you land back where you came from
@@ -439,6 +444,21 @@ export default function CreatePost() {
                             ${allowTakes && !groupTakesOff ? 'translate-x-5' : 'translate-x-0.5'}`} />
         </button>
       </div>
+
+      {/* Who can comment (not in groups, where members always can) */}
+      {!groupId && (
+        <div className="card mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-[var(--text-primary)]">Who can comment</p>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Your default is in Settings › Privacy.</p>
+          </div>
+          <select value={whoCanComment} onChange={e => setCommentVisibility(e.target.value)}
+            aria-label="Who can comment" className="input w-auto py-2">
+            <option value="anyone">Anyone</option>
+            <option value="followers">Followers</option>
+          </select>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

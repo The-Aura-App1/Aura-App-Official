@@ -14,7 +14,7 @@ const NOTIFICATION_OPTIONS = [
   { key: 'auraTaken',            label: 'Aura taken from your posts' },
   { key: 'comment',              label: 'Comments'                   },
   { key: 'reply',                label: 'Replies'                    },
-  { key: 'followRequest',        label: 'Follow requests'            },
+  { key: 'followRequest',        label: 'New followers and requests' },
   { key: 'followAccepted',       label: 'Follow request accepted'    },
   { key: 'groupInvite',          label: 'Group invites'              },
   { key: 'groupRequestApproved', label: 'Group request approved'     },
@@ -264,7 +264,7 @@ export default function Settings() {
             </div>
             <Toggle
               label="Private account"
-              description="Only approved followers will see your posts. Takes effect when following launches."
+              description="Only followers you approve see your posts and who you follow. Turning this off lets everyone waiting in."
               checked={settings.isPrivate}
               disabled={saving}
               onChange={value => save({ isPrivate: value })}
@@ -279,7 +279,7 @@ export default function Settings() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm text-[var(--text-primary)]">Default comment visibility</p>
-                <p className="text-xs text-[var(--text-muted)] mt-0.5">Takes effect when following launches. Until then, anyone can comment.</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Who can comment on your new posts. You can change it on each post when you share it.</p>
               </div>
               <select
                 value={settings.commentVisibilityDefault}

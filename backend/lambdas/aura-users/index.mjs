@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, Transac
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handleFeedback } from './feedback.mjs';
+import { handleFollows, approveAllPending } from './follows.mjs';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
 const client = new DynamoDBClient({ region: 'us-east-1' });
@@ -61,7 +62,7 @@ const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', '
 const PUBLIC_FIELDS = [
   'userId', 'username', 'displayName', 'bio', 'tags', 'profilePicKey', 'bannerKey',
   'badges', 'pins', 'accountType', 'isPremium', 'isCreator', 'isPrivate',
-  'hideAuraRank', 'auraBalance', 'createdAt',
+  'hideAuraRank', 'auraBalance', 'followerCount', 'followingCount', 'createdAt',
 ];
 
 // ─── Rate limits ──────────────────────────────────────────────
@@ -131,6 +132,9 @@ function publicProfile(user, viewerIsAdmin = false) {
   for (const field of PUBLIC_FIELDS) if (user[field] !== undefined) visible[field] = user[field];
   // Balances from before the earned/spendable split are reset on first use, so show them as 0 until then
   if (user.auraVersion !== AURA_VERSION) visible.auraBalance = 0;
+  // Older accounts have no follow counters yet
+  visible.followerCount  = Math.max(0, Number(user.followerCount) || 0);
+  visible.followingCount = Math.max(0, Number(user.followingCount) || 0);
   if (viewerIsAdmin && user.isBanned) visible.isBanned = true;
   return visible;
 }
@@ -637,6 +641,9 @@ async function updateProfile(userId, body) {
     ExpressionAttributeValues: expressionValues,
   }));
 
+  // Going public lets everyone who asked to follow in
+  if (isPrivate === false && current.isPrivate) await approveAllPending(userId);
+
   const result = await db.send(new GetCommand({
     TableName: USERS_TABLE,
     Key: { userId },
@@ -696,6 +703,13 @@ export const handler = async (event) => {
   try {
     const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
     if (limited) return limited;
+
+    // /follows/... — following and follow requests (follows.mjs, its own limits)
+    const follows = await handleFollows({
+      method, segments, query: event.queryStringParameters ?? {}, userId, isAdmin: !!userId && ADMIN_IDS.has(userId),
+      findUserByUsername, rateLimited, response,
+    });
+    if (follows) return follows;
 
     // Profile edits and uploads
     if (userId && (method === 'PUT' || method === 'POST')) {

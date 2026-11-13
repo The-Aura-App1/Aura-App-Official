@@ -4,7 +4,10 @@
     {
       "Sid": "BalancesBudgetsAndScores",
       "Effect": "Allow",
-      "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem"
+      ],
       "Resource": [
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users",
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-daily-budgets",
@@ -26,6 +29,12 @@
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members"
       ]
+    },
+    {
+      "Sid": "PrivateAccountChecks",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-follows"
     }
   ]
 }

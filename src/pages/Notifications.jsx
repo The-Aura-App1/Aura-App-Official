@@ -7,6 +7,7 @@ import {
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { timeAgo } from '../utils/format';
+import { FollowRequests } from '../components/profile/FollowBits';
 
 function notificationIcon(type) {
   switch (type) {
@@ -15,6 +16,8 @@ function notificationIcon(type) {
     case 'comment':       return <MessageCircle size={16} className="text-blue-400" />;
     case 'reply':         return <MessageCircle size={16} className="text-blue-400" />;
     case 'follow':        return <UserPlus size={16} className="text-green-400" />;
+    case 'follow_request':return <UserPlus size={16} className="text-yellow-400" />;
+    case 'follow_accepted':return <Check size={16} className="text-green-400" />;
     case 'group_join':    return <UserPlus size={16} className="text-green-400" />;
     case 'group_request': return <UserPlus size={16} className="text-yellow-400" />;
     case 'group_approved':return <Check size={16} className="text-green-400" />;
@@ -35,6 +38,10 @@ function notificationText(type, data) {
       return `@${data?.fromUsername ?? 'Someone'} replied to your comment`;
     case 'follow':
       return `@${data?.fromUsername ?? 'Someone'} started following you`;
+    case 'follow_request':
+      return `@${data?.fromUsername ?? 'Someone'} asked to follow you`;
+    case 'follow_accepted':
+      return `@${data?.fromUsername ?? 'Someone'} accepted your follow request`;
     case 'group_join':
       return `@${data?.fromUsername ?? 'Someone'} joined your group ${data?.groupName ?? ''}`;
     case 'group_request':
@@ -56,6 +63,8 @@ function notificationRoute(type, data) {
     case 'reply':
       return data?.postId ? `/post/${encodeURIComponent(data.postId)}` : null;
     case 'follow':
+    case 'follow_request':
+    case 'follow_accepted':
       return data?.fromUsername ? `/profile/${encodeURIComponent(data.fromUsername)}` : null;
     case 'group_join':
     case 'group_request':
@@ -152,6 +161,9 @@ export default function Notifications() {
       {error && (
         <p className="text-red-400 text-sm text-center py-4">{error}</p>
       )}
+
+      {/* Private accounts: people waiting to follow */}
+      <FollowRequests />
 
       {/* Empty state */}
       {!loading && notifications.length === 0 && (

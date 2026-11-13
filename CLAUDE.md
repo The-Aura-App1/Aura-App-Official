@@ -29,7 +29,7 @@
 - Cognito user pool: us-east-1_fiuEOr0XM. App client: 1b2uhsh7qdlmgbjj5vh09p64ds.
 - API: https://7uob369et4.execute-api.us-east-1.amazonaws.com
 - Media bucket: aura-app-media-570934198135
-- Tables: aura-users, aura-posts, aura-transactions, aura-daily-budgets, aura-groups, aura-group-members, aura-comments, aura-likes, aura-notifications, aura-shares
+- Tables: aura-users, aura-posts, aura-transactions, aura-daily-budgets, aura-groups, aura-group-members, aura-comments, aura-likes, aura-notifications, aura-shares, aura-feedback, aura-follows
 - User is on Windows PowerShell. Use PowerShell syntax, not bash.
 
 ## Code conventions
@@ -90,6 +90,14 @@
 - Navigation (2026-11-12): five main tabs only (Feed, Groups, Post, Notifications, Profile/Me). Everything else goes in `moreItems` (`src/components/layout/navItems.js`): the sidebar's "More" section on desktop and the "Me" sheet on phones. Add new pages there, not as new tabs.
 - Motion (2026-11-12): app animations live in `src/motion.css` and `src/components/motion/`. Small feedback moments (give, take, like, bell, wallet orbs, count-ups) always play, even with reduced motion (user's decision); only big movement (posts rising, the publish send-off) turns into fades there. Theme switches crossfade (ThemeContext).
 - Suggestions & Reviews (2026-11-12): one page, `/feedback`, with two tabs. aura-users serves `/feedback/*` (`backend/lambdas/aura-users/feedback.mjs`, table `aura-feedback`, key `feedbackID` with a capital ID, as the table was created). Suggestions are signed-in only: 3 a day, one vote each. Reviews are one per person, 1–5 stars; a moderator approves them in /moderation before they show publicly, and editing sends them back for approval. The welcome page shows approved reviews via the public `GET /feedback/reviews`.
+
+## Follows
+
+- Following (2026-11-12): `backend/lambdas/aura-users/follows.mjs` serves `/follows/*` (API route `ANY /follows/{proxy+}`, cognito-auth). Table `aura-follows`: partition key `userId`, sort key `edge`. Each follow is two items written in one transaction, `OUT#<followee>` on the follower and `IN#<follower>` on the followee, with `status` `active` or `pending`. `followerCount` / `followingCount` on user records count active follows only (public, via PUBLIC_FIELDS).
+- Private accounts: following them is a request the owner approves or declines (Notifications page). Turning private off approves everyone waiting. Owners can remove followers. Max 5,000 follows plus open requests per account; banned accounts can't follow and are hidden.
+- Outside groups, a private account's posts, comments, likes and aura are for the owner, approved followers and site moderators only. `privacy.mjs` (identical copies in aura-posts, aura-comments, aura-aura; a test fails if they drift) does the check; aura-posts' `visibleToViewer` is the one place posts are filtered. Group posts follow the group's rules instead. The profile itself (name, bio, counts) stays public.
+- Comment visibility: new posts store `commentVisibility` (`anyone` | `followers`, from CreatePost, defaulting to the account's `commentVisibilityDefault`; group posts are always `anyone`). aura-comments lets only the author and active followers comment on followers-only posts, and any unknown value fails closed. `COMMENT_VISIBILITY` is in aura-users and aura-posts (kept equal by a test).
+- Follow notifications (`follow`, `follow_request`, `follow_accepted`) are written by aura-users to aura-notifications, best effort, respecting `notificationPrefs.followRequest` / `followAccepted`.
 
 ## Likes and shares
 

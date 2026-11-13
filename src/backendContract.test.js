@@ -83,6 +83,20 @@ test('every Lambda that cleans text uses the same rules', () => {
   for (const copy of copies) expect(copy).toBe(copies[0]);
 });
 
+test('every Lambda that checks private accounts uses the same rules', () => {
+  const copies = ['aura-posts', 'aura-comments', 'aura-aura']
+    .map(name => fs.readFileSync(path.join(LAMBDAS, name, 'privacy.mjs'), 'utf8').replace(/\r\n/g, '\n'));
+  for (const copy of copies) expect(copy).toBe(copies[0]);
+  // aura-users writes the follows the others read
+  const follows = fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'follows.mjs'), 'utf8');
+  expect(constant(follows, 'FOLLOWS_TABLE')).toBe(constant(copies[0], 'FOLLOWS_TABLE'));
+});
+
+test('posts and accounts agree on who may comment', () => {
+  expect(constant(lambdaSource('aura-posts'), 'COMMENT_VISIBILITY'))
+    .toBe(constant(lambdaSource('aura-users'), 'COMMENT_VISIBILITY'));
+});
+
 test('the self-hosted model file is the verified original', () => {
   const hash = crypto.createHash('sha256').update(fs.readFileSync(MODEL)).digest('hex');
   expect(hash).toBe(MODEL_SHA256);

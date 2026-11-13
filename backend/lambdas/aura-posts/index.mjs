@@ -6,6 +6,7 @@ import {
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
+import { canSeeAccount, hiddenAuthors } from './privacy.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
 function parseBody(raw) {
@@ -73,6 +74,8 @@ const TOPICS = new Set([
   'motivation', 'sustainability', 'outdoors', 'cars', 'diy',
 ]);
 const MAX_POST_TOPICS = 3;
+// Who may comment on a post; keep in sync with aura-users
+const COMMENT_VISIBILITY = ['anyone', 'followers'];
 
 // Free-form hashtags (see src/utils/hashtags.js)
 const MAX_HASHTAGS    = 10;
@@ -199,14 +202,19 @@ async function groupAccess(groupId, viewerId) {
   return { group, isMember, canModerate, canSee };
 }
 
-// Drops group posts the viewer can't see, checking each group once
+// Drops posts the viewer can't see: group posts follow the group's rules
+// (checking each group once), other posts follow the author's privacy
 async function visibleToViewer(posts, viewerId) {
   const access = new Map();
+  const hidden = await hiddenAuthors(dynamo, viewerId,
+    posts.filter(p => !p.groupId).map(p => p.authorId), ADMIN_IDS.has(viewerId));
   const visible = [];
   for (const post of posts) {
     if (post.groupId) {
       if (!access.has(post.groupId)) access.set(post.groupId, await groupAccess(post.groupId, viewerId));
       if (!access.get(post.groupId).canSee) continue;
+    } else if (hidden.has(post.authorId)) {
+      continue;
     }
     visible.push(post);
   }
@@ -214,7 +222,7 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, mediaKeys, tags, hashtags, groupId, embedding, allowTakes } = body;
+  const { type, mediaKeys, tags, hashtags, groupId, embedding, allowTakes, commentVisibility } = body;
   // Invisible and direction-flipping characters are removed before any check
   const caption = typeof body.caption === 'string' ? cleanText(body.caption) : body.caption;
 
@@ -249,6 +257,10 @@ async function createPost(userId, body) {
   // Set once here; there is no route that changes it after posting
   if (allowTakes !== undefined && typeof allowTakes !== 'boolean') {
     return response(400, { error: 'allowTakes must be true or false.' });
+  }
+  // Who may comment; group posts are always open to the group's members
+  if (commentVisibility !== undefined && !COMMENT_VISIBILITY.includes(commentVisibility)) {
+    return response(400, { error: `commentVisibility must be one of: ${COMMENT_VISIBILITY.join(', ')}.` });
   }
   if (embedding !== undefined && !isValidEmbedding(embedding)) {
     return response(400, { error: 'Invalid embedding.' });
@@ -296,6 +308,7 @@ async function createPost(userId, body) {
     viewCount:      0,
     likeCount:      0,
     allowTakes:     allowTakes ?? true,
+    commentVisibility: group ? 'anyone' : (commentVisibility ?? author.commentVisibilityDefault ?? 'anyone'),
     status:         'active',
     reportCount:    0,
     createdAt:      now,
@@ -398,11 +411,15 @@ async function getFeed(viewerId) {
     }
   }
 
-  const posts = active.filter(post => picked.has(post));
+  // Private accounts' posts reach only their followers
+  const posts = await visibleToViewer(active.filter(post => picked.has(post)), viewerId);
   return response(200, { posts: await forViewer(posts, viewerId) });
 }
 
 async function getUserPosts(authorId, viewerId, limit = 20) {
+  if (!(await canSeeAccount(dynamo, viewerId, authorId, ADMIN_IDS.has(viewerId)))) {
+    return response(403, { error: 'This account is private.', private: true });
+  }
   const authored = await scanAll({
     TableName:        POSTS_TABLE,
     FilterExpression: 'authorId = :aid AND #status = :active AND attribute_not_exists(groupId)',

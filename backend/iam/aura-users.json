@@ -52,6 +52,24 @@
         "dynamodb:Scan"
       ],
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-feedback"
+    },
+    {
+      "Sid": "Follows",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-follows"
+    },
+    {
+      "Sid": "FollowNotifications",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-notifications"
     }
   ]
 }

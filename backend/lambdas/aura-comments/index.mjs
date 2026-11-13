@@ -4,6 +4,7 @@ import {
   UpdateCommand, ScanCommand, TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
 import { cleanText, hasVisibleText } from './text.mjs';
+import { canSeeAccount, isFollowing } from './privacy.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -207,6 +208,8 @@ async function createComment(userId, postId, body) {
     const access = await groupAccess(post.groupId, userId);
     if (!access.canSee) return response(404, { error: 'Post not found.' });
     if (!access.isMember) return response(403, { error: 'Only group members can comment here.' });
+  } else if (!(await canSeeAccount(dynamo, userId, post.authorId, ADMIN_IDS.has(userId)))) {
+    return response(404, { error: 'Post not found.' });
   }
 
   if (text.length > charLimit) {
@@ -215,10 +218,11 @@ async function createComment(userId, postId, body) {
     });
   }
 
-  // Followers-only posts: until following exists nobody counts as a follower,
-  // so only the author may comment. Fails closed rather than letting anyone in.
-  // (No post stores commentVisibility yet; the setting takes effect with follows.)
-  if (post.commentVisibility === 'followers' && post.authorId !== userId) {
+  // Followers-only posts: the author and approved followers may comment.
+  // Any other stored value also fails closed rather than letting anyone in.
+  const visibility = post.commentVisibility ?? 'anyone';
+  if (!isGroup && visibility !== 'anyone' && post.authorId !== userId
+      && !(visibility === 'followers' && await isFollowing(dynamo, userId, post.authorId))) {
     return response(403, { error: 'Only followers can comment on this post.' });
   }
 
@@ -298,6 +302,9 @@ async function getComments(postId, viewerId, limit = 50) {
   const post = postResult.Item;
   if (!post || post.status !== 'active') return response(404, { error: 'Post not found.' });
   if (post.groupId && !(await groupAccess(post.groupId, viewerId)).canSee) {
+    return response(404, { error: 'Post not found.' });
+  }
+  if (!post.groupId && !(await canSeeAccount(dynamo, viewerId, post.authorId, ADMIN_IDS.has(viewerId)))) {
     return response(404, { error: 'Post not found.' });
   }
 
