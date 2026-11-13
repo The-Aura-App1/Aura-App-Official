@@ -58,14 +58,12 @@ const settle = async (ms = 8000) => {
 const title = () => screen.getByRole('heading', { level: 2 }).textContent;
 const next  = async () => { fireEvent.click(screen.getByRole('button', { name: /^(next|show me around|take me there|i’ll post later|done|start exploring)$/i })); await settle(); };
 
-test('walks page by page, spotlighting real elements and skipping missing ones', async () => {
+test('walks the main points page by page, skipping what is missing', async () => {
   const onClose = renderTour();
   expect(title()).toBe('Welcome to Aura');
-  await next();
-  expect(title()).toBe('Tune your feed');
+  await next();   // no posts on this test feed: the aura step skips itself
+  expect(title()).toBe('Steer your feed');
   expect(document.querySelector('.aura-tour-spot')).toBeInTheDocument();
-  await next();   // no posts on this test feed: the aura and menu steps skip themselves
-  expect(title()).toBe('Search');
   await next();
   expect(title()).toBe('Make your first post');
 
@@ -73,38 +71,40 @@ test('walks page by page, spotlighting real elements and skipping missing ones',
   fireEvent.click(screen.getByText('Post'));
   await settle();
   expect(screen.getByTestId('where')).toHaveTextContent('/create');
-  expect(title()).toBe('Words, photos or video');
-  await next(); await next(); await next(); await next();
-  expect(title()).toBe('Share it');
+  expect(title()).toBe('Say hello');
+  // Hands on: the page isn't dimmed, just outlined
+  expect(document.querySelector('.aura-tour-spot.is-open')).toBeInTheDocument();
   await next();   // "I'll post later"
-  expect(title()).toBe('Groups');
-  await next();   // "Take me there"
   expect(screen.getByTestId('where')).toHaveTextContent('/groups');
   expect(title()).toBe('Find your people');
-  await next(); await next(); await next();
-  expect(title()).toBe('Make it yours');
+  await next();
+  expect(title()).toBe('Search and follow');
+  await next();
   expect(screen.getByTestId('where')).toHaveTextContent('/profile/me');
-  await next();
-  expect(screen.getByTestId('where')).toHaveTextContent('/wallet');
+  expect(title()).toBe('Make it yours');
   await next(); await next();
-  expect(screen.getByTestId('where')).toHaveTextContent('/settings');
-  await next();
   expect(title()).toBe('You’re all set');
+  expect(screen.getByText(/of 10$/)).toBeInTheDocument();
   await next();
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-test('posting from the post page celebrates it and carries on', async () => {
+test('typing shrinks the note out of the way, and posting carries on', async () => {
   renderTour();
-  await next(); await next(); await next();
+  await next(); await next();
   fireEvent.click(screen.getByRole('button', { name: 'Take me there' }));
   await settle();
-  expect(title()).toBe('Words, photos or video');
+  expect(title()).toBe('Say hello');
+  fireEvent.focusIn(screen.getByText('post-caption'));
+  expect(screen.getByText('Tap Share Post when you’re ready.')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+
   await act(async () => { window.dispatchEvent(new CustomEvent('aura:post-created')); });
   await settle(1000);
   expect(title()).toBe('Your first post is live');
+  expect(screen.getByText(/of 11$/)).toBeInTheDocument();
   await next();
-  expect(title()).toBe('Groups');
+  expect(title()).toBe('Find your people');
 });
 
 test('skip and Escape end the tour', async () => {

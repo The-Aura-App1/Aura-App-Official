@@ -237,3 +237,20 @@
 @media (prefers-reduced-motion: reduce) {
   .aura-tour-spot { animation: none; }
 }
+/* Hands-on tour steps: outline only, no dimming, and a slim note while typing */
+.aura-tour-spot.is-open { box-shadow: 0 0 0 2px var(--accent), 0 0 24px 4px color-mix(in srgb, var(--accent) 45%, transparent); animation: none; }
+.aura-tour-card.is-compact { padding: 10px 12px; border-radius: 14px; }
+/* The logo's halo tilted on the top-left corner of every tour note, bobbing gently */
+.aura-tour-halo {
+  position: absolute; top: -20px; left: -16px; width: 46px; height: 46px; pointer-events: none;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));
+  animation: tourHalo 3.2s ease-in-out infinite;
+}
+.aura-tour-card.is-compact .aura-tour-halo { top: -16px; left: -12px; width: 36px; height: 36px; }
+@keyframes tourHalo {
+  0%, 100% { transform: rotate(-16deg) translateY(0); }
+  50%      { transform: rotate(-12deg) translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aura-tour-halo { animation: none; transform: rotate(-14deg); }
+}

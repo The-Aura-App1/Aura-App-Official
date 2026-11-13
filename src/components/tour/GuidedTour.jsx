@@ -170,6 +170,26 @@ export default function GuidedTour({ onClose }) {
     return () => observer.disconnect();
   }, []);
 
+  // Hands-on steps: once they start typing, tapping or scrolling the page,
+  // the note shrinks to a small bar at the top so it never covers the form
+  const [engaged, setEngaged] = useState(false);
+  useEffect(() => {
+    setEngaged(false);
+    if (!step.handsOn) return undefined;
+    const started = Date.now();
+    const onPage = e => { if (!cardRef.current?.contains(e.target)) setEngaged(true); };
+    // Ignore the tour's own scroll that brings the element into view
+    const onScroll = () => { if (Date.now() - started > 1200) setEngaged(true); };
+    document.addEventListener('focusin', onPage);
+    document.addEventListener('pointerdown', onPage);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('focusin', onPage);
+      document.removeEventListener('pointerdown', onPage);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [step]);
+
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -183,28 +203,42 @@ export default function GuidedTour({ onClose }) {
 
   const width = Math.min(CARD_WIDTH, view.width - 24);
   const spot  = step.target ? rect : null;
-  const place = placeCard(spot, { width, height: cardSize.height }, view);
+  const compact = step.handsOn && engaged;
+  const place = compact
+    ? { side: 'docked', arrow: null, top: view.width >= 1024 ? 16 : 64, left: Math.max(12, (view.width - width) / 2) }
+    : placeCard(spot, { width, height: cardSize.height }, view);
   const counter = `${index + 1} of ${steps.length}`;
 
   return (
     <div className="aura-tour" aria-live="polite">
       {/* Dims the page around the element; clicks pass straight through */}
       {spot ? (
-        // keys keep React from reusing the dim layer, which would slide in from the corner
-        <div key="spot" aria-hidden="true" className="aura-tour-spot"
+        // keys keep React from reusing the dim layer, which would slide in from the corner.
+        // Hands-on steps only outline the element, so the whole page stays clear.
+        <div key="spot" aria-hidden="true" className={`aura-tour-spot ${step.handsOn ? 'is-open' : ''}`}
           style={{ top: spot.top, left: spot.left, width: spot.width, height: spot.height }} />
       ) : (
         <div key="dim" aria-hidden="true" className="aura-tour-dim" />
       )}
 
       <div ref={cardRef} role="dialog" aria-label={`Tour: ${step.title}`}
-        className={`aura-tour-card aura-tour-${place.side}`}
+        className={`aura-tour-card aura-tour-${place.side} ${compact ? 'is-compact' : ''}`}
         style={{ top: place.top, left: place.left, width }}>
+        {/* The logo's halo, perched on the note's corner */}
+        <img src="/aura-halo.webp" alt="" aria-hidden="true" className="aura-tour-halo" />
         {place.arrow !== null && (
           <span aria-hidden="true" className="aura-tour-arrow"
             style={place.side === 'below' || place.side === 'above' ? { left: place.arrow } : { top: place.arrow }} />
         )}
 
+        {compact ? (
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-sm text-[var(--text-primary)]">{step.typing ?? step.title}</p>
+            <button type="button" onClick={primary} className="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">
+              {step.next ?? 'Next'}
+            </button>
+          </div>
+        ) : (
         <div key={step.id} className="aura-arrive">
           <div className="flex items-center justify-between mb-1.5">
             <p className="aura-kicker text-[10px] font-bold uppercase tracking-[0.18em]">Tour · {counter}</p>
@@ -232,6 +266,7 @@ export default function GuidedTour({ onClose }) {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

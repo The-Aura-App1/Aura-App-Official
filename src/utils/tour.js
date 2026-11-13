@@ -1,7 +1,7 @@
 // Whether this account has finished or skipped the app tour on this device.
 // A per-device convenience only: if storage is blocked the tour simply shows
 // again, and it can always be skipped.
-const key = userId => `aura.tour.v1.${userId}`;
+const key = userId => `aura.tour.v2.${userId}`;
 
 export function hasSeenTour(userId) {
   if (!userId) return true;
