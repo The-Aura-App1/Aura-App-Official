@@ -202,6 +202,9 @@ export default function CreatePost() {
         ...(groupId ? { groupId } : { commentVisibility: whoCanComment }),
       });
 
+      // The app tour waits for this on its "make your first post" step
+      window.dispatchEvent(new CustomEvent('aura:post-created'));
+
       // The post drifts up into the sky, then you land back where you came from
       setSent(true);
       await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 350 : 750));
@@ -244,7 +247,7 @@ export default function CreatePost() {
       </div>
 
       {/* Post type selector */}
-      <div className="grid grid-cols-3 gap-2 mb-6">
+      <div className="grid grid-cols-3 gap-2 mb-6" data-tour="post-type">
         {[
           { type: 'text',  icon: Type,   label: 'Text'  },
           { type: 'image', icon: Image,  label: 'Image' },
@@ -338,7 +341,7 @@ export default function CreatePost() {
       )}
 
       {/* Caption */}
-      <div className="mb-4">
+      <div className="mb-4" data-tour="post-caption">
         <textarea
           value={caption}
           onChange={e => setCaption(e.target.value)}
@@ -353,7 +356,7 @@ export default function CreatePost() {
       </div>
 
       {!groupId && (
-        <div className="mb-4">
+        <div className="mb-4" data-tour="post-topics">
           <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
             Topics <span className="text-[var(--text-muted)] font-normal">({topics.length}/{MAX_POST_TOPICS}, optional)</span>
           </p>
@@ -421,7 +424,7 @@ export default function CreatePost() {
       </div>
 
       {/* Taking aura: chosen once, locked after posting */}
-      <div className="card mb-4 flex items-center justify-between gap-4">
+      <div className="card mb-4 flex items-center justify-between gap-4" data-tour="post-takes">
         <div>
           <p className="text-sm font-medium text-[var(--text-primary)]">Allow others to take aura</p>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -478,6 +481,7 @@ export default function CreatePost() {
         onClick={handleSubmit}
         disabled={loading}
         className="btn-primary w-full"
+        data-tour="post-share"
       >
         {loading ? uploadProgress || 'Posting...' : (
           <span className="flex items-center gap-2">

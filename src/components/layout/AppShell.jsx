@@ -9,7 +9,7 @@ import { FeedSkeleton as PageSkeleton } from '../motion/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { hasSeenTour, markTourSeen } from '../../utils/tour';
 
-const AppTour = lazy(() => import('../tour/AppTour'));
+const GuidedTour = lazy(() => import('../tour/GuidedTour'));
 
 // Opens the tour once for each account on this device, and again whenever a
 // link adds ?tour=1 (the "App tour" item in the More menu)
@@ -75,7 +75,7 @@ export default function AppShell() {
 
       {tourOpen && (
         <Suspense fallback={null}>
-          <AppTour onClose={closeTour} />
+          <GuidedTour onClose={closeTour} />
         </Suspense>
       )}
     </div>

@@ -128,6 +128,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
               onClick={() => { setMenuOpen(o => !o); setConfirmRemove(false); setRemoveError(''); }}
               aria-label="More options"
               aria-expanded={menuOpen}
+              data-tour="post-menu"
               className="p-2 rounded-lg text-[var(--text-muted)]
                          hover:bg-[var(--accent-subtle)]
                          hover:text-[var(--accent)]
@@ -188,7 +189,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         <div className="px-4 py-2 flex items-center justify-between">
 
           {/* Left — Aura buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" data-tour="post-aura">
             {/* Give Aura */}
             <button
               onClick={() => openAura('give')}

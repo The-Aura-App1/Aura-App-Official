@@ -49,7 +49,7 @@ export default function Sidebar() {
       </div>
 
       {/* Search is a field, not a tab, so the five main tabs stay five */}
-      <Link to="/search"
+      <Link to="/search" data-tour="search"
         className="mb-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm border border-[var(--border)]
                    bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-aura-500/40 hover:text-[var(--text-primary)] transition-colors">
         <Search size={16} />
@@ -58,13 +58,13 @@ export default function Sidebar() {
 
       <nav className="flex flex-col gap-1 flex-1">
         {MAIN.map(({ to, icon: Icon, label, bell }) => (
-          <NavLink key={label} to={to} end={to === '/'} className={linkClass}>
+          <NavLink key={label} to={to} end={to === '/'} className={linkClass} data-tour={`nav-${label.toLowerCase()}`}>
             {bell ? <NotifyBell count={unreadCount} size={20} /> : <Icon size={20} />}
             {label}
           </NavLink>
         ))}
 
-        <button onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen}
+        <button onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen} data-tour="nav-more"
           className="mt-2 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[var(--text-muted)]
                      hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200">
           <MoreHorizontal size={20} />

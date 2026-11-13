@@ -39,9 +39,9 @@ function useNow(until) {
   return now;
 }
 
-function Section({ icon: Icon, title, aside, children }) {
+function Section({ icon: Icon, title, aside, children, tour }) {
   return (
-    <section className="card flex flex-col gap-4">
+    <section className="card flex flex-col gap-4" data-tour={tour}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon size={18} className="text-aura-400" />
@@ -167,7 +167,7 @@ export default function AuraWallet() {
       )}
 
       {/* ── Balances ── */}
-      <Section icon={Wallet} title="Balances">
+      <Section icon={Wallet} title="Balances" tour="wallet-balances">
         <div className="flex flex-wrap gap-3">
           <Balance
             ref={spendableRef}
@@ -188,7 +188,7 @@ export default function AuraWallet() {
 
       {/* ── Today ── */}
       {today && (
-        <Section icon={Clock} title="Today" aside={`Resets at ${nextResetTime()}`}>
+        <Section icon={Clock} title="Today" aside={`Resets at ${nextResetTime()}`} tour="wallet-today">
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">

@@ -84,27 +84,27 @@ export default function MobileNav() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40
                       aura-bar aura-bar-bottom
                       grid grid-cols-5 items-end px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        <NavLink to="/" end className={tabClass}>
+        <NavLink to="/" end className={tabClass} data-tour="nav-feed">
           {({ isActive }) => (<><Home size={22} strokeWidth={isActive ? 2.5 : 1.8} /><span>Feed</span></>)}
         </NavLink>
-        <NavLink to="/groups" className={tabClass}>
+        <NavLink to="/groups" className={tabClass} data-tour="nav-groups">
           {({ isActive }) => (<><Users size={22} strokeWidth={isActive ? 2.5 : 1.8} /><span>Groups</span></>)}
         </NavLink>
 
         {/* Post: the one raised button */}
-        <NavLink to="/create" aria-label="New post" className="flex flex-col items-center gap-0.5 pb-1">
+        <NavLink to="/create" aria-label="New post" data-tour="nav-post" className="flex flex-col items-center gap-0.5 pb-1">
           <span className="aura-fill w-12 h-12 -mt-5 rounded-2xl flex items-center justify-center text-white shadow-lg
                            ring-4 ring-[var(--bg-primary)] transition-transform duration-200 active:scale-90">
             <Plus size={26} strokeWidth={2.4} />
           </span>
         </NavLink>
 
-        <NavLink to="/notifications" className={tabClass} aria-label="Notifications">
+        <NavLink to="/notifications" className={tabClass} aria-label="Notifications" data-tour="nav-notifications">
           <NotifyBell count={unreadCount} size={22} />
           <span>Alerts</span>
         </NavLink>
 
-        <button onClick={() => setSheetOpen(true)} aria-haspopup="dialog" aria-expanded={sheetOpen}
+        <button onClick={() => setSheetOpen(true)} aria-haspopup="dialog" aria-expanded={sheetOpen} data-tour="nav-more"
           className={tabClass({ isActive: meActive })}>
           <span className={`rounded-full ${meActive ? 'ring-2 ring-[var(--accent)]' : ''}`}>
             <Avatar name={dbProfile?.displayName || displayName || username} picKey={dbProfile?.profilePicKey} size="w-6 h-6" />

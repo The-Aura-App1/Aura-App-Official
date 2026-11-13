@@ -18,7 +18,7 @@ export default function Topbar() {
         <Wordmark className="text-3xl" />
       </Link>
       <div className="flex items-center gap-1">
-        <Link to="/search" aria-label="Search"
+        <Link to="/search" aria-label="Search" data-tour="search"
           className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all duration-200">
           <Search size={20} />
         </Link>

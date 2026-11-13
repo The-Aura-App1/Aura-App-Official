@@ -27,7 +27,7 @@ function defaultNotificationPrefs(saved) {
 
 function Section({ id, icon: Icon, title, children }) {
   return (
-    <section id={id} className="card flex flex-col gap-4 scroll-mt-20">
+    <section id={id} data-tour={id && `settings-${id}`} className="card flex flex-col gap-4 scroll-mt-20">
       <div className="flex items-center gap-2">
         <Icon size={18} className="text-aura-400" />
         <h2 className="font-semibold text-[var(--text-primary)]">{title}</h2>
@@ -246,7 +246,7 @@ export default function Settings() {
       {!settings ? null : (
         <>
           {/* ── Privacy ── */}
-          <Section icon={Shield} title="Privacy">
+          <Section id="privacy" icon={Shield} title="Privacy">
             <Toggle
               label="Learn from what I do"
               description="Your feed adapts to the aura you give and take and the posts you like, right on this device. It's never sent to our servers, and nothing is learned from what you only look at."

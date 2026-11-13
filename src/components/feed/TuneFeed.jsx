@@ -49,7 +49,7 @@ export default function TuneFeed({ prefs, onChange }) {
   }
 
   return (
-    <section className="card p-0 overflow-hidden">
+    <section className="card p-0 overflow-hidden" data-tour="tune-feed">
       <button
         onClick={() => { if (!open) warmUpModel(); setOpen(o => !o); }}
         aria-expanded={open}

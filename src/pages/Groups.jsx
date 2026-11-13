@@ -189,7 +189,7 @@ export default function Groups() {
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Groups</h1>
         </div>
         {!creating && (
-          <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2">
+          <button onClick={() => setCreating(true)} className="btn-primary px-4 py-2" data-tour="group-create">
             <Plus size={16} /> Create group
           </button>
         )}
@@ -243,7 +243,7 @@ export default function Groups() {
         </>
       )}
 
-      <section className="card flex flex-col gap-3">
+      <section className="card flex flex-col gap-3" data-tour="group-discover">
         <h2 className="font-semibold text-[var(--text-primary)]">Discover</h2>
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />

@@ -333,7 +333,7 @@ export default function Profile() {
                   </button>
                 </div>
               ) : (
-                <button onClick={() => setEditing(true)}
+                <button onClick={() => setEditing(true)} data-tour="profile-edit"
                   className="btn-secondary flex items-center gap-2 text-sm px-4 py-2">
                   <Edit3 size={15} /> Edit Profile
                 </button>
@@ -523,7 +523,7 @@ export default function Profile() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="border-t border-[var(--border)] flex">
+      <div className="border-t border-[var(--border)] flex" data-tour="profile-tabs">
         {[
           { key: 'posts',    icon: Grid,        label: 'Posts'    },
           { key: 'timeline', icon: TrendingUp,  label: 'Aura'     },
