@@ -1,4 +1,4 @@
-import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info } from 'lucide-react';
+import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info, Compass } from 'lucide-react';
 
 // Everything outside the five main tabs. The sidebar shows these under
 // "More"; phones show them in the "Me" sheet. Keep the main tabs to five so
@@ -9,6 +9,7 @@ export function moreItems(isAdmin) {
     { to: '/settings', icon: Settings,           label: 'Settings' },
     { to: '/feedback', icon: MessageSquareHeart, label: 'Suggestions & Reviews' },
     ...(isAdmin ? [{ to: '/moderation', icon: ShieldAlert, label: 'Moderation' }] : []),
+    { to: '/?tour=1',  icon: Compass,            label: 'App tour' },
     { to: '/about',    icon: Info,               label: 'About Aura' },
   ];
 }

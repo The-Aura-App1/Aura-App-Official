@@ -1,16 +1,46 @@
-import React, { Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Outlet, useSearchParams } from 'react-router-dom';
 import Sidebar   from './Sidebar';
 import MobileNav from './MobileNav';
 import Topbar    from './Topbar';
 import { SceneDecor } from '../auth/AuthBackdrop';
 import { useTheme } from '../../context/ThemeContext';
 import { FeedSkeleton as PageSkeleton } from '../motion/Skeleton';
+import { useAuth } from '../../context/AuthContext';
+import { hasSeenTour, markTourSeen } from '../../utils/tour';
+
+const AppTour = lazy(() => import('../tour/AppTour'));
+
+// Opens the tour once for each account on this device, and again whenever a
+// link adds ?tour=1 (the "App tour" item in the More menu)
+function useTour() {
+  const { user, dbProfile } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('tour') === '1';
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (asked || (dbProfile && user?.userId && !hasSeenTour(user.userId))) setOpen(true);
+  }, [asked, dbProfile, user?.userId]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    markTourSeen(user?.userId);
+    if (params.has('tour')) {
+      const next = new URLSearchParams(params);
+      next.delete('tour');
+      setParams(next, { replace: true });
+    }
+  }, [user?.userId, params, setParams]);
+
+  return [open, close];
+}
 
 // Large screens: fixed sidebar on the left. Phones and tablets: a top bar and
 // a bottom tab bar instead, so the content gets the full width.
 export default function AppShell() {
   const { skyDetails, themeInfo } = useTheme();
+  const [tourOpen, closeTour] = useTour();
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
 
@@ -42,6 +72,12 @@ export default function AppShell() {
       </div>
 
       <MobileNav />
+
+      {tourOpen && (
+        <Suspense fallback={null}>
+          <AppTour onClose={closeTour} />
+        </Suspense>
+      )}
     </div>
   );
 }
