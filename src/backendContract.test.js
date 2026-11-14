@@ -122,3 +122,10 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   expect(constant(games, 'STAKE_CAP').replace(/\s/g, '')).toBe(`{regular:${STAKE_CAP.regular},premium:${STAKE_CAP.premium}}`);
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
 });
+
+test('the pool table in the app is the size of the one aura-aura plays on', () => {
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'pool.mjs'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, 'components', 'games', 'PoolTable.jsx'), 'utf8');
+  for (const name of ['W', 'H', 'R', 'HEAD_LINE']) expect(constant(app, name)).toBe(constant(server, name));
+  expect(constant(app, 'POCKETS')).toBe(constant(server, 'POCKETS'));
+});

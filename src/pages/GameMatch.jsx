@@ -47,22 +47,24 @@ export default function GameMatch() {
   const [busy, setBusy]   = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
   const offset = useRef(0);   // server clock minus ours, for the turn timer
+  const shotNo = useRef(null); // pool: the shot whose recording we already have
 
   const apply = useCallback(result => {
     offset.current = (result.now ?? Date.now()) - Date.now();
+    if (result.view?.shot?.frames) shotNo.current = result.view.shot.no;
     setData(result);
   }, []);
 
   const load = useCallback(async () => {
     try {
-      apply(await api.getGame(matchId));
+      apply(await api.getGame(matchId, shotNo.current));
       setError('');
     } catch (err) {
       setError(err.message);
     }
   }, [matchId, apply]);
 
-  useEffect(() => { setData(null); load(); }, [load]);
+  useEffect(() => { setData(null); shotNo.current = null; load(); }, [load]);
 
   const match = data?.match;
   const seat = data?.seat ?? null;

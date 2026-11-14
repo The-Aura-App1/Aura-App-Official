@@ -1,11 +1,11 @@
-import { CircleDot, Spade, Fish, Club, Dice5, Coins } from 'lucide-react';
+import { CircleDot, Spade, Fish, Disc, Dice5, Coins } from 'lucide-react';
 
 // The group games, in the order they're offered (skill games first). The ids
 // match GAMES in backend/lambdas/aura-aura/gameRules.mjs (a test keeps them equal).
 export const GAME_LIST = [
   { id: 'connect4', name: 'Connect 4',    Icon: CircleDot, kind: 'Skill', blurb: 'Drop discs and line up four in a row.' },
+  { id: 'pool',     name: '8-Ball Pool',  Icon: Disc,      kind: 'Skill', blurb: 'Aim, set your power, sink your group, then the 8.' },
   { id: 'poker',    name: 'Poker',        Icon: Spade,     kind: 'Skill', blurb: 'Heads-up Texas Hold\'em. Win every chip.' },
-  { id: 'crazy8s',  name: 'Crazy Eights', Icon: Club,      kind: 'Skill', blurb: 'Match the suit or rank. Eights are wild.' },
   { id: 'gofish',   name: 'Go Fish',      Icon: Fish,      kind: 'Skill', blurb: 'Ask for ranks and collect books of four.' },
   { id: 'dice',     name: 'Dice Duel',    Icon: Dice5,     kind: 'Luck',  blurb: 'Two dice each, best of three rounds.' },
   { id: 'coinflip', name: 'Flip a Coin',  Icon: Coins,     kind: 'Luck',  blurb: 'Call it. One flip settles it.' },

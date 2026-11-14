@@ -192,12 +192,15 @@ export async function handleGames(ctx, user, method, segments, body) {
     };
   }
 
-  function matchResponse(match, status = 200) {
+  function matchResponse(match, status = 200, have = null) {
     const seat = match.players.findIndex(p => p.userId === user.userId);
+    let view = match.state ? viewFor(match.game, match.state, seat === -1 ? null : seat) : null;
+    // Pool: a poll that already has the latest shot's recording (?have=<shot no>) skips it
+    if (view?.shot && have !== null && String(view.shot.no) === have) view = { ...view, shot: { ...view.shot, start: null, frames: null } };
     return response(status, {
       match: summary(match),
       seat: seat === -1 ? null : seat,
-      view: match.state ? viewFor(match.game, match.state, seat === -1 ? null : seat) : null,
+      view,
       now: Date.now(),
     });
   }
@@ -282,7 +285,7 @@ export async function handleGames(ctx, user, method, segments, body) {
 
   if (method === 'GET' && !action) {
     if (seat === -1 && !(await membership(match.groupId, user.userId))) return response(404, { error: 'Game not found.' });
-    return matchResponse(match);
+    return matchResponse(match, 200, typeof ctx.query?.have === 'string' ? ctx.query.have : null);
   }
   if (method !== 'POST') return response(404, { error: 'Route not found.' });
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import PlayingCard, { Hand, suitSymbol, suitName, rankLabel } from './PlayingCard';
+import PlayingCard, { Hand, rankLabel } from './PlayingCard';
+import PoolTable from './PoolTable';
 
 // One board per game. Each gets the server's view of the match for this
 // viewer, their seat (0, 1, or null when watching), the players, and
@@ -94,23 +95,6 @@ function CoinFlip({ view, players, seat }) {
   );
 }
 
-function SuitPicker({ onPick, onCancel }) {
-  return (
-    <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border)]">
-      <p className="text-sm font-semibold text-[var(--text-primary)]">Eights are wild. Pick the next suit:</p>
-      <div className="flex gap-2">
-        {['s', 'h', 'd', 'c'].map(s => (
-          <button key={s} type="button" onClick={() => onPick(s)} aria-label={suitName(s)}
-            className={`w-11 h-11 rounded-lg bg-white text-2xl shadow ${s === 'h' || s === 'd' ? 'text-red-600' : 'text-slate-900'}`}>
-            {suitSymbol(s)}
-          </button>
-        ))}
-      </div>
-      <button type="button" onClick={onCancel} className="text-xs text-[var(--text-muted)]">Cancel</button>
-    </div>
-  );
-}
-
 function Opponent({ count, label }) {
   return (
     <div className="flex flex-col items-center gap-1">
@@ -118,57 +102,6 @@ function Opponent({ count, label }) {
         {Array.from({ length: Math.min(count, 12) }, (_, i) => <PlayingCard key={i} faceDown size="sm" />)}
       </div>
       <span className="text-xs text-[var(--text-muted)]">{label}: {count} card{count === 1 ? '' : 's'}</span>
-    </div>
-  );
-}
-
-function CrazyEights({ view, seat, players, move, busy, myTurn }) {
-  const [eight, setEight] = useState(null);
-  const playable = new Set(view.playable);
-  const opp = seat === null ? 1 : 1 - seat;
-  return (
-    <div className="flex flex-col items-center gap-4">
-      {seat === null && <Opponent count={view.handCounts[0]} label={players[0]?.displayName} />}
-      <Opponent count={view.handCounts[opp]} label={name(players, opp, seat)} />
-
-      <div className="flex items-center gap-6">
-        <div className="flex flex-col items-center gap-1">
-          <button type="button" disabled={!view.canDraw || busy} onClick={() => move({ type: 'draw' })}
-            aria-label={`Draw a card (${view.deckCount} left)`} className="rounded-lg enabled:hover:-translate-y-1 transition-transform disabled:opacity-60">
-            <PlayingCard faceDown size="lg" />
-          </button>
-          <span className="text-[11px] text-[var(--text-muted)]">{view.deckCount} left</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <PlayingCard card={view.top} size="lg" />
-          <span className="text-[11px] text-[var(--text-muted)]">
-            Suit: <span className={view.suit === 'h' || view.suit === 'd' ? 'text-red-500' : ''}>{suitSymbol(view.suit)} {suitName(view.suit)}</span>
-          </span>
-        </div>
-      </div>
-
-      {eight && (
-        <SuitPicker onCancel={() => setEight(null)}
-          onPick={async s => { const card = eight; setEight(null); await move({ type: 'play', card, suit: s }); }} />
-      )}
-
-      {seat !== null && (
-        <>
-          <Hand>
-            {view.hand.map(c => (
-              <PlayingCard key={c} card={c} disabled={!myTurn || busy || !playable.has(c)} dim={myTurn && !playable.has(c)}
-                onClick={() => (c[0] === '8' ? setEight(c) : move({ type: 'play', card: c }))} />
-            ))}
-          </Hand>
-          {myTurn && (
-            <p className="text-xs text-[var(--text-muted)] text-center">
-              {view.playable.length ? 'Tap a highlighted card to play it' : 'Nothing matches'}
-              {view.canDraw ? ', or tap the deck to draw.' : '.'}
-            </p>
-          )}
-          {view.canPass && <button type="button" disabled={busy} onClick={() => move({ type: 'pass' })} className="btn-secondary px-4 py-2 text-[var(--text-primary)]">Pass</button>}
-        </>
-      )}
     </div>
   );
 }
@@ -290,4 +223,4 @@ function Poker({ view, seat, players, move, busy, myTurn }) {
   );
 }
 
-export const BOARDS = { connect4: Connect4, dice: DiceDuel, coinflip: CoinFlip, crazy8s: CrazyEights, gofish: GoFish, poker: Poker };
+export const BOARDS = { connect4: Connect4, dice: DiceDuel, coinflip: CoinFlip, pool: PoolTable, gofish: GoFish, poker: Poker };

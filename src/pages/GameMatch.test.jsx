@@ -101,3 +101,20 @@ test('the Games tab sends a challenge with the chosen game, stake and opponent',
   expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'poker', stake: 100, opponent: '@ann', options: undefined });
   expect(screen.getByText(/Waiting for someone in the group to accept/)).toBeInTheDocument();
 });
+
+test('pool: you set the power and shoot; the next poll says which shot it already has', async () => {
+  const balls = Array(16).fill(null);
+  balls[0] = [500, 1750]; balls[1] = [500, 500]; balls[8] = [540, 460];
+  const pool = extra => ({ balls, groups: [null, null], left: { solids: 1, stripes: 0 }, hand: false, kitchen: false, target: 'open', shots: 3,
+    shot: { no: 3, by: 1, start: balls, frames: [[], []], potted: [], foul: null }, log: [], turn: 0, over: false, winner: null, draw: false, ...extra });
+  api.getGame.mockResolvedValue({ match: { ...base, game: 'pool', status: 'active', turnUserId: 'me', deadline: Date.now() + 90000 }, seat: 0, view: pool(), now: Date.now() });
+  api.gameMove.mockResolvedValue({ match: { ...base, game: 'pool', status: 'active', turnUserId: 'ann', deadline: Date.now() + 120000 }, seat: 0,
+    view: pool({ turn: 1, shots: 4, shot: { no: 4, by: 0, start: balls, frames: [], potted: [], foul: null } }), now: Date.now() });
+  await open();
+  expect(api.getGame).toHaveBeenLastCalledWith('m1', null);
+  expect(screen.getByText(/Open table: pot any ball but the 8/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Power'), { target: { value: '80' } });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Shoot' })); });
+  expect(api.gameMove).toHaveBeenCalledWith('m1', { angle: expect.any(Number), power: 0.8 });
+  expect(screen.queryByRole('button', { name: 'Shoot' })).not.toBeInTheDocument();
+});

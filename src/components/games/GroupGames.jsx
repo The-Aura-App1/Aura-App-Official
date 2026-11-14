@@ -222,7 +222,7 @@ export default function GroupGames({ groupId }) {
       {games === null && !error && <p className="text-sm text-[var(--text-muted)]">Loading games…</p>}
       {games && !list.length && (
         <p className="text-sm text-[var(--text-muted)] text-center py-8">
-          No games yet. Challenge a member to Connect 4, Poker, Crazy Eights, Go Fish, Dice Duel or a coin flip.
+          No games yet. Challenge a member to Connect 4, 8-Ball Pool, Poker, Go Fish, Dice Duel or a coin flip.
         </p>
       )}
 

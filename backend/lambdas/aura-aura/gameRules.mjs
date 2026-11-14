@@ -8,6 +8,8 @@
 //   over    true when finished; winner is a seat, or null with draw: true
 //   log     the last few public events, { s: seat | null, t: text }
 
+import { makePool } from './pool.mjs';
+
 export class GameError extends Error {}
 
 const fail = message => { throw new GameError(message); };
@@ -46,7 +48,6 @@ function shuffledDeck(rand) {
   return deck;
 }
 
-const isCard = c => typeof c === 'string' && c.length === 2 && RANKS.includes(c[0]) && SUITS.includes(c[1]);
 
 // ─── Flip a Coin ──────────────────────────────────────────────
 // The challenger calls heads or tails; the coin is flipped the moment the
@@ -147,105 +148,9 @@ const connect4 = {
   view: state => clone(state),
 };
 
-// ─── Crazy Eights ─────────────────────────────────────────────
-// Seven cards each. Play a card that matches the top card's rank or the suit
-// in play; an eight is wild and names the next suit. Can't (or won't) play?
-// Draw one, then play it or pass. First to empty their hand wins. If the
-// deck runs dry and both players pass, the smaller hand wins.
-function crazyPlayable(state, card) {
-  const top = state.discard[state.discard.length - 1];
-  return card[0] === '8' || card[0] === top[0] || card[1] === state.suit;
-}
-
-function crazyCanDraw(state) {
-  return state.deck.length > 0 || state.discard.length > 1;
-}
-
-const crazy8s = {
-  name: 'Crazy Eights',
-  options: () => ({}),
-  init(rand) {
-    const deck = shuffledDeck(rand);
-    const hands = [deck.splice(0, 7), deck.splice(0, 7)];
-    // The starting card is never an eight
-    let start = deck.shift();
-    while (start[0] === '8') { deck.push(start); start = deck.shift(); }
-    return { deck, hands, discard: [start], suit: start[1], turn: rand(2), drew: false, stuck: 0, log: [] };
-  },
-  apply(state, seat, move, rand) {
-    const s = clone(state);
-    const hand = s.hands[seat];
-    if (move?.type === 'play') {
-      if (!isCard(move.card) || !hand.includes(move.card)) fail('You don\'t have that card.');
-      if (!crazyPlayable(s, move.card)) fail('That card doesn\'t match the rank or the suit.');
-      if (move.card[0] === '8' && !SUITS.includes(move.suit)) fail('Pick a suit for your eight.');
-      hand.splice(hand.indexOf(move.card), 1);
-      s.discard.push(move.card);
-      s.suit = move.card[0] === '8' ? move.suit : move.card[1];
-      s.drew = false;
-      s.stuck = 0;
-      log(s, seat, move.card[0] === '8'
-        ? `played the ${cardName(move.card)} and picked ${SUIT_NAMES[s.suit]}.`
-        : `played the ${cardName(move.card)}.`);
-      if (!hand.length) { log(s, seat, 'played the last card in hand!'); finish(s, seat); return s; }
-      s.turn = other(seat);
-      return s;
-    }
-    if (move?.type === 'draw') {
-      if (s.drew) fail('You already drew. Play a card or pass.');
-      if (!s.deck.length) {
-        if (!crazyCanDraw(s)) fail('There is nothing left to draw. Pass instead.');
-        // Reshuffle everything under the top card into a new deck
-        const top = s.discard.pop();
-        const rest = s.discard;
-        for (let i = rest.length - 1; i > 0; i--) { const j = rand(i + 1); [rest[i], rest[j]] = [rest[j], rest[i]]; }
-        s.deck = rest;
-        s.discard = [top];
-        log(s, null, 'The discard pile was shuffled into a new deck.');
-      }
-      hand.push(s.deck.shift());
-      s.drew = true;
-      log(s, seat, 'drew a card.');
-      return s;
-    }
-    if (move?.type === 'pass') {
-      const dry = !crazyCanDraw(s);
-      if (!s.drew && !dry) fail('Draw a card before passing.');
-      s.drew = false;
-      log(s, seat, 'passed.');
-      if (dry) {
-        s.stuck += 1;
-        if (s.stuck >= 2) {
-          const [a, b] = s.hands.map(h => h.length);
-          log(s, null, 'Nobody can play. The smaller hand wins.');
-          finish(s, a === b ? null : (a < b ? 0 : 1));
-          return s;
-        }
-      }
-      s.turn = other(seat);
-      return s;
-    }
-    fail('Play a card, draw, or pass.');
-  },
-  view(state, seat) {
-    const mine = seat === 0 || seat === 1;
-    const myTurn = mine && state.turn === seat;
-    return {
-      hand:       mine ? state.hands[seat] : [],
-      handCounts: state.hands.map(h => h.length),
-      top:        state.discard[state.discard.length - 1],
-      suit:       state.suit,
-      deckCount:  state.deck.length,
-      drew:       state.drew,
-      canDraw:    myTurn && !state.drew && crazyCanDraw(state),
-      canPass:    myTurn && (state.drew || !crazyCanDraw(state)),
-      playable:   myTurn ? state.hands[seat].filter(c => crazyPlayable(state, c)) : [],
-      // Everyone sees the hands once the game is over
-      hands:      state.over ? state.hands : undefined,
-      turn: state.turn, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw, log: state.log,
-    };
-  },
-};
+// ─── 8-Ball Pool ──────────────────────────────────────────────
+// Physics and rules live in pool.mjs; nothing is hidden, every shot is run here.
+const pool = makePool({ fail, other, clone, log, finish });
 
 // ─── Go Fish ──────────────────────────────────────────────────
 // Seven cards each. On your turn ask for a rank you hold: if the other
@@ -551,7 +456,7 @@ const poker = {
   },
 };
 
-export const GAMES = { connect4, crazy8s, gofish, poker, dice, coinflip };
+export const GAMES = { connect4, pool, gofish, poker, dice, coinflip };
 
 // What a player (seat 0/1) or a spectator (null) may see
 export function viewFor(game, state, seat) {

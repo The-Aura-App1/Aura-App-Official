@@ -594,7 +594,7 @@ export const handler = async (event) => {
     // /games/* (group games, see games.mjs)
     if (segments[0] === 'games') {
       return await handleGames(
-        { dynamo, response, firstLimit, balanceUpdate, transactionRecord, commit, today },
+        { dynamo, response, firstLimit, balanceUpdate, transactionRecord, commit, today, query: event.queryStringParameters ?? {} },
         user, method, segments, body,
       );
     }

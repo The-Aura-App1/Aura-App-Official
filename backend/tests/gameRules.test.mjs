@@ -3,6 +3,7 @@
 // other seat or spectators, every game ends, and bad moves are refused.
 // Run with: npm run test:games
 import * as R from '../lambdas/aura-aura/gameRules.mjs';
+import * as P from '../lambdas/aura-aura/pool.mjs';
 const { GAMES, viewFor, bestHand, GameError, POKER_START_CHIPS } = R;
 
 let seed = 12345;
@@ -11,7 +12,6 @@ const pick = arr => arr[rand(arr.length)];
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 
 function cardsIn(game, s) {
-  if (game === 'crazy8s') return [...s.deck, ...s.discard, ...s.hands[0], ...s.hands[1]];
   if (game === 'gofish') return [...s.deck, ...s.hands[0], ...s.hands[1], ...s.books.flat().flatMap(r => [r + 's', r + 'h', r + 'd', r + 'c'])];
   return null;
 }
@@ -21,12 +21,20 @@ function randomMove(game, view) {
   switch (game) {
     case 'connect4': return { col: pick([0, 1, 2, 3, 4, 5, 6].filter(c => view.cols[c].length < 6)) };
     case 'dice': return { type: 'roll' };
-    case 'crazy8s': {
-      const opts = [];
-      for (const c of view.playable) opts.push({ type: 'play', card: c, suit: pick(['s', 'h', 'd', 'c']) });
-      if (view.canDraw) opts.push({ type: 'draw' });
-      if (view.canPass) opts.push({ type: 'pass' });
-      return pick(opts);
+    case 'pool': {
+      // Aim roughly at a random ball still on the table, at a random power
+      const move = { power: rand(1001) / 1000 };
+      let cue = view.balls[0];
+      if (view.hand && (rand(2) || !cue)) {
+        for (let tries = 0; tries < 200; tries++) {
+          const x = P.R + rand(P.W - 2 * P.R), y = (view.kitchen ? P.HEAD_LINE : P.R) + rand(P.H - P.R - (view.kitchen ? P.HEAD_LINE : P.R));
+          if (P.cueSpotFree(view.balls, x, y, view.kitchen)) { move.cue = [x, y]; cue = move.cue; break; }
+        }
+      }
+      const targets = view.balls.map((b, n) => (n && b ? b : null)).filter(Boolean);
+      const t = pick(targets);
+      move.angle = Math.atan2(t[1] - cue[1], t[0] - cue[0]) + (rand(201) - 100) / 2000;
+      return move;
     }
     case 'gofish': return { type: 'ask', rank: pick(view.askable) };
     case 'poker': {
@@ -44,7 +52,7 @@ function randomMove(game, view) {
 const results = {};
 for (const game of Object.keys(GAMES)) {
   const tally = { games: 0, wins: [0, 0], draws: 0, maxMoves: 0 };
-  for (let g = 0; g < 2000; g++) {
+  for (let g = 0; g < (game === 'pool' ? 150 : 2000); g++) {
     let state = GAMES[game].init(rand, GAMES[game].options({}));
     let moves = 0;
     while (!state.over) {
@@ -69,6 +77,19 @@ for (const game of Object.keys(GAMES)) {
         assert(total === 2 * POKER_START_CHIPS, `poker: chips not conserved (${total})`);
         assert(state.chips.every(c => c >= 0), 'poker: negative stack');
       }
+      if (game === 'pool') {
+        // Balls stay on the cloth and never overlap; potted ones stay potted (the 8-on-break re-rack aside)
+        const on = state.balls.map((b, n) => [b, n]).filter(([b]) => b);
+        for (const [[x, y], n] of on) assert(x >= P.R - 0.01 && x <= P.W - P.R + 0.01 && y >= P.R - 0.01 && y <= P.H - P.R + 0.01, `pool: ball ${n} off the table at ${x},${y}`);
+        for (let i = 0; i < on.length; i++) for (let j = i + 1; j < on.length; j++) {
+          const d = Math.hypot(on[i][0][0] - on[j][0][0], on[i][0][1] - on[j][0][1]);
+          assert(d >= 2 * P.R - 0.5, `pool: balls ${on[i][1]} and ${on[j][1]} overlap (${d.toFixed(2)})`);
+        }
+        const g0 = state.groups[0], g1 = state.groups[1];
+        assert((g0 === null && g1 === null) || (g0 && g1 && g0 !== g1), 'pool: groups inconsistent');
+        assert(state.over || state.balls[0] || state.hand, 'pool: cue ball gone without ball in hand');
+        assert(state.balls[8] || state.over || state.shot.potted.includes(8), 'pool: 8 gone but game going');
+      }
       assert(moves < 5000, `${game}: never ended`);
     }
     if (game === 'poker') assert(state.chips[0] + state.chips[1] === 2 * POKER_START_CHIPS, 'poker: final chips');
@@ -86,11 +107,37 @@ for (const bad of [null, {}, { col: 9 }, { col: '1' }, { col: -1 }]) {
   try { GAMES.connect4.apply(c4, c4.turn, bad, rand); throw new Error('accepted ' + JSON.stringify(bad)); }
   catch (e) { assert(e instanceof GameError, e.message); }
 }
-const c8 = GAMES.crazy8s.init(rand);
-for (const bad of [{ type: 'play', card: 'XX' }, { type: 'pass' }, { type: 'play', card: '__proto__' }, 'x']) {
-  try { GAMES.crazy8s.apply(c8, c8.turn, bad, rand); throw new Error('accepted ' + JSON.stringify(bad)); }
+const pl = GAMES.pool.init(rand);
+for (const bad of [null, 'x', {}, { angle: 1 }, { angle: NaN, power: 0.5 }, { angle: 1, power: 2 }, { angle: 1, power: 0.5, cue: [500, 400] },
+  { angle: 1, power: 0.5, cue: [5, 1800] }, { angle: 1, power: 0.5, cue: 'x' }]) {
+  try { GAMES.pool.apply(pl, pl.turn, bad, rand); throw new Error('accepted ' + JSON.stringify(bad)); }
   catch (e) { assert(e instanceof GameError, e.message); }
 }
+
+// Pool rules on set-up tables
+const table = (balls, extra = {}) => {
+  const b = Array(16).fill(null);
+  for (const [n, xy] of Object.entries(balls)) b[n] = xy;
+  return { ...GAMES.pool.init(rand), balls: b, broke: true, hand: false, kitchen: false, groups: [null, null], ...extra };
+};
+const LEFT = Math.PI;
+// Potting on an open table takes that group and keeps the turn
+let st = GAMES.pool.apply(table({ 0: [400, 1000], 3: [200, 1000], 11: [800, 300], 8: [600, 600] }), 0, { angle: LEFT, power: 0.4 }, rand);
+assert(st.groups[0] === 'solids' && st.groups[1] === 'stripes' && st.turn === 0 && !st.hand, 'pool: open-table pot');
+// Hitting the other group first is a foul: ball in hand for the opponent
+st = GAMES.pool.apply(table({ 0: [400, 1000], 11: [200, 1000], 3: [800, 300], 8: [600, 600] }, { groups: ['solids', 'stripes'] }), 0, { angle: LEFT, power: 0.4 }, rand);
+assert(st.turn === 1 && st.hand && st.groups[0] === 'solids', 'pool: wrong group first is a foul');
+// Scratching takes the cue ball off and gives ball in hand
+st = GAMES.pool.apply(table({ 0: [200, 1000], 3: [800, 300], 8: [600, 600] }), 0, { angle: LEFT, power: 0.4 }, rand);
+assert(st.turn === 1 && st.hand && st.balls[0] === null, 'pool: scratch');
+// Sinking the 8 early loses; sinking it after clearing your group wins
+st = GAMES.pool.apply(table({ 0: [400, 1000], 8: [200, 1000], 3: [800, 300] }, { groups: ['solids', 'stripes'] }), 0, { angle: LEFT, power: 0.4 }, rand);
+assert(st.over && st.winner === 1, 'pool: early 8 loses');
+st = GAMES.pool.apply(table({ 0: [400, 1000], 8: [200, 1000], 12: [800, 300] }, { groups: ['solids', 'stripes'] }), 0, { angle: LEFT, power: 0.4 }, rand);
+assert(st.over && st.winner === 0, 'pool: 8 after clearing wins');
+// The 8 and a scratch on the same shot loses
+st = GAMES.pool.apply(table({ 0: [400, 1000], 8: [360, 1000], 12: [800, 300] }, { groups: ['solids', 'stripes'] }), 0, { angle: LEFT, power: 1 }, rand);
+assert(!st.shot.potted.includes(0) || (st.over && st.winner === 1), 'pool: 8 with scratch loses');
 const pk = GAMES.poker.init(rand);
 for (const bad of [{ type: 'raise', to: 1 }, { type: 'raise', to: 99999 }, { type: 'raise', to: 50.5 }, { type: 'dance' }]) {
   try { GAMES.poker.apply(pk, pk.turn, bad, rand); throw new Error('accepted ' + JSON.stringify(bad)); }
