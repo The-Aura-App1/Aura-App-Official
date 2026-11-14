@@ -910,3 +910,26 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
   content-visibility: auto;
   contain-intrinsic-size: auto 560px;
 }
+
+/* Post frames (src/utils/postStyle.js frameStyle): a border painted with any
+   color or gradient, drawn over the card's own border, plus an optional glow */
+.post-frame {
+  position: relative;
+  border-color: transparent;
+}
+.post-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--frame-w, 3px);
+  background: var(--frame-paint);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  z-index: 1;
+}
+.post-frame.post-frame-glow {
+  box-shadow: var(--frame-glow);
+}

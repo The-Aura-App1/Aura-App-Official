@@ -9,6 +9,7 @@ import PostMedia   from './PostMedia';
 import { timeAgo } from '../../utils/format';
 import AuraScore   from '../motion/AuraScore';
 import LikeHeart   from '../motion/LikeHeart';
+import { TextBody, CaptionText, frameProps } from './PostStyle';
 import { topicLabel } from '../../utils/topics';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
@@ -93,11 +94,14 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
     setShowAuraModal(false);
   }
 
+  const frame = frameProps(post.style);
+
   return (
     <>
       <article
         onClick={openPost}
-        className={`card p-0 overflow-hidden ${onComment ? '' : 'cursor-pointer'} ${reaction ? `aura-card-${reaction.type}` : ''}`}
+        style={frame.style}
+        className={`card p-0 overflow-hidden ${frame.className} ${onComment ? '' : 'cursor-pointer'} ${reaction ? `aura-card-${reaction.type}` : ''}`}
         onAnimationEnd={e => { if (e.target === e.currentTarget) setReaction(null); }}>
 
         {/* ── Header ── */}
@@ -188,13 +192,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         )}
 
         {/* ── Text post content ── */}
-        {post.type === 'text' && post.caption && (
-          <div className="px-4 py-3">
-            <p className="text-[var(--text-primary)] text-sm leading-relaxed whitespace-pre-wrap">
-              {post.caption}
-            </p>
-          </div>
-        )}
+        {post.type === 'text' && post.caption && <TextBody text={post.caption} style={post.style} />}
 
         {/* ── Action bar ── */}
         <div className="px-4 py-2 flex items-center justify-between">
@@ -289,7 +287,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
           <div className="px-4 pb-2">
             <p className="text-sm text-[var(--text-primary)]">
               <span className="font-semibold mr-1">{post.authorUsername}</span>
-              {post.caption}
+              <CaptionText text={post.caption} style={post.style} />
             </p>
           </div>
         )}

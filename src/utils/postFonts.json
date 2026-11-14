@@ -1,0 +1,632 @@
+[
+{
+"id": "inter",
+"name": "Inter",
+"cat": "Sans"
+},
+{
+"id": "roboto",
+"name": "Roboto",
+"cat": "Sans"
+},
+{
+"id": "open-sans",
+"name": "Open Sans",
+"cat": "Sans"
+},
+{
+"id": "lato",
+"name": "Lato",
+"cat": "Sans"
+},
+{
+"id": "montserrat",
+"name": "Montserrat",
+"cat": "Sans"
+},
+{
+"id": "poppins",
+"name": "Poppins",
+"cat": "Sans"
+},
+{
+"id": "nunito",
+"name": "Nunito",
+"cat": "Sans"
+},
+{
+"id": "raleway",
+"name": "Raleway",
+"cat": "Sans"
+},
+{
+"id": "work-sans",
+"name": "Work Sans",
+"cat": "Sans"
+},
+{
+"id": "rubik",
+"name": "Rubik",
+"cat": "Sans"
+},
+{
+"id": "karla",
+"name": "Karla",
+"cat": "Sans"
+},
+{
+"id": "manrope",
+"name": "Manrope",
+"cat": "Sans"
+},
+{
+"id": "dm-sans",
+"name": "DM Sans",
+"cat": "Sans"
+},
+{
+"id": "figtree",
+"name": "Figtree",
+"cat": "Sans"
+},
+{
+"id": "outfit",
+"name": "Outfit",
+"cat": "Sans"
+},
+{
+"id": "urbanist",
+"name": "Urbanist",
+"cat": "Sans"
+},
+{
+"id": "lexend",
+"name": "Lexend",
+"cat": "Sans"
+},
+{
+"id": "quicksand",
+"name": "Quicksand",
+"cat": "Sans"
+},
+{
+"id": "josefin-sans",
+"name": "Josefin Sans",
+"cat": "Sans"
+},
+{
+"id": "barlow",
+"name": "Barlow",
+"cat": "Sans"
+},
+{
+"id": "mulish",
+"name": "Mulish",
+"cat": "Sans"
+},
+{
+"id": "space-grotesk",
+"name": "Space Grotesk",
+"cat": "Sans"
+},
+{
+"id": "archivo",
+"name": "Archivo",
+"cat": "Sans"
+},
+{
+"id": "kanit",
+"name": "Kanit",
+"cat": "Sans"
+},
+{
+"id": "comfortaa",
+"name": "Comfortaa",
+"cat": "Sans"
+},
+{
+"id": "varela-round",
+"name": "Varela Round",
+"cat": "Sans"
+},
+{
+"id": "playfair-display",
+"name": "Playfair Display",
+"cat": "Serif"
+},
+{
+"id": "merriweather",
+"name": "Merriweather",
+"cat": "Serif"
+},
+{
+"id": "lora",
+"name": "Lora",
+"cat": "Serif"
+},
+{
+"id": "eb-garamond",
+"name": "EB Garamond",
+"cat": "Serif"
+},
+{
+"id": "cormorant-garamond",
+"name": "Cormorant Garamond",
+"cat": "Serif"
+},
+{
+"id": "libre-baskerville",
+"name": "Libre Baskerville",
+"cat": "Serif"
+},
+{
+"id": "crimson-text",
+"name": "Crimson Text",
+"cat": "Serif"
+},
+{
+"id": "pt-serif",
+"name": "PT Serif",
+"cat": "Serif"
+},
+{
+"id": "source-serif-4",
+"name": "Source Serif 4",
+"cat": "Serif"
+},
+{
+"id": "dm-serif-display",
+"name": "DM Serif Display",
+"cat": "Serif"
+},
+{
+"id": "bitter",
+"name": "Bitter",
+"cat": "Serif"
+},
+{
+"id": "cardo",
+"name": "Cardo",
+"cat": "Serif"
+},
+{
+"id": "spectral",
+"name": "Spectral",
+"cat": "Serif"
+},
+{
+"id": "noto-serif",
+"name": "Noto Serif",
+"cat": "Serif"
+},
+{
+"id": "alegreya",
+"name": "Alegreya",
+"cat": "Serif"
+},
+{
+"id": "old-standard-tt",
+"name": "Old Standard TT",
+"cat": "Serif"
+},
+{
+"id": "prata",
+"name": "Prata",
+"cat": "Serif"
+},
+{
+"id": "yeseva-one",
+"name": "Yeseva One",
+"cat": "Serif"
+},
+{
+"id": "cinzel",
+"name": "Cinzel",
+"cat": "Serif"
+},
+{
+"id": "gilda-display",
+"name": "Gilda Display",
+"cat": "Serif"
+},
+{
+"id": "frank-ruhl-libre",
+"name": "Frank Ruhl Libre",
+"cat": "Serif"
+},
+{
+"id": "abril-fatface",
+"name": "Abril Fatface",
+"cat": "Serif"
+},
+{
+"id": "bebas-neue",
+"name": "Bebas Neue",
+"cat": "Display"
+},
+{
+"id": "anton",
+"name": "Anton",
+"cat": "Display"
+},
+{
+"id": "oswald",
+"name": "Oswald",
+"cat": "Display"
+},
+{
+"id": "alfa-slab-one",
+"name": "Alfa Slab One",
+"cat": "Display"
+},
+{
+"id": "righteous",
+"name": "Righteous",
+"cat": "Display"
+},
+{
+"id": "lobster",
+"name": "Lobster",
+"cat": "Display"
+},
+{
+"id": "bungee",
+"name": "Bungee",
+"cat": "Display"
+},
+{
+"id": "monoton",
+"name": "Monoton",
+"cat": "Display"
+},
+{
+"id": "press-start-2p",
+"name": "Press Start 2P",
+"cat": "Display"
+},
+{
+"id": "fredoka",
+"name": "Fredoka",
+"cat": "Display"
+},
+{
+"id": "baloo-2",
+"name": "Baloo 2",
+"cat": "Display"
+},
+{
+"id": "luckiest-guy",
+"name": "Luckiest Guy",
+"cat": "Display"
+},
+{
+"id": "bangers",
+"name": "Bangers",
+"cat": "Display"
+},
+{
+"id": "black-ops-one",
+"name": "Black Ops One",
+"cat": "Display"
+},
+{
+"id": "creepster",
+"name": "Creepster",
+"cat": "Display"
+},
+{
+"id": "faster-one",
+"name": "Faster One",
+"cat": "Display"
+},
+{
+"id": "audiowide",
+"name": "Audiowide",
+"cat": "Display"
+},
+{
+"id": "orbitron",
+"name": "Orbitron",
+"cat": "Display"
+},
+{
+"id": "russo-one",
+"name": "Russo One",
+"cat": "Display"
+},
+{
+"id": "staatliches",
+"name": "Staatliches",
+"cat": "Display"
+},
+{
+"id": "titan-one",
+"name": "Titan One",
+"cat": "Display"
+},
+{
+"id": "chewy",
+"name": "Chewy",
+"cat": "Display"
+},
+{
+"id": "bowlby-one-sc",
+"name": "Bowlby One SC",
+"cat": "Display"
+},
+{
+"id": "ultra",
+"name": "Ultra",
+"cat": "Display"
+},
+{
+"id": "rubik-mono-one",
+"name": "Rubik Mono One",
+"cat": "Display"
+},
+{
+"id": "shrikhand",
+"name": "Shrikhand",
+"cat": "Display"
+},
+{
+"id": "passion-one",
+"name": "Passion One",
+"cat": "Display"
+},
+{
+"id": "lilita-one",
+"name": "Lilita One",
+"cat": "Display"
+},
+{
+"id": "fugaz-one",
+"name": "Fugaz One",
+"cat": "Display"
+},
+{
+"id": "syne",
+"name": "Syne",
+"cat": "Display"
+},
+{
+"id": "unbounded",
+"name": "Unbounded",
+"cat": "Display"
+},
+{
+"id": "bungee-shade",
+"name": "Bungee Shade",
+"cat": "Display"
+},
+{
+"id": "rampart-one",
+"name": "Rampart One",
+"cat": "Display"
+},
+{
+"id": "silkscreen",
+"name": "Silkscreen",
+"cat": "Display"
+},
+{
+"id": "dancing-script",
+"name": "Dancing Script",
+"cat": "Script"
+},
+{
+"id": "great-vibes",
+"name": "Great Vibes",
+"cat": "Script"
+},
+{
+"id": "satisfy",
+"name": "Satisfy",
+"cat": "Script"
+},
+{
+"id": "sacramento",
+"name": "Sacramento",
+"cat": "Script"
+},
+{
+"id": "parisienne",
+"name": "Parisienne",
+"cat": "Script"
+},
+{
+"id": "allura",
+"name": "Allura",
+"cat": "Script"
+},
+{
+"id": "alex-brush",
+"name": "Alex Brush",
+"cat": "Script"
+},
+{
+"id": "kaushan-script",
+"name": "Kaushan Script",
+"cat": "Script"
+},
+{
+"id": "pacifico",
+"name": "Pacifico",
+"cat": "Script"
+},
+{
+"id": "yellowtail",
+"name": "Yellowtail",
+"cat": "Script"
+},
+{
+"id": "cookie",
+"name": "Cookie",
+"cat": "Script"
+},
+{
+"id": "courgette",
+"name": "Courgette",
+"cat": "Script"
+},
+{
+"id": "marck-script",
+"name": "Marck Script",
+"cat": "Script"
+},
+{
+"id": "mr-dafoe",
+"name": "Mr Dafoe",
+"cat": "Script"
+},
+{
+"id": "pinyon-script",
+"name": "Pinyon Script",
+"cat": "Script"
+},
+{
+"id": "tangerine",
+"name": "Tangerine",
+"cat": "Script"
+},
+{
+"id": "lobster-two",
+"name": "Lobster Two",
+"cat": "Script"
+},
+{
+"id": "damion",
+"name": "Damion",
+"cat": "Script"
+},
+{
+"id": "caveat",
+"name": "Caveat",
+"cat": "Handwriting"
+},
+{
+"id": "shadows-into-light",
+"name": "Shadows Into Light",
+"cat": "Handwriting"
+},
+{
+"id": "indie-flower",
+"name": "Indie Flower",
+"cat": "Handwriting"
+},
+{
+"id": "amatic-sc",
+"name": "Amatic SC",
+"cat": "Handwriting"
+},
+{
+"id": "permanent-marker",
+"name": "Permanent Marker",
+"cat": "Handwriting"
+},
+{
+"id": "gloria-hallelujah",
+"name": "Gloria Hallelujah",
+"cat": "Handwriting"
+},
+{
+"id": "patrick-hand",
+"name": "Patrick Hand",
+"cat": "Handwriting"
+},
+{
+"id": "homemade-apple",
+"name": "Homemade Apple",
+"cat": "Handwriting"
+},
+{
+"id": "rock-salt",
+"name": "Rock Salt",
+"cat": "Handwriting"
+},
+{
+"id": "reenie-beanie",
+"name": "Reenie Beanie",
+"cat": "Handwriting"
+},
+{
+"id": "nothing-you-could-do",
+"name": "Nothing You Could Do",
+"cat": "Handwriting"
+},
+{
+"id": "la-belle-aurore",
+"name": "La Belle Aurore",
+"cat": "Handwriting"
+},
+{
+"id": "kalam",
+"name": "Kalam",
+"cat": "Handwriting"
+},
+{
+"id": "architects-daughter",
+"name": "Architects Daughter",
+"cat": "Handwriting"
+},
+{
+"id": "covered-by-your-grace",
+"name": "Covered By Your Grace",
+"cat": "Handwriting"
+},
+{
+"id": "jetbrains-mono",
+"name": "JetBrains Mono",
+"cat": "Mono"
+},
+{
+"id": "fira-code",
+"name": "Fira Code",
+"cat": "Mono"
+},
+{
+"id": "space-mono",
+"name": "Space Mono",
+"cat": "Mono"
+},
+{
+"id": "ibm-plex-mono",
+"name": "IBM Plex Mono",
+"cat": "Mono"
+},
+{
+"id": "source-code-pro",
+"name": "Source Code Pro",
+"cat": "Mono"
+},
+{
+"id": "roboto-mono",
+"name": "Roboto Mono",
+"cat": "Mono"
+},
+{
+"id": "courier-prime",
+"name": "Courier Prime",
+"cat": "Mono"
+},
+{
+"id": "vt323",
+"name": "VT323",
+"cat": "Mono"
+},
+{
+"id": "major-mono-display",
+"name": "Major Mono Display",
+"cat": "Mono"
+},
+{
+"id": "cutive-mono",
+"name": "Cutive Mono",
+"cat": "Mono"
+},
+{
+"id": "dm-mono",
+"name": "DM Mono",
+"cat": "Mono"
+}
+]

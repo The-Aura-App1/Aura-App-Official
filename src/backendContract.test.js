@@ -129,3 +129,20 @@ test('the pool table in the app is the size of the one aura-aura plays on', () =
   for (const name of ['W', 'H', 'R', 'HEAD_LINE']) expect(constant(app, name)).toBe(constant(server, name));
   expect(constant(app, 'POCKETS')).toBe(constant(server, 'POCKETS'));
 });
+
+test('post styles: aura-posts accepts exactly the fonts, backgrounds, frames and colors the app offers', () => {
+  const dir = path.join(LAMBDAS, 'aura-posts');
+  const server = fs.readFileSync(path.join(dir, 'postStyle.mjs'), 'utf8');
+  const style = require('./utils/postStyle');
+  expect(fs.readFileSync(path.join(dir, 'postFonts.json'), 'utf8')).toBe(fs.readFileSync(path.join(__dirname, 'utils', 'postFonts.json'), 'utf8'));
+  const list = name => JSON.parse(constant(server, name).replace(/'/g, '"'));
+  expect(list('BACKGROUND_IDS')).toEqual(style.POST_BACKGROUNDS.map(b => b.id));
+  expect(list('FRAME_IDS')).toEqual(style.POST_FRAMES.map(f => f.id));
+  expect(list('SAFE_COLORS')).toEqual(style.SAFE_COLORS);
+  expect(constant(server, 'STYLE_PREMIUM_ONLY')).toBe(String(style.STYLE_PREMIUM_ONLY));
+  // Every font in the list is shipped with the app
+  for (const f of style.POST_FONTS) {
+    const file = path.join(__dirname, '..', 'public', 'fonts', 'post', `${f.id}.woff2`);
+    expect(fs.existsSync(file) && fs.readFileSync(file).subarray(0, 4).toString('latin1')).toBe('wOF2');
+  }
+});

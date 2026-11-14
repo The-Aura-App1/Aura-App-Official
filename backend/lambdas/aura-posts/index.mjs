@@ -7,6 +7,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
 import { canSeeAccount, hiddenAuthors } from './privacy.mjs';
+import { checkStyle } from './postStyle.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
 function parseBody(raw) {
@@ -288,6 +289,10 @@ async function createPost(userId, body) {
   if (userResult.Item.isBanned) return response(403, { error: 'Account banned.' });
 
   const author = userResult.Item;
+  // Fonts, colors, backgrounds and frames (set once, at posting)
+  const styled = checkStyle(body.style, type, author);
+  if (styled.error) return response(styled.status ?? 400, { error: styled.error });
+
   const postId = generateId();
   const now    = new Date().toISOString();
 
@@ -313,6 +318,7 @@ async function createPost(userId, body) {
     reportCount:    0,
     createdAt:      now,
     updatedAt:      now,
+    ...(styled.style && { style: styled.style }),
     ...(group && { groupId: group.groupId, groupName: group.name }),
     ...(!group && embedding && { embedding, embeddingModel: EMBED_MODEL }),
   };

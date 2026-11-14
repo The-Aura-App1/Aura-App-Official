@@ -9,6 +9,8 @@ import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
 import shrinkImage from '../utils/shrinkImage';
 import { prefersReducedMotion } from '../utils/motion';
+import StylePicker from '../components/post/StylePicker';
+import { cleanStyle } from '../utils/postStyle';
 
 // Where the little sparks rise from as a new post drifts away
 const SPARKS = [12, 24, 37, 50, 63, 76, 88].map((left, i) => ({ left, delay: (i * 137) % 420 }));
@@ -37,6 +39,7 @@ export default function CreatePost() {
 
   const [postType, setPostType]     = useState('text');
   const [caption, setCaption]       = useState('');
+  const [look, setLook]             = useState({});   // fonts, colors, background, frame
   const [topics, setTopics]         = useState([]);
   const [hashtags, setHashtags]     = useState([]);
   const [allowTakes, setAllowTakes] = useState(true);
@@ -199,6 +202,7 @@ export default function CreatePost() {
         hashtags:  tags,
         ...(embedding && { embedding }),
         allowTakes: allowTakes && !groupTakesOff,
+        ...(cleanStyle(look, postType) && { style: cleanStyle(look, postType) }),
         ...(groupId ? { groupId } : { commentVisibility: whoCanComment }),
       });
 
@@ -354,6 +358,8 @@ export default function CreatePost() {
           {caption.length} / 2200
         </p>
       </div>
+
+      <StylePicker style={look} onChange={setLook} postType={postType} caption={caption} isPremium={!!dbProfile?.isPremium} />
 
       {!groupId && (
         <div className="mb-4" data-tour="post-topics">
