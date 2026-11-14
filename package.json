@@ -27,6 +27,7 @@
     "prebuild": "node scripts/copy-ort.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:games": "node backend/tests/gameRules.test.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

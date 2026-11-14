@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { canSeeAccount } from './privacy.mjs';
+import { handleGames } from './games.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -588,6 +589,14 @@ export const handler = async (event) => {
     // POST /ads/watch
     if (method === 'POST' && path === '/ads/watch') {
       return await watchAd(user);
+    }
+
+    // /games/* (group games, see games.mjs)
+    if (segments[0] === 'games') {
+      return await handleGames(
+        { dynamo, response, firstLimit, balanceUpdate, transactionRecord, commit, today },
+        user, method, segments, body,
+      );
     }
 
     return response(404, { error: 'Route not found.' });

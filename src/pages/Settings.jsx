@@ -15,6 +15,7 @@ const NOTIFICATION_OPTIONS = [
   { key: 'comment',              label: 'Comments'                   },
   { key: 'reply',                label: 'Replies'                    },
   { key: 'mention',              label: 'Tags in comments'           },
+  { key: 'games',                label: 'Game challenges'            },
   { key: 'followRequest',        label: 'New followers and requests' },
   { key: 'followAccepted',       label: 'Follow request accepted'    },
   { key: 'groupInvite',          label: 'Group invites'              },

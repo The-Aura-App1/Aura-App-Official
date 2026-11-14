@@ -35,6 +35,27 @@
       "Effect": "Allow",
       "Action": "dynamodb:GetItem",
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-follows"
+    },
+    {
+      "Sid": "Games",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-games"
+    },
+    {
+      "Sid": "GroupGameLists",
+      "Effect": "Allow",
+      "Action": "dynamodb:Query",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-games/index/groupId-createdAt-index"
+    },
+    {
+      "Sid": "GameNotifications",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-notifications"
     }
   ]
 }

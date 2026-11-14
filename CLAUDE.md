@@ -29,7 +29,7 @@
 - Cognito user pool: us-east-1_fiuEOr0XM. App client: 1b2uhsh7qdlmgbjj5vh09p64ds.
 - API: https://7uob369et4.execute-api.us-east-1.amazonaws.com
 - Media bucket: aura-app-media-570934198135
-- Tables: aura-users, aura-posts, aura-transactions, aura-daily-budgets, aura-groups, aura-group-members, aura-comments, aura-likes, aura-notifications, aura-shares, aura-feedback, aura-follows
+- Tables: aura-users, aura-posts, aura-transactions, aura-daily-budgets, aura-groups, aura-group-members, aura-comments, aura-likes, aura-notifications, aura-shares, aura-feedback, aura-follows, aura-games
 - User is on Windows PowerShell. Use PowerShell syntax, not bash.
 
 ## Code conventions
@@ -85,7 +85,7 @@
 - Theme look (2026-11-06, after testers called it childish): never handwriting fonts. Each theme has its own signature gradient as `--brand-*` (fills) and `--brand-ink-*` (text) in index.css; CTAs, card borders and `.aura-kicker` labels use it. A new theme must define both sets plus `--wordmark-ink`.
 - Logo and headings (2026-11-07, after "the name is plain"): the Fraunces serif (`@fontsource-variable/fraunces`, full axes). The logotype (`src/components/brand/Wordmark.jsx`) is Fraunces italic with SOFT 100 / WONK 1 in solid `--wordmark-ink`, with the logo's own halo (`/aura-halo.webp`, same as the app icon) over the "A"; on the landing page the big floating halo sits above the name instead. Text is never gradient-filled; `.aura-em` is solid `--brand-ink-2`.
 - Scenes (2026-11-07): the user rejected a redesign of Day/Night into a hillside farm (with film grain, no rays/sparkles/constellation) and had it reverted. Keep Day and Night as they are (sun and rays, cloud bank, sparkles, nebulae, constellation). Kept from that pass: the Day hot-air balloon and the Snowy Peaks changes (taller ranges, lit cabin with chimney smoke, randomly scattered snow). Ask before restyling a scene's overall look.
-- Group games (no house, no rake, player vs player): Connect 4, Poker, Crazy 8s, Go Fish, Dice Duel, Flip a Coin. Skill games first. Stake cap applies.
+- Group games (no house, no rake, player vs player): Connect 4, Poker, Crazy 8s, Go Fish, Dice Duel, Flip a Coin. Skill games first. Stake cap applies. Built 2026-11-13, see "Games" below.
 - Moments: group-only dual-camera photos/video, 24-hour expiry unless saved, aura on them counts as earned.
 - Profile: 3 pins max, 10 tags max, badges, global aura rank (hideable).
 - Navigation (2026-11-12): five main tabs only (Feed, Groups, Post, Notifications, Profile/Me). Everything else goes in `moreItems` (`src/components/layout/navItems.js`): the sidebar's "More" section on desktop and the "Me" sheet on phones. Add new pages there, not as new tabs.
@@ -103,6 +103,15 @@
 - Outside groups, a private account's posts, comments, likes and aura are for the owner, approved followers and site moderators only. `privacy.mjs` (identical copies in aura-posts, aura-comments, aura-aura; a test fails if they drift) does the check; aura-posts' `visibleToViewer` is the one place posts are filtered. Group posts follow the group's rules instead. The profile itself (name, bio, counts) stays public.
 - Comment visibility: new posts store `commentVisibility` (`anyone` | `followers`, from CreatePost, defaulting to the account's `commentVisibilityDefault`; group posts are always `anyone`). aura-comments lets only the author and active followers comment on followers-only posts, and any unknown value fails closed. `COMMENT_VISIBILITY` is in aura-users and aura-posts (kept equal by a test).
 - Follow notifications (`follow`, `follow_request`, `follow_accepted`) are written by aura-users to aura-notifications, best effort, respecting `notificationPrefs.followRequest` / `followAccepted`.
+
+## Games
+
+- Built 2026-11-13. Group-only, two players, for an aura stake or friendly (0). Served by aura-aura (`backend/lambdas/aura-aura/games.mjs`, API route `ANY /games/{proxy+}`, cognito-auth) because aura-aura is the only writer of balances. Rules are pure functions in `gameRules.mjs` (Connect 4, heads-up no-limit Hold'em freezeout with 1,000 chips each and blinds doubling every 6 hands, Crazy Eights, Go Fish, Dice Duel best of 3, Flip a Coin).
+- The server deals, rolls and flips (crypto.randomInt), checks every move, and only sends `viewFor(state, seat)`: never the deck or the other player's cards. Members of the group can watch (seat null, no hands shown); only active members can challenge or accept.
+- Money: each stake is paid when the player sits down (challenge or accept), spendable first then earned, and held on the match. The winner gets both stakes as spendable (game winnings are never cashable); a draw, withdrawn or declined challenge refunds each stake exactly as paid. Logged in aura-transactions as `game_stake`, `game_win`, `game_refund`. Every write is one transaction with the match's `version` check, so a lost race moves no aura.
+- Limits (`STAKE_CAP` in games.mjs and `src/components/games/gameInfo.js`, kept equal by a test): at most 500 aura a game and 500 a day in stakes (premium 2,000), 30 new games a day. Turn timer 2 minutes; after that the waiting player can claim the win. Either player can resign.
+- Table `aura-games`: partition key `matchId`; GSI `groupId-createdAt-index` (groupId, createdAt) lists a group's games; TTL on `expiresAt` (finished games kept 60 days). Notifications `game_challenge` / `game_accepted` respect `notificationPrefs.games`.
+- App: a Games tab on group pages (`src/components/games/GroupGames.jsx`) and `/games/:matchId` (`src/pages/GameMatch.jsx`, boards in `Boards.jsx`). The page polls (2 s waiting on them, 8 s on your turn) since there are no websockets yet. `npm run test:games` plays thousands of random games and checks the rules' invariants.
 
 ## Likes and shares
 

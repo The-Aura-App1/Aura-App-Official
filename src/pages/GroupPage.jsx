@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import GroupPosts from '../components/groups/GroupPosts';
+import GroupGames from '../components/games/GroupGames';
 import ConfirmButton from '../components/groups/ConfirmButton';
 import { JOIN_TYPES, JoinTypeBadge, GroupAvatar, memberCountText } from '../components/groups/GroupBits';
 
@@ -341,6 +342,7 @@ export default function GroupPage() {
   const count = memberCountText(group);
   const tabs = [
     group.canSeePosts   && { key: 'posts',    label: 'Posts' },
+    group.myStatus === 'active' && { key: 'games', label: 'Games' },
     group.canSeeMembers && { key: 'members',  label: 'Members' },
     group.canModerate   && { key: 'requests', label: 'Requests' },
     group.canModerate   && { key: 'manage',   label: 'Manage' },
@@ -427,6 +429,7 @@ export default function GroupPage() {
       )}
 
       {activeTab === 'posts'    && <GroupPosts key={group.groupId} groupId={group.groupId} takesOff={group.allowTakes === false} />}
+      {activeTab === 'games'    && <GroupGames key={group.groupId} groupId={group.groupId} />}
       {activeTab === 'members'  && <Members group={group} viewerId={user?.userId} onChanged={load} />}
       {activeTab === 'requests' && <Requests group={group} onChanged={load} />}
       {activeTab === 'manage'   && <Manage group={group} onChanged={load} />}

@@ -111,3 +111,14 @@ test('tag notifications can be turned off in Settings and saved by aura-users', 
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'mention'");
   expect(fs.readFileSync(path.join(__dirname, 'pages', 'Settings.jsx'), 'utf8')).toContain("key: 'mention'");
 });
+
+test('the app offers exactly the games aura-aura runs, with the same stake caps', () => {
+  const dir = path.join(LAMBDAS, 'aura-aura');
+  const rules = fs.readFileSync(path.join(dir, 'gameRules.mjs'), 'utf8');
+  const games = fs.readFileSync(path.join(dir, 'games.mjs'), 'utf8');
+  const serverIds = constant(rules, 'GAMES').replace(/[{}\s]/g, '').split(',');
+  const { GAME_LIST, STAKE_CAP } = require('./components/games/gameInfo');
+  expect([...serverIds].sort()).toEqual(GAME_LIST.map(g => g.id).sort());
+  expect(constant(games, 'STAKE_CAP').replace(/\s/g, '')).toBe(`{regular:${STAKE_CAP.regular},premium:${STAKE_CAP.premium}}`);
+  expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
+});

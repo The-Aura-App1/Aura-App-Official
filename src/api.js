@@ -119,6 +119,13 @@ export const api = {
   approveRequest: (groupId, userId)      => request('POST', `/groups/${id(groupId)}/approve/${id(userId)}`),
   declineRequest: (groupId, userId)      => request('POST', `/groups/${id(groupId)}/decline/${id(userId)}`),
 
+  // ─── Group games (aura-aura) ──────────────────────────────
+  getGroupGames:  (groupId)              => request('GET',  `/games/group/${id(groupId)}`),
+  createGame:     (groupId, data)        => request('POST', `/games/group/${id(groupId)}`, data),
+  getGame:        (matchId)              => request('GET',  `/games/${id(matchId)}`),
+  gameAction:     (matchId, action)      => request('POST', `/games/${id(matchId)}/${id(action)}`, {}),
+  gameMove:       (matchId, move)        => request('POST', `/games/${id(matchId)}/move`, { move }),
+
   // ─── Notifications ────────────────────────────────────────
   getNotifications: (limit = 30)         => request('GET',  `/notifications?limit=${limit}`),
   markRead:         (notificationId)     => request('PUT',  `/notifications/${id(notificationId)}/read`),

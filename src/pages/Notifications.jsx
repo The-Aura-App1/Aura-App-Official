@@ -2,12 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Sparkles, MessageCircle, UserPlus,
-  TrendingUp, TrendingDown, Check, Trash2, AtSign
+  TrendingUp, TrendingDown, Check, Trash2, AtSign, Swords
 } from 'lucide-react';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { timeAgo } from '../utils/format';
 import { FollowRequests } from '../components/profile/FollowBits';
+import { GAME_BY_ID } from '../components/games/gameInfo';
 
 function notificationIcon(type) {
   switch (type) {
@@ -16,6 +17,8 @@ function notificationIcon(type) {
     case 'comment':       return <MessageCircle size={16} className="text-blue-400" />;
     case 'reply':         return <MessageCircle size={16} className="text-blue-400" />;
     case 'mention':       return <AtSign size={16} className="text-aura-400" />;
+    case 'game_challenge':
+    case 'game_accepted': return <Swords size={16} className="text-aura-400" />;
     case 'follow':        return <UserPlus size={16} className="text-green-400" />;
     case 'follow_request':return <UserPlus size={16} className="text-yellow-400" />;
     case 'follow_accepted':return <Check size={16} className="text-green-400" />;
@@ -39,6 +42,10 @@ function notificationText(type, data) {
       return `@${data?.fromUsername ?? 'Someone'} replied to your comment`;
     case 'mention':
       return `@${data?.fromUsername ?? 'Someone'} tagged you in a comment`;
+    case 'game_challenge':
+      return `@${data?.fromUsername ?? 'Someone'} challenged you to ${GAME_BY_ID[data?.game]?.name ?? 'a game'}${data?.stake ? ` for ${data.stake} aura` : ''}`;
+    case 'game_accepted':
+      return `@${data?.fromUsername ?? 'Someone'} accepted your ${GAME_BY_ID[data?.game]?.name ?? 'game'} challenge`;
     case 'follow':
       return `@${data?.fromUsername ?? 'Someone'} started following you`;
     case 'follow_request':
@@ -66,6 +73,9 @@ function notificationRoute(type, data) {
     case 'reply':
     case 'mention':
       return data?.postId ? `/post/${encodeURIComponent(data.postId)}` : null;
+    case 'game_challenge':
+    case 'game_accepted':
+      return data?.matchId ? `/games/${encodeURIComponent(data.matchId)}` : null;
     case 'follow':
     case 'follow_request':
     case 'follow_accepted':
