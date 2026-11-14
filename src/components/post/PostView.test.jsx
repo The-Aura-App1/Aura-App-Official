@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import PostView from './PostView';
 import { api } from '../../api';
 
-jest.mock('../../api', () => ({ api: { getPost: jest.fn(), getComments: jest.fn(), createComment: jest.fn() } }));
+jest.mock('../../api', () => ({ api: { getPost: jest.fn(), getComments: jest.fn(), createComment: jest.fn(), getUser: jest.fn() } }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { userId: 'me' }, dbProfile: { username: 'me_here' } }) }));
 jest.mock('./PostCard', () => () => <article>post</article>);
 jest.mock('../../utils/tasteProfile', () => ({ recordEngagement: () => {} }));
@@ -16,10 +16,12 @@ beforeEach(() => {
   api.getComments.mockResolvedValue({
     total: 2,
     comments: [{
-      commentId: 'c1', authorId: 'b', authorUsername: 'bob', authorDisplay: 'Bob', text: 'Great shot @ann', createdAt: at(5),
+      commentId: 'c1', authorId: 'b', authorUsername: 'bob', authorDisplay: 'Bob', text: 'Great shot @ann, cc @AuraApp and @lena_cooks', createdAt: at(5),
       replies: [{ commentId: 'r1', parentCommentId: 'c1', authorId: 'm', authorUsername: 'maya', authorDisplay: 'Maya', text: 'agreed', createdAt: at(2) }],
     }],
   });
+  api.getUser.mockImplementation(name => (name === 'lena_cooks'
+    ? Promise.resolve({ username: 'lena_cooks' }) : Promise.reject(new Error('User not found.'))));
   api.createComment.mockImplementation((postId, text, parent) => Promise.resolve({
     commentId: 'new', parentCommentId: parent, authorId: 'me', authorUsername: 'me_here', text, createdAt: at(0),
   }));
@@ -37,9 +39,13 @@ async function open() {
   await act(async () => {});
 }
 
-test('@mentions in comments link to profiles', async () => {
+test('@mentions link to real profiles only; a name nobody has stays plain text', async () => {
   await open();
-  expect(screen.getByRole('link', { name: '@ann' })).toHaveAttribute('href', '/profile/ann');
+  expect(screen.getByRole('link', { name: '@ann' })).toHaveAttribute('href', '/profile/ann');           // in the conversation
+  expect(screen.getByRole('link', { name: '@lena_cooks' })).toHaveAttribute('href', '/profile/lena_cooks'); // looked up
+  expect(screen.queryByRole('link', { name: '@AuraApp' })).not.toBeInTheDocument();                     // no such account
+  expect(screen.getByText(/@AuraApp/)).toBeInTheDocument();
+  expect(api.getUser).not.toHaveBeenCalledWith('ann');
 });
 
 test('replying to a reply stays in the thread and starts with their @name', async () => {

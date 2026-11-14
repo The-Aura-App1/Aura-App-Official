@@ -186,17 +186,32 @@ function Composer({ limit, placeholder, submitLabel, autoFocus, onSubmit, onCanc
   );
 }
 
-// Comment text with @mentions linked to profiles. Still plain text: React
-// escapes it, and nothing here is ever rendered as HTML.
-function CommentText({ text }) {
-  return splitMentions(text).map((part, i) => (typeof part === 'string' ? part : (
-    <Link key={i} to={profileLink(part.username)} className="font-semibold text-[var(--accent)] hover:underline">
-      {part.raw}
-    </Link>
-  )));
+// Whether an @username belongs to a real account, asked once per name per visit
+const accountChecks = new Map();
+function accountExists(username) {
+  if (!accountChecks.has(username)) {
+    accountChecks.set(username, api.getUser(username).then(u => !!u?.username, () => false));
+  }
+  return accountChecks.get(username);
 }
 
-function Comment({ comment, post, isReply, onReply, onDeleted, onAura }) {
+// Comment text with @mentions linked to profiles. Only real accounts become
+// links; a tag for a name nobody has stays plain text, so it never leads to
+// "User not found". Still plain text: React escapes it, and nothing here is
+// ever rendered as HTML.
+function CommentText({ text, isAccount }) {
+  return splitMentions(text).map((part, i) => {
+    if (typeof part === 'string') return part;
+    if (!isAccount(part.username)) return part.raw;
+    return (
+      <Link key={i} to={profileLink(part.username)} className="font-semibold text-[var(--accent)] hover:underline">
+        {part.raw}
+      </Link>
+    );
+  });
+}
+
+function Comment({ comment, post, isReply, onReply, onDeleted, onAura, isAccount }) {
   const { user, dbProfile } = useAuth();
   const isMine = user?.userId === comment.authorId;
   // The server says who may delete; authors and moderators always can (it checks again anyway)
@@ -312,7 +327,7 @@ function Comment({ comment, post, isReply, onReply, onDeleted, onAura }) {
         </div>
 
         <p className="mt-0.5 text-sm leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap break-words">
-          <CommentText text={comment.text} />
+          <CommentText text={comment.text} isAccount={isAccount} />
         </p>
 
         <div className="mt-1.5 flex items-center gap-1 text-xs">
@@ -436,6 +451,32 @@ export default function PostView() {
     return [...seen.values()];
   }, [post, comments, user?.userId]);
 
+  // Names tagged in the comments: people in the conversation (and you) are
+  // known accounts; anyone else is looked up once before becoming a link
+  const [confirmed, setConfirmed] = useState(() => new Set());
+  const known = useMemo(() => {
+    const set = new Set(people.map(p => p.username.toLowerCase()));
+    if (dbProfile?.username) set.add(dbProfile.username.toLowerCase());
+    return set;
+  }, [people, dbProfile?.username]);
+  useEffect(() => {
+    let live = true;
+    const names = new Set();
+    for (const c of comments) {
+      for (const x of [c, ...(c.replies ?? [])]) {
+        for (const part of splitMentions(x.text)) {
+          if (typeof part !== 'string' && !known.has(part.username)) names.add(part.username);
+        }
+      }
+    }
+    Promise.all([...names].map(name => accountExists(name).then(ok => ok && name))).then(found => {
+      const real = found.filter(Boolean);
+      if (live && real.length) setConfirmed(set => new Set([...set, ...real]));
+    });
+    return () => { live = false; };
+  }, [comments, known]);
+  const isAccount = useCallback(name => known.has(name) || confirmed.has(name), [known, confirmed]);
+
   async function addComment(text, parent = null) {
     const created = await api.createComment(postId, text, parent?.commentId ?? null);
     setFresh(set => new Set(set).add(created.commentId));
@@ -503,9 +544,9 @@ export default function PostView() {
           )}
           {/* Videos stay pinned at the top while the comments scroll underneath */}
           {post.type === 'video' && (
-            <div className="sticky top-14 lg:top-0 z-10 -mx-4 sm:mx-0 bg-black sm:rounded-2xl overflow-hidden shadow-lg shadow-black/30">
-              <div className="mx-auto" style={{ width: 'min(100%, 42vh)' }}>
-                <PostMedia post={post} seekable />
+            <div className="sticky top-14 lg:top-0 z-10 -mx-4 sm:mx-0 bg-[var(--bg-primary)]">
+              <div className="flex justify-center">
+                <PostMedia post={post} seekable maxHeight="55vh" className="sm:rounded-2xl overflow-hidden shadow-lg shadow-black/30" />
               </div>
             </div>
           )}
@@ -554,14 +595,14 @@ export default function PostView() {
                 <div key={comment.commentId} className={`aura-fold ${leaving.has(comment.commentId) ? 'is-leaving' : ''}`}>
                 <div className={fresh.has(comment.commentId) ? 'aura-comment-new' : 'aura-arrive'}
                   style={fresh.has(comment.commentId) ? undefined : { animationDelay: `${Math.min(i, 8) * 45}ms` }}>
-                  <Comment comment={comment} post={post} onReply={c => startReply(comment, c)}
+                  <Comment comment={comment} post={post} isAccount={isAccount} onReply={c => startReply(comment, c)}
                     onDeleted={removeComment} onAura={(c, type) => setAura({ comment: c, type })} />
                   {(comment.replies?.length > 0 || replyTo?.comment.commentId === comment.commentId) && (
                     <div className="mt-3 ml-11 space-y-4 border-l border-[var(--border)] pl-4">
                       {comment.replies?.map(reply => (
                         <div key={reply.commentId} className={`aura-fold ${leaving.has(reply.commentId) ? 'is-leaving' : ''}`}>
                           <div className={fresh.has(reply.commentId) ? 'aura-comment-new' : ''}>
-                            <Comment comment={reply} post={post} isReply onReply={r => startReply(comment, r)}
+                            <Comment comment={reply} post={post} isReply isAccount={isAccount} onReply={r => startReply(comment, r)}
                               onDeleted={removeComment} onAura={(c, type) => setAura({ comment: c, type })} />
                           </div>
                         </div>

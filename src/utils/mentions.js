@@ -25,10 +25,15 @@ export function mentionAt(text, cursor) {
   return { start: cursor - match[2].length - 1, query: match[2].toLowerCase() };
 }
 
-// People worth suggesting: everyone in the conversation, best prefix matches first
+// Letters and numbers only, lowercased, so "Aura App" and "auraapp" compare equal
+const squash = value => String(value ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+// People worth suggesting from the conversation: usernames that start with
+// what was typed first, then display names (typing "@Aura" offers @aura_app)
 export function suggestPeople(people, query, limit = 5) {
   const q = query.toLowerCase();
-  return people
-    .filter(p => p.username && p.username.toLowerCase().startsWith(q))
-    .slice(0, limit);
+  const byName = people.filter(p => p.username && p.username.toLowerCase().startsWith(q));
+  const byDisplay = people.filter(p => p.username && !byName.includes(p)
+    && squash(p.displayName).startsWith(squash(q)));
+  return [...byName, ...byDisplay].slice(0, limit);
 }

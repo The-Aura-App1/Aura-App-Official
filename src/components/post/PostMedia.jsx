@@ -4,8 +4,14 @@ import FeedVideo from './FeedVideo';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
 
-export default function PostMedia({ post, seekable = false }) {
+// Feed videos fill their box like Instagram's: anywhere from portrait 4:5 to
+// wide 1.91:1, cropped to fit. On the post page (`maxHeight`) the box takes
+// the video's exact shape, as large as fits under maxHeight, so there are no bars.
+const FEED_ASPECT = [4 / 5, 1.91];
+
+export default function PostMedia({ post, seekable = false, maxHeight, className = '' }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [aspect, setAspect] = useState(1);
   const keys = post.mediaKeys ?? [];
 
   if (!keys.length) return null;
@@ -14,6 +20,13 @@ export default function PostMedia({ post, seekable = false }) {
   const isVideo    = post.type === 'video';
   const currentKey = keys[currentIndex];
   const url        = `${S3_URL}/${currentKey}`;
+
+  const shape = !isVideo ? 1
+    : maxHeight ? aspect
+    : Math.min(FEED_ASPECT[1], Math.max(FEED_ASPECT[0], aspect));
+  const boxStyle = maxHeight
+    ? { aspectRatio: String(shape), width: `min(100%, calc(${maxHeight} * ${shape}))` }
+    : { aspectRatio: String(shape) };
 
   function prev() {
     setCurrentIndex(i => Math.max(0, i - 1));
@@ -24,10 +37,10 @@ export default function PostMedia({ post, seekable = false }) {
   }
 
   return (
-    <div className="relative bg-black w-full" style={{ aspectRatio: '1/1' }}>
+    <div className={`relative bg-black w-full mx-auto ${className}`} style={boxStyle}>
 
       {isVideo ? (
-        <FeedVideo key={url} src={url} seekable={seekable} />
+        <FeedVideo key={url} src={url} seekable={seekable} onAspect={setAspect} />
       ) : (
         <img
           src={url}

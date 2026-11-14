@@ -20,3 +20,9 @@ test('suggests people whose username starts with what was typed', () => {
   expect(suggestPeople(people, 'ma').map(p => p.username)).toEqual(['maya_shoots', 'marco_on_wheels']);
   expect(suggestPeople(people, '').length).toBe(3);
 });
+
+test('display names match too, so typing a name finds the right @username', () => {
+  const people = [{ username: 'aura_app', displayName: 'AuraApp' }, { username: 'maya_shoots', displayName: 'Maya Ortiz' }];
+  expect(suggestPeople(people, 'AuraApp').map(p => p.username)).toEqual(['aura_app']);
+  expect(suggestPeople(people, 'mayaor').map(p => p.username)).toEqual(['maya_shoots']);
+});

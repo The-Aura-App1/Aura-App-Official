@@ -85,7 +85,7 @@ function SeekBar({ videoRef, time, duration, onScrub }) {
   );
 }
 
-export default function FeedVideo({ src, seekable = false }) {
+export default function FeedVideo({ src, seekable = false, onAspect }) {
   const ref = useRef(null);
   const [visible, setVisible]   = useState(false);
   const [near, setNear]         = useState(false);   // close enough to start loading
@@ -163,6 +163,7 @@ export default function FeedVideo({ src, seekable = false }) {
     const at = lastTimes.get(src);
     if (video && at && at < (video.duration || Infinity) - 0.25) video.currentTime = at;
     setDuration(video?.duration || 0);
+    if (video?.videoWidth && video.videoHeight) onAspect?.(video.videoWidth / video.videoHeight);
   }
 
   const showPlayButton = (blocked || held) && !playing;
@@ -173,7 +174,7 @@ export default function FeedVideo({ src, seekable = false }) {
       <video
         ref={ref}
         src={near ? src : undefined}
-        className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`w-full h-full ${seekable ? 'object-contain' : 'object-cover'} transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         muted={!unmuted}
         loop
         playsInline
