@@ -50,7 +50,7 @@ const PREMIUM_USERNAME_GAP = 24 * 60 * 60 * 1000;
 
 const NOTIFICATION_TYPES = [
   'auraGiven', 'auraTaken', 'comment', 'reply', 'followRequest', 'followAccepted',
-  'groupInvite', 'groupRequestApproved', 'cashoutProcessed', 'dailyBonus',
+  'groupInvite', 'groupRequestApproved', 'cashoutProcessed', 'dailyBonus', 'mention',
 ];
 const COMMENT_VISIBILITY = ['anyone', 'followers'];
 // App themes an account can save. Keep in sync with THEME_IDS in src/themes/index.js.

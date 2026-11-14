@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Sparkles, MessageCircle, UserPlus,
-  TrendingUp, TrendingDown, Check, Trash2
+  TrendingUp, TrendingDown, Check, Trash2, AtSign
 } from 'lucide-react';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -15,6 +15,7 @@ function notificationIcon(type) {
     case 'aura_taken':    return <TrendingDown size={16} className="text-red-400" />;
     case 'comment':       return <MessageCircle size={16} className="text-blue-400" />;
     case 'reply':         return <MessageCircle size={16} className="text-blue-400" />;
+    case 'mention':       return <AtSign size={16} className="text-aura-400" />;
     case 'follow':        return <UserPlus size={16} className="text-green-400" />;
     case 'follow_request':return <UserPlus size={16} className="text-yellow-400" />;
     case 'follow_accepted':return <Check size={16} className="text-green-400" />;
@@ -36,6 +37,8 @@ function notificationText(type, data) {
       return `@${data?.fromUsername ?? 'Someone'} commented on your post`;
     case 'reply':
       return `@${data?.fromUsername ?? 'Someone'} replied to your comment`;
+    case 'mention':
+      return `@${data?.fromUsername ?? 'Someone'} tagged you in a comment`;
     case 'follow':
       return `@${data?.fromUsername ?? 'Someone'} started following you`;
     case 'follow_request':
@@ -61,6 +64,7 @@ function notificationRoute(type, data) {
     case 'aura_taken':
     case 'comment':
     case 'reply':
+    case 'mention':
       return data?.postId ? `/post/${encodeURIComponent(data.postId)}` : null;
     case 'follow':
     case 'follow_request':
@@ -205,6 +209,11 @@ export default function Notifications() {
                 }`}>
                 {notificationText(notification.type, notification.data)}
               </p>
+              {notification.data?.preview && (
+                <p className="text-xs text-[var(--text-secondary)] mt-1 line-clamp-2 break-words">
+                  “{notification.data.preview}”
+                </p>
+              )}
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 {timeAgo(notification.createdAt)}
               </p>

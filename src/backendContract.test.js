@@ -101,3 +101,13 @@ test('the self-hosted model file is the verified original', () => {
   const hash = crypto.createHash('sha256').update(fs.readFileSync(MODEL)).digest('hex');
   expect(hash).toBe(MODEL_SHA256);
 });
+
+test('aura-comments finds @mentions by the same rule the app links them', () => {
+  const app = fs.readFileSync(path.join(__dirname, 'utils', 'mentions.js'), 'utf8');
+  expect(constant(lambdaSource('aura-comments'), 'MENTION')).toBe(constant(app, 'MENTION'));
+});
+
+test('tag notifications can be turned off in Settings and saved by aura-users', () => {
+  expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'mention'");
+  expect(fs.readFileSync(path.join(__dirname, 'pages', 'Settings.jsx'), 'utf8')).toContain("key: 'mention'");
+});

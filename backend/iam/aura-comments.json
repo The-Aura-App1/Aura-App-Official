@@ -48,6 +48,12 @@
       "Effect": "Allow",
       "Action": "dynamodb:GetItem",
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-follows"
+    },
+    {
+      "Sid": "CommentNotifications",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-notifications"
     }
   ]
 }

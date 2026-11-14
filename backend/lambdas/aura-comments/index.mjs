@@ -20,6 +20,13 @@ const POSTS_TABLE    = 'aura-posts';
 const USERS_TABLE    = 'aura-users';
 const GROUPS_TABLE   = 'aura-groups';
 const MEMBERS_TABLE  = 'aura-group-members';
+const NOTIFICATIONS_TABLE = 'aura-notifications';
+
+// @mentions: the same rule as src/utils/mentions.js (a test keeps them equal).
+// Usernames are 3-30 letters, numbers and underscores; an @ inside a word,
+// like an email address, isn't a mention.
+const MENTION = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9_]{3,30})(?![A-Za-z0-9_])/g;
+const MAX_MENTIONS_NOTIFIED = 10;   // per comment, so one comment can't spam a crowd
 
 // Instagram-style limit for global posts
 // Reddit-style limit for group posts
@@ -183,6 +190,84 @@ async function groupAccess(groupId, viewerId) {
   return { isMember, canSee: isMember || (group.joinType === 'open' && member?.status !== 'banned') };
 }
 
+// ─── Notifications ────────────────────────────────────────────
+// Usernames tagged in a comment, lowercased, without repeats
+function mentionedUsernames(text) {
+  const names = new Set();
+  for (const match of text.matchAll(MENTION)) names.add(match[2].toLowerCase());
+  return [...names].slice(0, MAX_MENTIONS_NOTIFIED);
+}
+
+// The account that owns a username, through its reservation item
+async function userByUsername(username) {
+  const reservation = await dynamo.send(new GetCommand({
+    TableName: USERS_TABLE, Key: { userId: `USERNAME#${username}` },
+  }));
+  const ownerId = reservation.Item?.ownerId;
+  if (!ownerId) return null;
+  return (await dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId: ownerId } }))).Item ?? null;
+}
+
+async function userById(userId) {
+  return (await dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId } }))).Item ?? null;
+}
+
+// Whether `viewerId` may see the post a comment is on, so a tag never shows
+// someone a post (or that a private post exists) they couldn't open
+async function canSeePost(post, viewerId) {
+  if (post.groupId) return (await groupAccess(post.groupId, viewerId)).canSee;
+  return canSeeAccount(dynamo, viewerId, post.authorId, ADMIN_IDS.has(viewerId));
+}
+
+// Tells the people a new comment concerns. Each person hears once, by the
+// most specific reason: a reply to their comment, then a tag, then a comment
+// on their post. Never the commenter, never a banned account, never someone
+// who can't see the post, and never against their notification settings.
+// Best effort: a notification that fails to save never undoes the comment.
+async function notifyForComment(comment, post, parent, commenter) {
+  const reasons = new Map();   // userId -> { type, prefKey, user? }
+  const add = (userId, type, prefKey, user) => {
+    if (userId && userId !== commenter.userId && !reasons.has(userId)) reasons.set(userId, { type, prefKey, user });
+  };
+
+  if (parent) add(parent.authorId, 'reply', 'reply');
+  const tagged = await Promise.all(mentionedUsernames(comment.text).map(name => userByUsername(name).catch(() => null)));
+  for (const user of tagged) if (user) add(user.userId, 'mention', 'mention', user);
+  add(post.authorId, 'comment', 'comment');
+
+  const now = Date.now();
+  const data = {
+    fromUserId:   commenter.userId,
+    fromUsername: commenter.username,
+    postId:       post.postId,
+    commentId:    comment.commentId,
+    preview:      comment.text.slice(0, 120),
+  };
+
+  await Promise.allSettled([...reasons].map(async ([userId, reason], i) => {
+    const recipient = reason.user ?? await userById(userId);
+    if (!recipient || recipient.isBanned) return;
+    if (recipient.notificationPrefs?.[reason.prefKey] === false) return;
+    // Post authors and repliers already saw the post; a tagged person must be able to
+    if (reason.type === 'mention' && !(await canSeePost(post, userId))) return;
+    try {
+      await dynamo.send(new PutCommand({
+        TableName: NOTIFICATIONS_TABLE,
+        Item: {
+          userId,
+          notificationId: `${now}#${Math.random().toString(36).slice(2, 10)}${i}`,
+          type:           reason.type,
+          data,
+          read:           false,
+          createdAt:      new Date(now).toISOString(),
+        },
+      }));
+    } catch (err) {
+      console.warn(`Notification not saved (${err.name}).`);
+    }
+  }));
+}
+
 // ─── Create comment ───────────────────────────────────────────
 async function createComment(userId, postId, body) {
   const { parentCommentId } = body;
@@ -241,6 +326,7 @@ async function createComment(userId, postId, body) {
   if (parentCommentId !== undefined && parentCommentId !== null && typeof parentCommentId !== 'string') {
     return response(400, { error: 'Invalid parentCommentId.' });
   }
+  let parent = null;
   if (parentCommentId) {
     const parentResult = await dynamo.send(new GetCommand({
       TableName: COMMENTS_TABLE,
@@ -253,6 +339,7 @@ async function createComment(userId, postId, body) {
     if (parentResult.Item.parentCommentId) {
       return response(400, { error: 'Cannot reply to a reply.' });
     }
+    parent = parentResult.Item;
   }
 
   const commentId = generateId();
@@ -292,6 +379,8 @@ async function createComment(userId, postId, body) {
       },
     ],
   }));
+
+  await notifyForComment(comment, post, parent, user).catch(err => console.warn(`Notifications skipped (${err.name}).`));
 
   return response(201, { ...publicComment(comment, userId, new Set(), user), replies: [] });
 }
