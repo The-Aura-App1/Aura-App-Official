@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MessageCircle, Share2, MoreHorizontal, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
@@ -15,7 +15,8 @@ import { topicLabel } from '../../utils/topics';
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
 // onComment, when given (on the post's own page), makes the comment button call it
 // instead of opening the post.
-export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment, takesOff = false }) {
+export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment, takesOff = false, hideMedia = false }) {
+  const navigate = useNavigate();
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
   const tags      = post.tags ?? [];
@@ -74,6 +75,15 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
     setShowAuraModal(true);
   }
 
+  // Tapping the post (anywhere that isn't a button, link, video or menu)
+  // opens it, like Instagram. On the post page itself (onComment set) it doesn't.
+  function openPost(e) {
+    if (onComment) return;
+    if (e.target.closest('a, button, input, textarea, select, label, [data-video], [role="menu"], [role="slider"]')) return;
+    if (window.getSelection?.().toString()) return;   // selecting text isn't a tap
+    navigate(`/post/${encodeURIComponent(post.postId)}`);
+  }
+
   // The card glows for a give and dims for a take
   const [reaction, setReaction] = useState(null);   // { id, type }
 
@@ -86,7 +96,8 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
   return (
     <>
       <article
-        className={`card p-0 overflow-hidden ${reaction ? `aura-card-${reaction.type}` : ''}`}
+        onClick={openPost}
+        className={`card p-0 overflow-hidden ${onComment ? '' : 'cursor-pointer'} ${reaction ? `aura-card-${reaction.type}` : ''}`}
         onAnimationEnd={e => { if (e.target === e.currentTarget) setReaction(null); }}>
 
         {/* ── Header ── */}
@@ -172,7 +183,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         </div>
 
         {/* ── Media ── */}
-        {post.type !== 'text' && (
+        {post.type !== 'text' && !hideMedia && (
           <PostMedia post={post} />
         )}
 

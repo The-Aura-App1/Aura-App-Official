@@ -4,7 +4,7 @@ import FeedVideo from './FeedVideo';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
 
-export default function PostMedia({ post }) {
+export default function PostMedia({ post, seekable = false }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const keys = post.mediaKeys ?? [];
 
@@ -27,7 +27,7 @@ export default function PostMedia({ post }) {
     <div className="relative bg-black w-full" style={{ aspectRatio: '1/1' }}>
 
       {isVideo ? (
-        <FeedVideo key={url} src={url} />
+        <FeedVideo key={url} src={url} seekable={seekable} />
       ) : (
         <img
           src={url}

@@ -3,6 +3,13 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import FeedVideo, { resetVideoSound } from './FeedVideo';
 
+// jsdom has no PointerEvent: a mouse event with a pointerId stands in
+if (!window.PointerEvent) {
+  window.PointerEvent = class PointerEvent extends MouseEvent {
+    constructor(type, init = {}) { super(type, init); this.pointerId = init.pointerId; }
+  };
+}
+
 // jsdom has no IntersectionObserver or media playback: fake both
 let observers = [];
 beforeEach(() => {
@@ -43,7 +50,7 @@ test('waits off screen without loading, then plays muted and looping with no con
   expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
 });
 
-test('tapping the video or the speaker toggles sound for every video', async () => {
+test('the speaker button toggles sound for every video', async () => {
   render(<><FeedVideo src="/a.mp4" /><FeedVideo src="/b.mp4" /></>);
   const [a, b] = screen.getAllByLabelText('Video');
   expect(a.muted && b.muted).toBe(true);
@@ -51,10 +58,51 @@ test('tapping the video or the speaker toggles sound for every video', async () 
   fireEvent.click(screen.getAllByRole('button', { name: 'Turn sound on' })[0]);
   expect(a.muted).toBe(false);
   expect(b.muted).toBe(false);   // the choice carries over, like Instagram
-
-  fireEvent.click(a);            // tapping the video itself
+  fireEvent.click(screen.getAllByRole('button', { name: 'Mute' })[1]);
   expect(a.muted).toBe(true);
-  expect(screen.getAllByRole('button', { name: 'Turn sound on' })).toHaveLength(2);
+});
+
+test('tapping the video pauses it, tapping again resumes; scrolling away and back restarts it', async () => {
+  const { container } = render(<FeedVideo src="/clip.mp4" />);
+  await scroll(1);
+  const video = screen.getByLabelText('Video');
+  Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+  HTMLMediaElement.prototype.play.mockClear();
+
+  await act(async () => { fireEvent.click(video); });
+  expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+  expect(container.querySelector('.lucide-play')).toBeInTheDocument();   // stays paused, with a play button
+  expect(video.muted).toBe(true);                                         // tapping doesn't touch sound
+
+  Object.defineProperty(video, 'paused', { configurable: true, get: () => true });
+  await act(async () => { fireEvent.click(video); });
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+
+  // Paused again, scrolled away and back: it plays on its own
+  Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+  await act(async () => { fireEvent.click(video); });
+  HTMLMediaElement.prototype.play.mockClear();
+  await scroll(0);
+  await scroll(1);
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+});
+
+test('only the post page gets a seek bar, and it jumps to the tapped point', async () => {
+  const { rerender } = render(<FeedVideo src="/clip.mp4" />);
+  expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  rerender(<FeedVideo src="/clip.mp4" seekable />);
+  await scroll(1);
+  const video = screen.getByLabelText('Video');
+  let at = 0;
+  Object.defineProperty(video, 'currentTime', { configurable: true, get: () => at, set: v => { at = v; } });
+  Object.defineProperty(video, 'duration', { configurable: true, get: () => 8 });
+  fireEvent(video, new Event('durationchange'));
+  const bar = screen.getByRole('slider', { name: 'Seek' });
+  bar.getBoundingClientRect = () => ({ left: 0, width: 200, top: 0, height: 20, right: 200, bottom: 20 });
+  fireEvent.pointerDown(bar, { clientX: 100, pointerId: 1 });
+  expect(video.currentTime).toBe(4);
+  fireEvent.keyDown(bar, { key: 'ArrowRight' });
+  expect(video.currentTime).toBe(8);
 });
 
 test('if the phone blocks autoplay, a play button appears and a tap starts it', async () => {
@@ -63,8 +111,8 @@ test('if the phone blocks autoplay, a play button appears and a tap starts it', 
     .mockImplementation(function play() { this.dispatchEvent(new Event('playing')); return Promise.resolve(); });
   const { container } = render(<FeedVideo src="/clip.mp4" />);
   await scroll(1);
-  expect(container.querySelector('.border-l-white')).toBeInTheDocument();
+  expect(container.querySelector('.lucide-play')).toBeInTheDocument();
   await act(async () => { fireEvent.click(screen.getByLabelText('Video')); });
   expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
-  expect(container.querySelector('.border-l-white')).not.toBeInTheDocument();
+  expect(container.querySelectorAll('.lucide-play').length).toBeLessThanOrEqual(1);   // only the brief tap icon, if any
 });

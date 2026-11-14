@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, MoreHorizontal, Sparkles, Flag, Trash2, CornerDownRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../api';
+import PostMedia from './PostMedia';
 import PostCard from './PostCard';
 import AuraModal from './AuraModal';
 import { timeAgo } from '../../utils/format';
@@ -403,9 +404,18 @@ export default function PostView() {
               Posted in {post.groupName}
             </Link>
           )}
+          {/* Videos stay pinned at the top while the comments scroll underneath */}
+          {post.type === 'video' && (
+            <div className="sticky top-14 lg:top-0 z-10 -mx-4 sm:mx-0 bg-black sm:rounded-2xl overflow-hidden shadow-lg shadow-black/30">
+              <div className="mx-auto" style={{ width: 'min(100%, 42vh)' }}>
+                <PostMedia post={post} seekable />
+              </div>
+            </div>
+          )}
           <PostCard
             key={post.postId}
             post={post}
+            hideMedia={post.type === 'video'}
             onRemove={canRemovePost ? removePost : undefined}
             onComment={() => composerRef.current?.focus()}
           />

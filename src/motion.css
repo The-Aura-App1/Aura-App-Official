@@ -254,3 +254,11 @@
 @media (prefers-reduced-motion: reduce) {
   .aura-tour-halo { animation: none; transform: rotate(-14deg); }
 }
+
+/* Video tap feedback: the play or pause icon pops in and fades away (always plays) */
+.aura-video-flash { animation: videoFlash 0.6s ease-out both; }
+@keyframes videoFlash {
+  0%   { opacity: 0; transform: scale(0.7); }
+  25%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.15); }
+}
