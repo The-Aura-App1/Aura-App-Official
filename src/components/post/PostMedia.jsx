@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import FeedVideo from './FeedVideo';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
 
@@ -26,13 +27,7 @@ export default function PostMedia({ post }) {
     <div className="relative bg-black w-full" style={{ aspectRatio: '1/1' }}>
 
       {isVideo ? (
-        <video
-          src={url}
-          className="w-full h-full object-contain"
-          controls
-          playsInline
-          preload="metadata"
-        />
+        <FeedVideo key={url} src={url} />
       ) : (
         <img
           src={url}
