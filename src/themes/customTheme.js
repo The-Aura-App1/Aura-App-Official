@@ -80,7 +80,7 @@ export function cleanCustom(raw) {
   const base = raw.base === 'dark' ? 'dark' : 'light';
   const background = HEX.test(raw.background ?? '') ? raw.background.toLowerCase() : (base === 'dark' ? '#0f0d1a' : '#f8f7ff');
   const accent = HEX.test(raw.accent ?? '') ? raw.accent.toLowerCase() : '#7c3aed';
-  const font = raw.font && FONT_BY_ID[raw.font] && THEME_FONT_CATEGORIES.includes(FONT_BY_ID[raw.font].cat) ? raw.font : null;
+  const font = typeof raw.font === 'string' && Object.hasOwn(FONT_BY_ID, raw.font) && THEME_FONT_CATEGORIES.includes(FONT_BY_ID[raw.font].cat) ? raw.font : null;
   const name = typeof raw.name === 'string' ? raw.name.slice(0, 30) : 'My theme';
   return { name, base, background, accent, font };
 }

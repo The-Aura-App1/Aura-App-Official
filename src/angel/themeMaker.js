@@ -29,6 +29,13 @@ const MOODS = {
   candy: ['#e0559b', '#fde8f2', 'light'], minimal: ['#4b5563', '#f6f6f7', 'light'], space: ['#7c5ce6', '#070616', 'dark'], galaxy: ['#8b5cf6', '#0a0618', 'dark'],
   coffee: ['#8a5a3c', '#f2e8de'], midnight: ['#4f6fe0', '#070b1c', 'dark'], gothic: ['#9b1f3a', '#0b0609', 'dark'], retro: ['#e0703a', '#f4e6c8'],
   matcha: ['#5f8f3a', '#eef3e0', 'light'], lavender: ['#8b6fd6', '#f1ecfb', 'light'], strawberry: ['#d63a5a', '#fde6ea', 'light'],
+  halloween: ['#e8742c', '#120a14', 'dark'], spooky: ['#e8742c', '#120a14', 'dark'], christmas: ['#c8203e', '#eef6ee', 'light'], festive: ['#c8203e', '#eef6ee', 'light'],
+  valentine: ['#d94b79', '#fde8f0', 'light'], valentines: ['#d94b79', '#fde8f0', 'light'], barbie: ['#e0559b', '#fde8f2', 'light'],
+  cyberpunk: ['#e040c0', '#0a0618', 'dark'], vaporwave: ['#d65fd0', '#1a0f2e', 'dark'], synthwave: ['#e0559b', '#140a24', 'dark'], lofi: ['#8b6fd6', '#1a1628', 'dark'],
+  sakura: ['#e07a96', '#fdf0f3', 'light'], blossom: ['#e07a96', '#fdf0f3', 'light'], desert: ['#c9971f', '#f6ead2', 'light'], jungle: ['#2f9e5b', '#0f2418', 'dark'],
+  rainforest: ['#2f9e5b', '#0f2418', 'dark'], vintage: ['#a86a3a', '#f3e9d6', 'light'], mountain: ['#4f86c6', '#e8eef4'], lake: ['#1e88a8', '#e2f0f4'],
+  tropical: ['#1fb2a6', '#fff4dc', 'light'], citrus: ['#e8a12c', '#fff6dc', 'light'], cottagecore: ['#7d9a7c', '#f4efe2', 'light'], academia: ['#7a2f3a', '#efe6d6', 'light'],
+  hacker: ['#22c55e', '#050a06', 'dark'], matrix: ['#22c55e', '#050a06', 'dark'], volcano: ['#e0352b', '#140806', 'dark'], fire: ['#e0352b', '#140806', 'dark'],
 };
 
 const DARK = /\b(dark|night|black|moody|midnight|deep|dim|gothic|oled|noir|shadowy)\b/;
@@ -50,7 +57,7 @@ const tune = (hex, dl = 0, ds = 0) => {
 function colorsIn(text) {
   const found = [];
   for (const m of text.matchAll(/#[0-9a-f]{6}\b/gi)) found.push(m[0].toLowerCase());
-  for (const word of text.split(/[^a-z]+/)) if (COLORS[word]) found.push(COLORS[word]);
+  for (const word of text.split(/[^a-z]+/)) if (Object.hasOwn(COLORS, word)) found.push(COLORS[word]);
   return [...new Set(found)];
 }
 
@@ -78,7 +85,7 @@ export function describeTheme(text, last = null) {
   if (DARK.test(t)) spec.base = 'dark';
   else if (LIGHT.test(t) && !/\blight(er)?\s+(blue|green|pink|purple)/.test(t)) spec.base = 'light';
   if (!mood && colors.length) {
-    const named = t.split(/[^a-z]+/).find(w => COLORS[w]);
+    const named = t.split(/[^a-z]+/).find(w => Object.hasOwn(COLORS, w));
     if (named) spec.name = `${named[0].toUpperCase()}${named.slice(1)}${spec.base === 'dark' ? ' night' : ''}`;
   }
   if (tweak === 'darker') { spec.base = 'dark'; spec.accent = tune(spec.accent, -0.06); }

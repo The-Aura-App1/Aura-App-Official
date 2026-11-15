@@ -93,23 +93,135 @@ export function subjectsOf(text) {
     if (!STOP.has(w) && w.length >= 2 && !TOPICS.some(t => fold(t.label) === w)) keywords.push(w);
   }
   const quoted = [...String(text).matchAll(/["“']([^"”']{2,40})["”']/g)].map(m => m[1].trim());
-  return { topics: [...topics], keywords: [...new Set([...quoted.map(q => q.toLowerCase()), ...keywords])].slice(0, 5) };
+  // feed keywords are at most 40 characters (feedPrefs drops longer ones)
+  return { topics: [...topics], keywords: [...new Set([...quoted.map(q => q.toLowerCase()), ...keywords])].filter(k => k.length <= 40).slice(0, 5) };
 }
 
 // ── Deciding what a message is about ──────────────────────────────────
 
 const INTENT_RULES = {
-  theme: /\b(theme|palette|colou?r scheme|colou?rs? for (the )?app|app('s)? (look|colou?rs?|font)|make (the )?app (look|feel)|custom theme|dark mode|light mode)\b/,
-  trends: /\b(trend|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what'?s hot|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least))\b/,
-  feed: /\b(my feed|feed|timeline|see more|see less|show me (more|less|fewer)|show (more|less|fewer)|more (posts|content|stuff) (about|on|from)|less (posts|content|stuff)|fewer|stop showing|not getting|not seeing|keep seeing|tune|recommend(ed|ations)?|reset my)\b/,
-  post: /\b(my (post|caption|draft)|this (post|caption|draft)|a post i'?m|caption|draft|feedback on|improve my|review my|help (me )?with (a|my|this) post|what topics? (should|for)|which topics?|hashtags? (should|for)|before i post)\b/,
+  theme: /\b(theme|palette|make it look like|make (it|everything) (look|feel)|(make|turn) (the |my )?app (more |less |all )?\w+|app to (look|feel) like|colou?r scheme|colou?rs? for (the )?app|app('s)? (look|colou?rs?|font)|make (the |my )?app (look|feel|be)|(change|switch|set) (the |my )?(app'?s? )?colou?rs?|colou?rs? to|the app be|custom theme|dark mode|light mode)\b/,
+  trends: /\b(trend|trends|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what('?s| is) (hot|big|popping|blowing up)|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least)|underrated|overlooked|ignored|niche|(people|everyone) (are )?(posting|talking) about|most (posted|talked)|doing well|doing badly|getting more (aura|attention|love)|(more|less) (aura|attention) than|which (one |is |are |team |topic )?(gets|getting|has|have) (more|less|the most|the least)|(tags?|hashtags?|topics?) (are |is )?(hot|big|popular|doing well|blowing up)|(is|are) (anyone|anybody|people) (posting|talking) about|how (popular|big) is|(most|least) active)\b/,
+  feed: /\b(my feed|feed|timeline|see more|see less|show me (more|less|fewer)|show (more|less|fewer)|more (posts|content|stuff|videos|photos) (about|on|from|of)|less (posts|content|stuff)|fewer|stop showing|not getting|not seeing|keep seeing|tune|recommended (posts|content)|(stop|quit) recommending|reset my|i only want to see|i (just )?want to see|i miss seeing|enough (with|of) (the )?|no more \w+)\b/,
+  post: /\b(my (post|caption|draft)|this (post|caption|draft)|a post (i'?m|about)|caption|draft|feedback on|improve my|review my|check my|help (me )?with (a|my|this) post|what topics? (should|for)|which topics?|hashtags? (should|for)|before i post|(suggest|give me|recommend) (some |good )?(hashtags|topics)|best time to post|when should i post|what time (should|to) post)\b/,
 };
 
-// Requests to write or generate content for someone: Angel only helps with posts
-const CREATE = /\b(write|generate|compose|come up with|think of|make me|create me|draft me|give me (a|an|some|my))\b.{0,30}\b(caption|post|tweet|poem|story|bio|comment|message|reply|essay|song|lyrics|joke|text|status|description|hashtags)\b/;
-const WRITE_FOR_ME = /\b(write (me|it|this|a|an|my)|rewrite|reword|rephrase|paraphrase|fix my (post|caption)|edit my (post|caption) for me)\b/;
+// ── Her limits ────────────────────────────────────────────────────────
+// Checked before anything else, on the message and on a de-disguised copy
+// ("wr1te me a c a p t i o n"), so a request can't slip past by spelling.
+
+// Things she might be asked to write. Angel only gives feedback on posts.
+const PIECE = '(captions?|tweets?|poems?|stor(?:y|ies)|bios?|comments?|messages?|repl(?:y|ies)|essays?|songs?|lyrics|jokes?|slogans?|taglines?|hooks?|titles?|quotes?|'
+  + 'usernames?|user ?names?|group names?|names?|paragraphs?|sentences?|copy|threads?|raps?|limericks?|haikus?|captions? ideas?)';
+const ADJ = '(?:(?:good|great|nice|cool|funny|cute|catchy|clever|creative|better|short|long|quick|witty|viral|perfect|sweet|edgy|aesthetic|new|different|random|unique|fun|deep|sad|happy|romantic|professional|instagram|tiktok|aura)\\s+){0,3}';
+// Writing verbs: anything after them that's writable (or a post) is a request to write
+const STRONG = '(write|wr1te|writ|compose|ghostwrite|generate|pen|type (?:out|up)|draft|spin up|whip up|cook up|dream up|make up|come up with|brainstorm|invent|craft (?:me )?(?:a|an|some|my))';
+// Softer verbs count only with an article ("suggest a caption", "give me 5 bios")
+const SOFT = '(suggest|give me|gimme|send me|show me|provide|create|make|need|produce|print|output|craft|get me|find me|type|drop|hand me)';
+const WRITE_REQUESTS = [
+  new RegExp(`\\b${STRONG}\\s+(?:(?:me|us|for me|a|an|the|some|my|this|that|another|\\d+|few|couple|of|ideas? for|examples? of)\\s+){0,4}${ADJ}(${PIECE.slice(1, -1)}|posts?|content|one|version|text|status(?:es)?|description|something)\\b`),
+  new RegExp(`\\b${SOFT}\\s+(?:me\\s+)?(?:a|an|some|\\d+|a few|a couple(?: of)?|any)\\s+${ADJ}${PIECE}\\b`),
+  new RegExp(`\\bthink of (?:a|an|some|\\d+)\\s+${ADJ}${PIECE}\\b`),
+  /\b(caption|post|bio|username|name|content|tweet|comment|reply|title|hook) (ideas?|suggestions?|examples?|samples?|inspo|inspiration|options|prompts?|templates?)\b/,
+  /\b(ideas?|examples?|samples?|inspiration|inspo|templates?) (for|of) (a |an |my |some |good |the )*(caption|post|bio|username|name|comment|reply|tweet|group name)s?\b/,
+  /\b(sample|example|template) (caption|post|bio|comment|reply)s?\b/,
+  /\b(good|best|funny|cute|catchy|cool|clever) (caption|bio|username|name|comment|reply)s? (for|about|on|to)\b/,
+  /\bwhat (should|would|could|can|do) (i|you) (caption|call|name|title|write|say|put)\b/,
+  /\bwhat (should|would|could) my (bio|caption|post|comment|reply|username|name) (say|be)\b/,
+  /\bhow (would|should|could) you (word|phrase|write|caption|say|put)\b/,
+  /\bsay something .{0,30}\b(post|caption|comment|share)\b/,
+  /\b(post|comment|reply|respond|answer)( something| this| it| that)? (for me|on my behalf)\b/,
+  /\b(?!show|find|get|recommend|pick|choose|surface|save|hide)\w+ (a |an |my |the |some )?(post|caption|bio|comment|reply|tweet)s? (for me|on my behalf)\b/,
+  /\b(make|create) me (a |an |some )?(post|caption|bio|comment|reply)s?\b/,
+  /\b(finish|continue|complete|shorten|lengthen|translate|proofread|polish|punch up|spice up|jazz up|summari[sz]e|paraphrase|reword|rephrase|rewrite|redo)\s+(it|this|that|this one|mine)\b/,
+  /\b(finish|continue|complete|extend|shorten|lengthen|translate|proofread|polish|punch up|spice up|jazz up|paraphrase|reword|rephrase|rewrite|rewriting|redo)\s+(my|the|this|a|an|our)?\s*(\w+\s+)?(caption|post|bio|sentence|draft|comment|reply|text|paragraph|line|wording)s?\b/,
+  /\b(fix|correct|improve|tweak|check) (the |my )?(grammar|spelling|wording|punctuation)\b/,
+  /\b(fix|edit|correct|change) (my|this|the) (post|caption|bio|draft|comment)s? (for me|so it|to make|to sound)\b/,
+  /\bmake (my |this |the |that )?(caption|post|bio|draft|comment|wording|writing|this|that)s? (sound |read |feel )?(funnier|shorter|longer|cooler|smarter|catchier|nicer|sadder|happier|wittier|edgier|more (funny|catchy|professional|engaging|viral|exciting|interesting|clever|poetic)|professional|viral|go viral)\b/,
+  /\bmake (this|that|it|my caption|my post) sound\b/,
+  /\b(add|put|insert|throw in|sprinkle) (some |a few |more |a )?(emojis?|jokes?|puns?|a hook|a call to action|rhymes?) (to|in|into|on)\b/,
+  /\b(improved|alternative|rewritten|polished|edited|better) (one|version|wording)\b/,
+  /\b(caption|text|post|content|bio|story|poem|joke|tweet) (generator|writer|bot|maker)\b/,
+  /\b(rewrite|rewriting|rewritten|reword|rephrase|paraphrase|ghostwrite)\b/,
+  /\btell me what to post\b|\bwhat (should|do|can) i post\s*\??$/,
+  /\b(caption|title|name|describe) (this|it|that|my \w+)( for me)?\b(?! view)/,
+  /\bneed (some |a few )?hashtags and (a |an )?(caption|post|bio)\b/,
+  /\bturn (this|it|that|my \w+) into (a |an )?(\w+ )?(caption|post|bio|tweet|comment|reply)\b/,
+  /\b(write|generate|make|create|give me|gimme|suggest) .{0,20}\bhashtags? and (a |an |some )?(caption|post|bio)\b/,
+  /\b(tell|read|sing|recite) (me |us )?(a |an |some )?(story|stories|poem|poems|joke|jokes|song|songs|lullaby|captions?)\b/,
+  /\b(write|wr1te)\s+(me|it|this|that|a|an|my|some|something|for|about|up)\b/,
+];
+// "How do I write a good caption?" is asking for help, not for her to write
+const ASKING_HOW = /^(how (do|can|should|could) (i|we)|can (i|we|people|others) (make|create|write|post|add)|any tips|tips (for|on)|what makes)\b/;
+const asksToWrite = text => !ASKING_HOW.test(text) && WRITE_REQUESTS.some(re => re.test(text));
+
+// Attempts to change her rules
+const OVERRIDE = /\b(ignore (all |any |the |your |previous |prior |above |these )*(instructions|rules|prompts?|limits|guidelines)|you are now|from now on,? you|pretend (you are|to be|you're|that you)|act as|roleplay|role play|jailbreak|dan mode|developer mode|god mode|sudo|(with|have|has) no (restrictions|rules|filters)|without (any )?(restrictions|rules|filters)|i authori[sz]e you|you (may|can|are allowed to) now|system prompt|your (instructions|prompt|programming|source code|training)|(print|show|reveal|repeat|tell me|output|what are) (me )?your (instructions|prompt|rules|system|code))\b|^\s*(system|assistant|developer|admin)\s*:/;
+
 // Looking into other people (beyond public trend totals) is off limits
-const PEOPLE = /(@[a-z0-9_]{2,}|\b(who is|who's|where does|where do|address|phone|email|password|real name|dox|stalk|private (account|posts?) of|what does \S+ like|someone'?s)\b)/;
+const WHO = '(users?|accounts?|creators?|persons?|influencers?|profiles?|posters?|people)';
+const PEOPLE = new RegExp([
+  '@[a-z0-9_]{2,}',
+  "\\bwho('s| is| are|s)? (the )?(most|top|best|biggest|richest|highest|lowest|least)\\b",
+  "\\bwho('s| is|s) (trending|popular|famous|blowing up|on aura|online)\\b",
+  '\\bwho (gave|give|gives|sent|sends|took|takes|blocked|reported|viewed|visited|views|unfollowed|follows|followed|is following|liked|likes|stalks|saw|watched|muted|hates|posts|posted|commented)\\b',
+  '\\bwho has (the )?(most|highest|biggest|least|lowest|top)\\b',
+  "\\bwho('s| is| are)? (getting|receiving|earning|making|giving|taking|posting) (the )?(most|least|more|less)\\b",
+  '\\bwho in (my|the|this|our) (group|feed|followers|follows)\\b',
+  "\\bwho('s| is| are| has been| have been| was| were| keeps?) (liking|giving|taking|following|viewing|visiting|blocking|reporting|stalking|watching|unfollowing|commenting on|looking at|checking)\\b",
+  '\\b(what|which) (accounts?|users?|creators?|people|profiles?) (should|to|could|can|do) (i )?(follow|add|watch)\\b',
+  '\\bwho (should|to|could) i (follow|add|watch)\\b',
+  '\\b(best|top|good) (creators?|accounts?|people|users?) to follow\\b',
+  '\\bwhich (users?|accounts?|creators?|persons?|influencers?|profiles?|posters?)\\b',
+  `\\btop (creators?|users?|accounts?|people|influencers?|posters?|profiles?)\\b`,
+  `\\b(most|least) (popular|followed|liked|active) ${WHO}\\b`,
+  `\\b${WHO} (are |is )?(trending|popular|blowing up|getting the most)\\b`,
+  '\\bhow much aura (does|do|did|has) (?!my\\b|i\\b|it\\b|a\\b|this\\b)',
+  '\\b(account|profile|posts?|activity|likes|followers|location|address|phone|email|password|ip( address)?) (of|from|for) (the |a )?(user|account|person|admin|moderator|someone|somebody|him|her|them)\\b',
+  '\\bfind (the )?(account|profile) of\\b',
+  '\\bis (my )?(ex|boss|friend|crush|girlfriend|boyfriend|mom|dad|teacher|coworker|sister|brother)\\b.{0,20}\\b(on|using) (aura|here|this)\\b',
+  '\\b(my )?followers (are )?into\\b',
+  '\\btell me about (the |a )?(user|account|person|member|creator)\\b',
+  '\\bshow me everything\\b',
+  '\\blist (all |every )?(the )?(private|users|accounts|members|people)\\b',
+  "\\b((?!(what|that|it|let|there|here|who|where|how)'s)\\w+'s|his|her|their|the admin'?s?) (email|phone|number|address|password|real name|ip|location|age)\\b",
+  '\\b(email|phone number|home address|password|real name|ip address) (of|for) (?!my\\b)',
+  '\\bwhere (does|do|did) (?!i\\b|you\\b|we\\b)\\w+ (live|work|go to school|stay)\\b',
+  '\\b(dox|doxx|stalk|track down)\\w*\\b',
+  "\\b(see|view|check|look at|look up|find|show me|access|read) (someone|somebody|other people|others)('s|s'|')?\\b",
+  '\\bprivate (account|posts?|profile) of\\b',
+  '\\bwhat does (?!aura\\b|the\\b|my\\b|this\\b|it\\b|spendable\\b|earned\\b)\\S+ like\\b',
+].join('|'));
+
+// Getting around Aura's rules, or into what isn't yours
+const ABUSE = new RegExp([
+  '\\b(hack|hacks|hacking|hacked|exploit|exploits|exploiting|cheat|cheats|cheating|botting|auto ?clicker|farm(ing)? aura|aura farm(ing)?|dupe|duplicate aura|circumvent|evade|ban evasion|ddos|scrape|scraping|phish|phishing|steal|stealing|crack)\\b',
+  '\\b(use|using|make|run|running|build|write|code|with|my|our) (a |an |some )?bots?\\b',
+  '\\b(win every|always win|never lose|guaranteed (win|to win)|rig|rigged|predict the (cards|dice|coin|deck))\\b',
+  '\\b(get|getting|go|work) (around|past) (a |the |my |their |his |her )?(block|ban|limit|limits|cap|caps|cooldown|rules?|filter|private)\\b',
+  '\\bbypass\\w*\\b',
+  '\\b(second|alt|fake|extra|burner) accounts?\\b|\\balts\\b|\\bmultiple accounts\\b|\\bsock ?puppets?\\b',
+  '\\bgive myself\\b',
+  "\\bsee (their|his|her|someone'?s|other people'?s|others'?|all|people'?s|everyone'?s) private\\b",
+  '\\b(how|can) (can )?i (see|view|read|access|look at|get into) (\\w+ )?private (posts|accounts?|profiles?|groups?)\\b',
+  '\\b(get into|log ?in ?to|access) (someone|somebody|another|their|his|her|other)\\b',
+  '\\bunban me\\b',
+  '\\b(more|past|over|beyond|above) (than )?(the |my )?(daily )?(limit|limits|cap|caps|cooldown)\\b',
+  '\\b(infinite|unlimited) aura\\b',
+].join('|'));
+
+// Undoes common disguises: digits for letters, spaced-out letters, extra symbols
+function undisguise(text) {
+  const leet = text.replace(/[013457@$!|]/g, c => ({ 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', '@': 'a', $: 's', '!': 'i', '|': 'l' }[c]));
+  // "w r i t e  a  c a p t i o n" → "write a caption" (double spaces separate words)
+  const joined = leet.replace(/(?:\b\p{L}\b ?){3,}/gu, run => run.split(/ {2,}/).map(w => w.replace(/ /g, '')).join(' ') + ' ');
+  return joined.replace(/[^\p{L}\p{N}' ]+/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Words that show a message is about Aura at all: the meaning-match
+// fallback only answers when one is present, so off-topic questions that
+// happen to sound similar to a known one are still refused
+const DOMAIN = /\b(aura|feed|timeline|posts?|posting|captions?|hashtags?|topics?|themes?|colou?rs?|fonts?|dark|light|app|profile|account|groups?|games?|poker|pool|connect 4|go fish|dice|coin flip|follow\w*|block\w*|report\w*|premium|ads?|wallet|angel|trend\w*|popular|notifications?|comments?|likes?|liked|shares?|settings|username|privacy|private|data|moments?|hearth|spotlight|rain|points|balance|rank|search|stake|bio|draft)\b/;
 
 const INTENT_EXAMPLES = {
   feed: ['I want to see more cooking posts', 'stop showing me so much politics', 'my feed is boring', 'I am not seeing posts about soccer', 'how do I get more photography in my feed'],
@@ -145,13 +257,39 @@ async function nearestIntent(text, embed) {
   }
 }
 
+// Whole words only ("cap" isn't in "capital", "coin" isn't in "bitcoin");
+// a plural still counts
+const keyPattern = new Map();
+const keyMatches = (text, key) => {
+  let re = keyPattern.get(key);
+  if (!re) {
+    re = new RegExp(`(^|[^\\p{L}\\p{N}])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(s|es|ing|ed)?($|[^\\p{L}\\p{N}])`, 'u');
+    keyPattern.set(key, re);
+  }
+  return re.test(text);
+};
 function knowledgeByKeys(text) {
   let best = null;
   for (const k of KNOWLEDGE) {
-    const hits = k.keys.filter(key => text.includes(key)).reduce((n, key) => n + key.length, 0);
+    const hits = k.keys.filter(key => keyMatches(text, key)).reduce((n, key) => n + key.length, 0);
     if (hits && (!best || hits > best.hits)) best = { k, hits };
   }
   return best?.k ?? null;
+}
+
+// "How do I…", "what is…", "can people…": questions about the app itself
+const QUESTION = /^(how|why|where|when|what('?s| is| are| does| do| happens| happened)|whats|can (i|people|someone|others|anyone|you)|do (i|you|people|others)|does|is (it|there|my)|are (my|you|people)|should i|will|could i|who (made|built|created|are)|explain)\b/;
+
+// Feed requests that don't say "feed": "more NFL less politics", "I like anime"
+function looksLikeFeed(text) {
+  if (INTENT_RULES.feed.test(text)) return true;
+  if (/^(more|less|fewer|no more|hide|mute|show me|give me more|i want more|i need more)\b/.test(text)) return true;
+  if (/\b(more|less|fewer) of\b|\b(give|show|get) me (more|less)\b|\bmore (\w+ )?(please|pls)\b/.test(text)) return true;
+  if (/\b(i (really )?(like|love|enjoy|adore|am into|'m into|am a fan of|'m a fan of|hate|can'?t stand)|(i'?m|im|i am) (\w+ )?(into|obsessed with|a fan of|interested in|hooked on)|i'?m (so )?(tired|sick) of|hide (posts|content|stuff|anything)|mute)\b/.test(text)) {
+    const { topics, keywords } = subjectsOf(text);
+    return topics.length + keywords.length > 0;
+  }
+  return false;
 }
 
 // ── The five jobs ─────────────────────────────────────────────────────
@@ -210,6 +348,22 @@ async function trendsReply(text, ctx) {
   if (!pool.length) {
     return { kind: 'trends', text: `None of the public posts I can see right now match ${[...topics.map(label), ...keywords].join(', ')}. Try a broader topic.` };
   }
+  // "NBA or NFL?", "chiefs vs eagles": compare exactly the things named
+  if (words.length >= 2 && has(text, /\b(or|vs|versus|compared?( to)?|than|against)\b/)) {
+    const scope = topics.length ? posts.filter(p => (p.tags ?? []).some(t => topics.includes(t))) : posts;
+    const rows = words.map((w, i) => {
+      const hits = scope.filter(p => textMatch(p, [w]) >= 0.7);
+      return { key: shown(keywords[i]), aura: hits.reduce((n, p) => n + Math.max(0, p.auraScore ?? 0), 0), posts: hits.length };
+    }).sort((a, b) => b.aura - a.aura);
+    if (rows.some(r => r.posts)) {
+      return {
+        kind: 'trends',
+        text: rows[0].aura > (rows[1]?.aura ?? 0) ? `${rows[0].key} is getting more aura right now.` : 'They\'re about even right now.',
+        items: [{ title: 'Side by side', rows: rows.map(r => `${r.key}: ${r.aura.toLocaleString()} aura across ${r.posts} post${r.posts === 1 ? '' : 's'}`) }],
+        note: 'This counts aura given to public posts in the feed\'s current pool (the most active posts right now), not every post, and never anyone\'s private activity.',
+      };
+    }
+  }
   // Group by hashtag (the clearest signal of a team, show or theme), else by topic
   const groups = new Map();
   for (const p of pool) {
@@ -252,9 +406,12 @@ function themeReply(text, ctx) {
   };
 }
 
+// The draft in a message: quoted, or after a colon or line break
+const draftOf = raw => (raw.match(/["“]([\s\S]{8,})["”]/)?.[1] ?? raw.split(/:\s|\n/).slice(1).join(' ')).trim();
+const hasDraft = raw => draftOf(raw).length >= 8;
+
 async function postReply(text, raw, ctx) {
-  // the draft: quoted, or after a colon or line break
-  const draft = (raw.match(/["“]([\s\S]{8,})["”]/)?.[1] ?? raw.split(/:\s|\n/).slice(1).join(' ')).trim();
+  const draft = draftOf(raw);
   if (has(text, /\b(best time|when should i post|what time)\b/)) {
     return { kind: 'post', text: 'I can\'t tell you the best time to post: Aura doesn\'t track when people look at the app, by design. Posts stay in the trending pool by how much aura they get, so a strong post does well whenever you share it.' };
   }
@@ -333,28 +490,49 @@ export async function respond(message, ctx = {}) {
   }
   if (/^(thanks|thank you|thx|ty|cheers|appreciate it)\b/.test(text)) return { kind: 'hello', text: 'Happy to help!' };
 
-  // Limits first: a theme request may say "make", so it's checked before writing
-  if (!INTENT_RULES.theme.test(text) && (CREATE.test(text) || WRITE_FOR_ME.test(text))) {
-    return refusal('I don\'t write posts for people, but paste your draft and I\'ll give you feedback on it.');
+  if (/^(help|help me|help please|what now|options|menu|\?+)$/.test(text)) return { kind: 'hint', text: WHAT_I_DO };
+
+  // Her limits come first, whatever else the message asks for. Each is
+  // checked on the message as typed and with disguises undone.
+  const plain = undisguise(text);
+  const either = re => re.test(text) || re.test(plain);
+  if (either(OVERRIDE)) return refusal(`My rules don't change. ${WHAT_I_DO}`);
+  if (asksToWrite(text) || asksToWrite(plain)) {
+    return refusal('I don\'t write or rewrite things for people; your posts should sound like you. Paste your draft after a colon and I\'ll give you feedback on it.');
   }
-  if (PEOPLE.test(text)) return refusal('I don\'t look into other people\'s accounts or activity.');
+  if (either(PEOPLE)) return refusal('I don\'t look into other people\'s accounts or activity, or rank people. I can show which hashtags and topics are getting attention.');
+  if (either(ABUSE)) return refusal('I can\'t help with getting around Aura\'s rules or into anything that isn\'t yours.');
 
   // Follow-ups to a theme she just made ("darker", "use a serif font")
   if (ctx.lastTheme && /\b(darker|lighter|brighter|muted|vivid|softer|bolder|warmer|cooler|font|serif|mono|sans|accent|background)\b/.test(text)) {
     return themeReply(text, ctx);
   }
 
-  for (const [intent, rule] of Object.entries(INTENT_RULES)) {
-    if (!rule.test(text)) continue;
-    if (intent === 'theme') return themeReply(text, ctx);
-    if (intent === 'trends') return trendsReply(text, ctx);
-    if (intent === 'feed') return feedReply(text, ctx);
-    if (intent === 'post') return postReply(text, raw, ctx);
+  // A draft to look at is the clearest sign of all
+  if (INTENT_RULES.post.test(text) && (hasDraft(raw) || /\b(feedback|review|check|look at|rate)\b/.test(text))) return postReply(text, raw, ctx);
+  // "How do I…" questions and problems ("my post is gone") go to the guide first
+  const problem = /\b(gone|disappeared|vanished|missing|removed|hidden|glitch\w*|bug|broken|not working|crash\w*|won'?t load)\b/.test(text);
+  if ((QUESTION.test(text) || problem) && !INTENT_RULES.theme.test(text) && !INTENT_RULES.trends.test(text)) {
+    const known = knowledgeByKeys(text);
+    if (known) return appReply(known);
   }
+
+  // Predictions and outside events aren't Aura data
+  if (/\bwho (will|is going to|gonna) win\b|\b(tonight'?s|tomorrow'?s) game\b|\b(score|odds|spread) (of|for|in) the\b/.test(text)) return refusal();
+
+  if (INTENT_RULES.theme.test(text)) return themeReply(text, ctx);
+  // Colors or a font for the app, without saying "theme" ("spring colors with a serif font")
+  if (/\b(colou?rs|colou?r|fonts?|serif|sans|mono)\b/.test(text) && !/\b(post|posts|caption|captions|text post)\b/.test(text) && describeTheme(text)) return themeReply(text, ctx);
+  if (INTENT_RULES.trends.test(text)) return trendsReply(text, ctx);
+  if (looksLikeFeed(text)) return feedReply(text, ctx);
+  if (INTENT_RULES.post.test(text)) return postReply(text, raw, ctx);
   const known = knowledgeByKeys(text);
   if (known) return appReply(known);
 
-  // No clear words: match by meaning, on the device
+  // No clear words: match by meaning, on the device, but only for messages
+  // that are about Aura at all (so "capital of France" can't land on a
+  // similar-sounding app answer)
+  if (!DOMAIN.test(text)) return refusal();
   const near = await nearestIntent(raw, ctx.embed);
   if (near?.intent === 'app') return appReply(near.k);
   if (near?.intent === 'feed') return feedReply(text, ctx);
