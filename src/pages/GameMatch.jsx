@@ -7,7 +7,8 @@ import Avatar from '../components/common/Avatar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { BOARDS } from '../components/games/Boards';
 import { StakeBadge } from '../components/games/GroupGames';
-import { GAME_BY_ID, clock } from '../components/games/gameInfo';
+import { GAME_BY_ID, clock, gameTile } from '../components/games/gameInfo';
+import '../components/games/games.css';
 
 // How often to check for the other player's move. Faster while waiting on
 // them; slower on your own turn (only a resign or timeout claim can land then).
@@ -36,6 +37,23 @@ function resultText(match, seat, players) {
   if (seat === winnerSeat) return `You won${how}!${pot ? ` +${pot} aura` : ''}`;
   if (seat !== null) return `You lost${how}.${match.stake ? ` −${match.stake} aura` : ''}`;
   return `${players[winnerSeat]?.displayName ?? 'Someone'} won${how}.`;
+}
+
+// A short shower of confetti in the theme's colors when you win
+const CONFETTI = Array.from({ length: 26 }, (_, i) => ({
+  left: `${(i * 37) % 100}%`, delay: `${(i % 7) * 0.12}s`, drift: `${((i * 53) % 80) - 40}px`,
+  spin: `${360 + ((i * 97) % 540)}deg`, time: `${2 + (i % 5) * 0.25}s`,
+  color: ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', '#fcd34d', '#ffffff'][i % 5],
+}));
+function Confetti() {
+  return (
+    <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+      {CONFETTI.map((c, i) => (
+        <span key={i} className="game-confetti"
+          style={{ left: c.left, background: c.color, '--delay': c.delay, '--drift': c.drift, '--spin': c.spin, '--fall-time': c.time }} />
+      ))}
+    </div>
+  );
 }
 
 export default function GameMatch() {
@@ -113,6 +131,7 @@ export default function GameMatch() {
   const canClaim = match.status === 'active' && seat !== null && !myTurn && left !== null && left <= 0;
   const invitedMe = match.status === 'open' && match.invited?.userId === user?.userId;
   const canAccept = match.status === 'open' && seat === null && (!match.invited || invitedMe);
+  const won = match.status === 'finished' && seat !== null && match.winnerUserId === user?.userId;
 
   return (
     <div className="flex flex-col gap-4 pb-8 max-w-xl mx-auto w-full">
@@ -121,10 +140,11 @@ export default function GameMatch() {
         <ArrowLeft size={16} /> Back to the group
       </Link>
 
-      <section className="card flex flex-col gap-3">
+      <section className="card relative overflow-hidden flex flex-col gap-3">
+        {won && <Confetti />}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-aura-500/15 flex items-center justify-center">
-            <Icon size={20} className="text-aura-400" aria-hidden="true" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={gameTile(match.game)}>
+            <Icon size={20} className="text-white" aria-hidden="true" />
           </div>
           <h1 className="text-lg font-bold text-[var(--text-primary)] flex-1">{info?.name ?? match.game}</h1>
           <StakeBadge stake={match.stake} />
@@ -164,7 +184,7 @@ export default function GameMatch() {
         )}
         {(match.status === 'finished' || match.status === 'cancelled' || match.status === 'declined') && (
           <p className="flex items-center justify-center gap-2 text-base font-bold text-[var(--text-primary)]" role="status">
-            {match.status === 'finished' && <Trophy size={18} className="text-amber-400" aria-hidden="true" />}
+            {match.status === 'finished' && <Trophy size={won ? 22 : 18} className={`text-amber-400 ${won ? 'game-trophy' : ''}`} aria-hidden="true" />}
             {resultText(match, seat, players)}
           </p>
         )}
@@ -203,7 +223,7 @@ export default function GameMatch() {
       )}
 
       {view && Board && (
-        <section className="card" aria-label="Game board">
+        <section className="card p-3 sm:p-4" aria-label="Game board">
           <Board view={view} seat={seat} players={players} busy={busy} myTurn={myTurn}
             move={m => run(() => api.gameMove(match.matchId, m))} />
         </section>

@@ -217,13 +217,32 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
             <stop offset="35%" stopColor="#fff" stopOpacity="0" />
             <stop offset="100%" stopColor="#000" stopOpacity="0.28" />
           </radialGradient>
+          <linearGradient id={`${clip}-rail`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4a2a3f" />
+            <stop offset="50%" stopColor="#2b1830" />
+            <stop offset="100%" stopColor="#1a0f22" />
+          </linearGradient>
+          <linearGradient id={`${clip}-cue`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#f5f0e6" />
+            <stop offset="3%" stopColor="#3b82f6" />
+            <stop offset="5%" stopColor="#f3e7cf" />
+            <stop offset="62%" stopColor="#d9b98a" />
+            <stop offset="64%" stopColor="#1f1a17" />
+            <stop offset="70%" stopColor="var(--brand-2)" />
+            <stop offset="72%" stopColor="#1f1a17" />
+            <stop offset="100%" stopColor="#3a2418" />
+          </linearGradient>
+          <radialGradient id={`${clip}-pocket`}>
+            <stop offset="55%" stopColor="#020205" />
+            <stop offset="100%" stopColor="#1d1426" />
+          </radialGradient>
           <radialGradient id={`${clip}-felt`} cx="50%" cy="50%" r="65%">
             <stop offset="0%" stopColor="#1b7a70" />
             <stop offset="100%" stopColor="#0d4f4a" />
           </radialGradient>
         </defs>
-        <rect x={-RAIL} y={-RAIL} width={W + 2 * RAIL} height={H + 2 * RAIL} rx={44} fill="#2b2040" />
-        <rect x={-RAIL + 10} y={-RAIL + 10} width={W + 2 * RAIL - 20} height={H + 2 * RAIL - 20} rx={36} fill="none" stroke="#4a3a66" strokeWidth={4} />
+        <rect x={-RAIL} y={-RAIL} width={W + 2 * RAIL} height={H + 2 * RAIL} rx={44} fill={`url(#${clip}-rail)`} />
+        <rect x={-RAIL + 10} y={-RAIL + 10} width={W + 2 * RAIL - 20} height={H + 2 * RAIL - 20} rx={36} fill="none" stroke="var(--brand-2)" strokeOpacity="0.55" strokeWidth={4} />
         <rect x={-14} y={-14} width={W + 28} height={H + 28} fill="#0b403c" />
         <rect x={0} y={0} width={W} height={H} fill={`url(#${clip}-felt)`} />
         {[0.25, 0.5, 0.75].map(f => (
@@ -238,7 +257,12 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
         ))}
         <line x1={0} y1={HEAD_LINE} x2={W} y2={HEAD_LINE} stroke="#fff" strokeOpacity="0.15" strokeWidth={3} />
         <circle cx={W / 2} cy={500} r={5} fill="#fff" fillOpacity="0.25" />
-        {POCKETS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === 2 || i === 3 ? 40 : 46} fill="#05060a" />)}
+        {POCKETS.map(([x, y], i) => (
+          <g key={i}>
+            <circle cx={x} cy={y} r={(i === 2 || i === 3 ? 40 : 46) + 7} fill="#120a18" />
+            <circle cx={x} cy={y} r={i === 2 || i === 3 ? 40 : 46} fill={`url(#${clip}-pocket)`} />
+          </g>
+        ))}
 
         {path && (
           <g pointerEvents="none">
@@ -257,6 +281,12 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
           </g>
         )}
         {shown.map((b, n) => (b ? <Ball key={n} n={n} x={b[0]} y={b[1]} clip={clip} /> : null))}
+        {path && (
+          <g pointerEvents="none" transform={`translate(${cue[0]} ${cue[1]}) rotate(${(angle * 180) / Math.PI + 180})`}>
+            <rect x={R + 14 + power * 110} y={-8} width={1150} height={16} rx={8} fill={`url(#${clip}-cue)`} opacity="0.95" />
+            <rect x={R + 14 + power * 110} y={-8} width={1150} height={16} rx={8} fill="none" stroke="#000" strokeOpacity="0.35" strokeWidth={2} />
+          </g>
+        )}
         {placing && myTurn && view.kitchen && (
           <rect x={0} y={HEAD_LINE} width={W} height={H - HEAD_LINE} fill="#fff" fillOpacity="0.06" pointerEvents="none" />
         )}

@@ -281,15 +281,41 @@ export function compareScores(a, b) {
 // The best five of up to seven cards: { score, name, cards }
 export function bestHand(cards) {
   let best = null;
-  const n = cards.length;
-  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
-    const five = cards.filter((_, i) => i !== a && i !== b);
-    if (five.length !== 5) continue;
-    const score = score5(five);
-    if (!best || compareScores(score, best.score) > 0) best = { score, cards: five };
-  }
-  if (n === 5) best = { score: score5(cards), cards };
+  const pick = (from, chosen) => {   // every way to choose five of the cards
+    if (chosen.length === 5) {
+      const score = score5(chosen);
+      if (!best || compareScores(score, best.score) > 0) best = { score, cards: chosen };
+      return;
+    }
+    for (let i = from; i <= cards.length - (5 - chosen.length); i++) pick(i + 1, [...chosen, cards[i]]);
+  };
+  pick(0, []);
   return { ...best, name: HAND_NAMES[best.score[0]] };
+}
+
+// A spoken description of a hand: "Pair of kings", "Two pair, jacks and fours"
+const VALUE_NAMES = [, , 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace'];
+const valueName = v => VALUE_NAMES[v];
+const valuePlural = v => (v === 6 ? 'sixes' : `${valueName(v)}s`);
+const cap = t => t[0].toUpperCase() + t.slice(1);
+
+export function describeHand(cards) {
+  if (cards.length < 5) {   // before the flop: just the two hole cards
+    const v = cards.map(c => RANKS.indexOf(c[0]) + 2).sort((a, b) => b - a);
+    return v[0] === v[1] ? `Pair of ${valuePlural(v[0])}` : `${cap(valueName(v[0]))} high`;
+  }
+  const [cat, a, b] = bestHand(cards).score;
+  switch (cat) {
+    case 8: return a === 14 ? 'Royal flush' : `Straight flush, ${valueName(a)} high`;
+    case 7: return `Four ${valuePlural(a)}`;
+    case 6: return `Full house, ${valuePlural(a)} over ${valuePlural(b)}`;
+    case 5: return `Flush, ${valueName(a)} high`;
+    case 4: return `Straight, ${valueName(a)} high`;
+    case 3: return `Three ${valuePlural(a)}`;
+    case 2: return `Two pair, ${valuePlural(a)} and ${valuePlural(b)}`;
+    case 1: return `Pair of ${valuePlural(a)}`;
+    default: return `${cap(valueName(a))} high`;
+  }
 }
 
 function pokerStartHand(s, rand) {
@@ -359,7 +385,7 @@ function pokerShowdown(s, rand) {
   const winners = cmp === 0 ? [0, 1] : [cmp > 0 ? 0 : 1];
   if (winners.length === 2) log(s, null, `Split pot with ${hands[0].name.toLowerCase()}.`);
   else log(s, winners[0], `won ${s.pot + s.bets[0] + s.bets[1]} with ${hands[winners[0]].name.toLowerCase()}.`);
-  return pokerAward(s, winners, rand, { showdown: true, hole: s.hole, handNames: hands.map(h => h.name) });
+  return pokerAward(s, winners, rand, { showdown: true, hole: s.hole, handNames: hands.map(h => h.name), described: s.hole.map(h => describeHand([...h, ...s.board])) });
 }
 
 // Moves the hand on once a betting round is settled
@@ -449,6 +475,7 @@ const poker = {
       chips: state.chips, bets: state.bets, pot: state.pot, board: state.board,
       street: state.street, button: state.button, blinds: state.blinds, hand: state.hand,
       hole: mine && !state.over ? state.hole[seat] : [],
+      made: mine && !state.over ? describeHand([...state.hole[seat], ...state.board]) : null,
       last: state.last,
       options: mine && state.turn === seat ? pokerOptions(state, seat) : null,
       turn: state.turn, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw, log: state.log,

@@ -4,7 +4,7 @@ import { Swords, Sparkles, X } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
-import { GAME_LIST, GAME_BY_ID, STAKE_CAP, statusText } from './gameInfo';
+import { GAME_LIST, GAME_BY_ID, STAKE_CAP, statusText, gameTile } from './gameInfo';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
 const REFRESH_MS = 10000;
@@ -59,7 +59,9 @@ function ChallengeForm({ groupId, onClose }) {
               ${game === id ? 'border-aura-500/60 bg-aura-500/10' : 'border-[var(--border)] hover:border-aura-500/30'}`}>
               <input type="radio" name="game" value={id} checked={game === id} onChange={() => setGame(id)} className="sr-only" />
               <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-                <Icon size={16} className="text-aura-400" aria-hidden="true" />{name}
+                <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={gameTile(id)}>
+                  <Icon size={15} className="text-white" aria-hidden="true" />
+                </span>{name}
               </span>
               <span className="text-[11px] leading-snug text-[var(--text-muted)]">{blurb}</span>
               <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{kind}</span>
@@ -128,8 +130,8 @@ function GameRow({ match, viewerId, onAccept, busy }) {
   const highlight = status === 'Your turn' || status === 'Challenged you';
   return (
     <li className="card relative flex items-center gap-3 p-3 hover:border-aura-500/30">
-      <div className="w-10 h-10 rounded-xl bg-aura-500/15 flex items-center justify-center flex-shrink-0">
-        <Icon size={20} className="text-aura-400" aria-hidden="true" />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={gameTile(match.game)}>
+        <Icon size={20} className="text-white" aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
         <Link to={`/games/${encodeURIComponent(match.matchId)}`}

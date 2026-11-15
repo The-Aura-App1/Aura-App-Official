@@ -155,4 +155,18 @@ const cmp = (a, b) => R.compareScores(bestHand(a).score, bestHand(b).score);
 assert(cmp(['As', 'Ad', '5c', '6d', '9h', 'Jc', '2s'], ['Ks', 'Kd', '5c', '6d', '9h', 'Jc', '2s']) > 0, 'aces beat kings');
 assert(cmp(['As', 'Ad', 'Kc', '6d', '9h', 'Jc', '2s'], ['Ah', 'Ac', 'Qc', '6d', '9h', 'Jc', '2s']) > 0, 'kicker');
 assert(cmp(['Ah', '2s', '3d', '4c', '5h', 'Kd', 'Qc'], ['6h', '2s', '3d', '4c', '5h', 'Kd', 'Qc']) < 0, 'wheel loses to six-high');
+// Spoken hand descriptions, from two cards (pre-flop) to seven
+const say = cards => R.describeHand(cards);
+assert(say(['As', 'Ad']) === 'Pair of aces', 'pocket pair');
+assert(say(['Ks', '7d']) === 'King high', 'two cards high');
+assert(say(['Kh', 'Kd', '4s', '4c', '9h']) === 'Two pair, kings and fours', 'two pair on the flop');
+assert(say(['Kh', 'Kd', '4s', '4c', '9h', '6s']) === 'Two pair, kings and fours', 'six cards (the turn)');
+assert(say(['5h', '5d', '5s', 'Jc', 'Jh', '2c', '3d']) === 'Full house, fives over jacks', 'boat');
+assert(say(['As', 'Ks', 'Qs', 'Js', 'Ts', '2h', '3d']) === 'Royal flush', 'royal flush');
+assert(say(['2h', '3d', '4h', '5c', 'Ah', 'Kc', 'Kd']) === 'Straight, five high', 'wheel');
+assert(say(['6h', '6d', '9s', '2c', 'Jh', 'Qc']) === 'Pair of sixes', 'sixes');
+// a player's view says what they hold; a spectator's doesn't
+const pv = viewFor('poker', pk, 0);
+assert(typeof pv.made === 'string' && pv.made.length > 0, 'player sees their hand');
+assert(viewFor('poker', pk, null).made === null, 'spectator sees no hand');
 console.log('rule checks passed');

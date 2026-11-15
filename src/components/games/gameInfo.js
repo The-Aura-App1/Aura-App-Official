@@ -3,15 +3,21 @@ import { CircleDot, Spade, Fish, Disc, Dice5, Coins } from 'lucide-react';
 // The group games, in the order they're offered (skill games first). The ids
 // match GAMES in backend/lambdas/aura-aura/gameRules.mjs (a test keeps them equal).
 export const GAME_LIST = [
-  { id: 'connect4', name: 'Connect 4',    Icon: CircleDot, kind: 'Skill', blurb: 'Drop discs and line up four in a row.' },
-  { id: 'pool',     name: '8-Ball Pool',  Icon: Disc,      kind: 'Skill', blurb: 'Aim, set your power, sink your group, then the 8.' },
-  { id: 'poker',    name: 'Poker',        Icon: Spade,     kind: 'Skill', blurb: 'Heads-up Texas Hold\'em. Win every chip.' },
-  { id: 'gofish',   name: 'Go Fish',      Icon: Fish,      kind: 'Skill', blurb: 'Ask for ranks and collect books of four.' },
-  { id: 'dice',     name: 'Dice Duel',    Icon: Dice5,     kind: 'Luck',  blurb: 'Two dice each, best of three rounds.' },
-  { id: 'coinflip', name: 'Flip a Coin',  Icon: Coins,     kind: 'Luck',  blurb: 'Call it. One flip settles it.' },
+  { id: 'connect4', name: 'Connect 4',    Icon: CircleDot, kind: 'Skill', blurb: 'Drop discs and line up four in a row.', tint: ['#7c3aed', '#312e81'] },
+  { id: 'pool',     name: '8-Ball Pool',  Icon: Disc,      kind: 'Skill', blurb: 'Aim, set your power, sink your group, then the 8.', tint: ['#0f766e', '#134e4a'] },
+  { id: 'poker',    name: 'Poker',        Icon: Spade,     kind: 'Skill', blurb: 'Heads-up Texas Hold\'em. Win every chip.', tint: ['#047857', '#3b1f3f'] },
+  { id: 'gofish',   name: 'Go Fish',      Icon: Fish,      kind: 'Skill', blurb: 'Ask for ranks and collect books of four.', tint: ['#0369a1', '#0c4a6e'] },
+  { id: 'dice',     name: 'Dice Duel',    Icon: Dice5,     kind: 'Luck',  blurb: 'Two dice each, best of three rounds.', tint: ['#be123c', '#4c0519'] },
+  { id: 'coinflip', name: 'Flip a Coin',  Icon: Coins,     kind: 'Luck',  blurb: 'Call it. One flip settles it.', tint: ['#d97706', '#78350f'] },
 ];
 
 export const GAME_BY_ID = Object.fromEntries(GAME_LIST.map(g => [g.id, g]));
+
+// The tile behind a game's icon, in the colors of its table
+export function gameTile(game) {
+  const [a, b] = GAME_BY_ID[game]?.tint ?? ['var(--brand-1)', 'var(--brand-3)'];
+  return { background: `linear-gradient(140deg, ${a}, ${b})`, boxShadow: `0 6px 16px -8px ${a}` };
+}
 
 // Most aura one game can be for (and per day in stakes); keep in sync with STAKE_CAP in games.mjs
 export const STAKE_CAP = { regular: 500, premium: 2000 };
