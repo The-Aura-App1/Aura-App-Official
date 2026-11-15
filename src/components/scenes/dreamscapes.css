@@ -379,16 +379,20 @@
 
 /* A whale crossing far off every couple of minutes */
 .aura-abyss-whale {
-  top: 30vh; left: 0; width: 34vw; min-width: 260px; aspect-ratio: 3;
+  top: 24vh; left: 0; width: 40vw; min-width: 300px; aspect-ratio: 2.6;
   opacity: 0; animation: abyssWhale 120s linear infinite; animation-delay: -30s;
-  filter: blur(1.5px);
+  filter: blur(0.6px);
 }
 @keyframes abyssWhale {
   0%   { transform: translateX(-40vw) translateY(0); opacity: 0; }
-  4%   { opacity: 0.75; }
-  50%  { transform: translateX(110vw) translateY(-4vh); opacity: 0.75; }
+  4%   { opacity: 0.85; }
+  50%  { transform: translateX(110vw) translateY(-4vh); opacity: 0.85; }
   52%, 100% { transform: translateX(110vw) translateY(-4vh); opacity: 0; }
 }
+
+/* Something glints inside the wreck's broken hull */
+.aura-wreck-glint { animation: wreckGlint 5s ease-in-out infinite; }
+@keyframes wreckGlint { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.9; } }
 
 /* Behind the signed-in app, the scenery steps back a little */
 .aura-app-sky .aura-nl-sky-lights { opacity: 0.85; }
@@ -435,13 +439,11 @@
    moving parts are nested inside the groups that place them, since a CSS
    transform replaces an SVG transform attribute on the same element. */
 .aura-dune-caravan { animation: duneCaravan 150s linear infinite; animation-delay: -55s; }
-@keyframes duneCaravan { from { transform: translateX(-420px); } to { transform: translateX(2700px); } }
+@keyframes duneCaravan { from { transform: translateX(-300px); } to { transform: translateX(1900px); } }
 .aura-camel-walk { animation: camelRoll 1.1s ease-in-out infinite; }
 @keyframes camelRoll { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-1.3px) rotate(-0.8deg); } }
 .aura-camel-leg { transform-box: fill-box; transform-origin: 50% 0; animation: camelLeg 1.1s ease-in-out infinite alternate; }
 @keyframes camelLeg { from { transform: rotate(16deg); } to { transform: rotate(-16deg); } }
-.aura-camel-scarf { transform-box: fill-box; transform-origin: 100% 50%; animation: camelScarf 0.9s ease-in-out infinite alternate; }
-@keyframes camelScarf { from { transform: scaleX(0.8) rotate(4deg); } to { transform: scaleX(1.1) rotate(-6deg); } }
 
 /* High, wind-combed streaks of cloud lit pink from below */
 .aura-dune-streaks {

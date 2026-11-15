@@ -107,8 +107,17 @@ const SHORE_LINE = ridgePoints(33, { y: SHORE, amp: 10, rough: 0.6, passes: 6 })
 const NEAR_BANK = ridgePoints(45, { y: 526, amp: 40, rough: 0.55, anchors: [[300, 492], [800, 540], [1300, 498]] });
 const NEAR_LEFT = spruceRow(57, { x0: -40, x1: 620, base: 540, minH: 80, maxH: 230, step: [16, 26], gaps: [[380, 470]] });
 const NEAR_RIGHT = spruceRow(63, { x0: 1040, x1: 1660, base: 532, minH: 90, maxH: 250, step: [16, 26] });
+// The snowbank's height at x, so the tent and fire stand on it, not the ice
+function bankAt(x) {
+  const i = NEAR_BANK.findIndex(([px]) => px >= x);
+  if (i <= 0) return NEAR_BANK[0][1];
+  const [[x0, y0], [x1, y1]] = [NEAR_BANK[i - 1], NEAR_BANK[i]];
+  return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+}
 const TENT_X = 900;
-const TENT_Y = 520;
+// the lowest bank under the tent's footprint, plus a little so it sits in the snow
+const TENT_Y = Math.max(...[-46, -20, 0, 30].map(dx => bankAt(TENT_X + dx))) + 8;
+const FIRE_Y = TENT_Y + 4; // the fire burns on its logs, beside the tent
 
 const SPARKS = Array.from({ length: 7 }, (_, i) => ({ dx: ((i * 7) % 9) - 4, delay: i * 0.45, dur: 2.4 + (i % 3) * 0.6 }));
 
@@ -216,7 +225,7 @@ function Land({ page }) {
             <stop offset="100%" stopColor="#ff8a3d" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <g transform={`translate(${TENT_X + 54} ${TENT_Y + 2})`}>
+        <g transform={`translate(${TENT_X + 54} ${FIRE_Y})`}>
           <circle className="aura-nl-fireglow" r="30" fill="url(#nl-flame-glow)" />
           <path className="aura-nl-flame" d="M 0 2 C -7 -6 -2 -14 0 -22 C 3 -14 9 -7 0 2 Z" fill="#ffad45" />
           <path className="aura-nl-flame aura-nl-flame-2" d="M 0 2 C -3 -4 -1 -9 0 -13 C 2 -9 4 -4 0 2 Z" fill="#fff1bf" />

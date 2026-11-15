@@ -87,7 +87,134 @@ const SCHOOL = (() => {
 })();
 
 const MANTA = 'M 46 0 C 36 -8 14 -52 -26 -76 C -14 -44 -22 -16 -38 -6 L -100 -1 L -100 1 L -38 6 C -22 16 -14 44 -26 76 C 14 52 36 8 46 0 Z M 46 -6 L 54 -10 L 50 -2 Z M 46 6 L 54 10 L 50 2 Z';
-const WHALE = 'M 0 0 C 30 -24 110 -30 190 -20 C 240 -14 280 -2 310 10 C 330 4 346 -10 362 -14 C 356 0 352 8 350 16 C 356 26 362 36 370 44 C 352 40 336 30 320 22 C 290 30 240 34 190 32 C 140 30 90 26 50 20 C 26 16 8 10 0 0 Z M 120 24 C 112 46 94 66 70 78 C 86 60 96 42 100 26 Z';
+// A humpback, swimming right: about 420 long, centred on y 0. Dark back
+// lit from above, pale throat with grooves, the long knobbly flippers that
+// give humpbacks their name, and flukes that beat slowly.
+const WHALE_BODY = 'M 70 -6 C 120 -22 200 -40 290 -40 C 340 -40 382 -32 404 -16 C 416 -8 421 2 415 10 C 398 26 342 40 280 42 C 200 44 122 22 70 6 Z';
+const WHALE_BELLY = 'M 415 10 C 398 26 342 40 280 42 C 200 44 122 22 70 6 L 70 2 C 140 10 220 16 290 14 C 340 12 380 8 415 4 Z';
+const WHALE_GROOVES = Array.from({ length: 6 }, (_, k) =>
+  `M ${404 - k * 5} ${12 + k * 3.4} C ${360 - k * 4} ${26 + k * 2.4} ${300 - k * 6} ${34 + k * 1.6} ${236 - k * 10} ${34 + k * 0.6}`).join(' ');
+// the flukes seen at an angle: the near lobe up, the far one smaller and darker below
+const WHALE_TAIL = 'M 76 -6 C 56 -4 44 -2 34 -1 C 22 -8 6 -26 -16 -36 C -10 -24 -8 -12 -12 -3 L -4 0 L 34 1 C 44 2 56 4 76 6 Z';
+const WHALE_TAIL_FAR = 'M 34 0 C 22 6 8 16 -6 22 C -4 15 -5 8 -8 2 L -4 0 Z';
+const WHALE_FLIPPER = 'M 306 18 C 302 30 296 40 288 50 C 284 54 282 58 278 62 C 272 70 264 76 256 84 C 250 90 242 96 234 102 C 228 106 222 104 226 98 C 244 80 262 58 276 36 C 280 28 284 22 286 16 Z';
+const WHALE_KNOBS = [[402, -18], [394, -23], [384, -27], [408, -10], [396, -12]];
+
+function Whale() {
+  return (
+    <svg viewBox="-30 -60 470 180" className="w-full h-full overflow-visible">
+      <defs>
+        <linearGradient id="whale-back" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2f6a8f" />
+          <stop offset="45%" stopColor="#163d5c" />
+          <stop offset="100%" stopColor="#0d2a44" />
+        </linearGradient>
+        <linearGradient id="whale-belly" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6d9fba" />
+          <stop offset="100%" stopColor="#3c6d8a" />
+        </linearGradient>
+        <linearGradient id="whale-fin" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#7fb0c8" />
+          <stop offset="100%" stopColor="#2e5f7e" />
+        </linearGradient>
+        <clipPath id="whale-clip"><path d={WHALE_BODY} /></clipPath>
+      </defs>
+      {/* the far flipper, behind the body */}
+      <path d={WHALE_FLIPPER} fill="#173f5c" transform="translate(-22 -6) rotate(-10 296 18)" />
+      <g>
+        <animateTransform attributeName="transform" type="rotate" values="-6 78 0; 6 78 0; -6 78 0" dur="5s" repeatCount="indefinite" />
+        <path d={WHALE_TAIL_FAR} fill="#143a58" />
+        <path d={WHALE_TAIL} fill="#1d4b6d" />
+        <path d="M -16 -36 C 6 -26 22 -8 34 -1" stroke="#5f97b5" strokeOpacity="0.5" strokeWidth="1.2" fill="none" />
+      </g>
+      <path d={WHALE_BODY} fill="url(#whale-back)" />
+      <g clipPath="url(#whale-clip)">
+        <path d={WHALE_BELLY} fill="url(#whale-belly)" />
+        <path d={WHALE_GROOVES} stroke="#2a5674" strokeOpacity="0.7" strokeWidth="1" fill="none" />
+        {/* dappled light from the surface on its back */}
+        <ellipse cx="260" cy="-38" rx="120" ry="10" fill="#8fd3ef" opacity="0.18" />
+      </g>
+      {/* the rim of light along its back */}
+      <path d="M 90 -12 C 140 -26 210 -40 290 -40 C 340 -40 382 -32 404 -16" stroke="#9fdcf5" strokeOpacity="0.45" strokeWidth="1.4" fill="none" />
+      <path d="M 168 -30 C 174 -36 180 -40 188 -41 C 185 -37 185 -34 188 -31 Z" fill="#163d5c" />
+      {/* knobs on the head, mouth line, eye */}
+      {WHALE_KNOBS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.8" fill="#4c86a6" opacity="0.8" />)}
+      <path d="M 415 8 C 398 11 376 12 352 7" stroke="#0a2034" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+      <circle cx="360" cy="2" r="2.6" fill="#06131f" />
+      <path d="M 355 -1 C 358 -4 363 -4 365 -1" stroke="#5f97b5" strokeOpacity="0.6" strokeWidth="0.8" fill="none" />
+      {/* the near flipper, sweeping slowly */}
+      <g>
+        <animateTransform attributeName="transform" type="rotate" values="-5 300 18; 6 300 18; -5 300 18" dur="7s" repeatCount="indefinite" />
+        <path d={WHALE_FLIPPER} fill="url(#whale-fin)" />
+        <path d="M 306 18 C 300 34 290 50 278 62 C 266 76 250 90 234 102" stroke="#b7e2f2" strokeOpacity="0.5" strokeWidth="1" fill="none" />
+      </g>
+    </svg>
+  );
+}
+
+// ── The wreck ─────────────────────────────────────────────────────
+
+// A small sailing ship lying tilted in the sand, bow to the right. Local
+// coordinates: the keel runs along y 6, the stern at x -20, the bow at 352.
+const HULL = 'M -20 -60 L 290 -60 C 318 -60 338 -70 352 -86 C 346 -50 322 -12 282 6 L 12 6 C -4 -10 -14 -34 -20 -60 Z';
+const STERN_CASTLE = 'M -24 -60 L -28 -94 L 70 -94 L 72 -60 Z';
+const HOLE = 'M 126 -42 L 138 -50 L 148 -44 L 160 -48 L 166 -34 L 158 -22 L 142 -20 L 130 -26 L 122 -34 Z';
+const SAIL = 'M 154 -150 C 176 -146 194 -140 210 -136 L 206 -118 L 198 -112 L 202 -100 L 190 -96 L 186 -84 C 176 -96 164 -102 156 -104 Z';
+const SAIL_2 = 'M 154 -150 C 178 -142 196 -136 212 -128 L 204 -112 L 200 -108 L 204 -96 L 192 -92 L 186 -82 C 176 -94 164 -100 156 -104 Z';
+const GROWTH = (() => {
+  const rand = seeded(88);
+  return Array.from({ length: 9 }, () => {
+    const x = -10 + rand() * 340;
+    const h = 8 + rand() * 18;
+    return `M ${x.toFixed(1)} -60 q ${((rand() - 0.5) * 8).toFixed(1)} ${(-h / 2).toFixed(1)} ${((rand() - 0.5) * 6).toFixed(1)} ${(-h).toFixed(1)}`;
+  }).join(' ');
+})();
+
+function Wreck() {
+  return (
+    <g transform="translate(690 530) rotate(-7)">
+      <defs>
+        <linearGradient id="wreck-hull" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1d4a63" />
+          <stop offset="100%" stopColor="#081d2e" />
+        </linearGradient>
+        <radialGradient id="wreck-glint">
+          <stop offset="0%" stopColor="#ffe9a8" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#ffcf6a" stopOpacity="0" />
+        </radialGradient>
+        <clipPath id="wreck-clip"><path d={HULL} /></clipPath>
+      </defs>
+      {/* the snapped main mast, its torn sail stirring in the current */}
+      <path d="M 148 -60 L 152 -168 L 158 -160 L 156 -150 L 160 -144 L 156 -60 Z" fill="#0c2a3e" />
+      <path d="M 134 -136 L 178 -142" stroke="#0c2a3e" strokeWidth="3" strokeLinecap="round" />
+      <path d={SAIL} fill="#5a8ea6" opacity="0.32">
+        <animate attributeName="d" values={`${SAIL};${SAIL_2};${SAIL}`} dur="9s" repeatCount="indefinite" />
+      </path>
+      {/* the foremast, fallen across the deck toward the bow */}
+      <path d="M 236 -60 L 330 -150 L 336 -146 L 244 -56 Z" fill="#0b2639" />
+      <path d="M 352 -86 L 402 -106" stroke="#0c2a3e" strokeWidth="4" strokeLinecap="round" />
+      {/* slack rigging */}
+      <path d="M 152 -160 Q 230 -110 352 -88 M 152 -160 Q 70 -120 -24 -94 M 330 -150 Q 370 -120 400 -106" stroke="#2b5d78" strokeOpacity="0.55" strokeWidth="1" fill="none" />
+      <path d={STERN_CASTLE} fill="url(#wreck-hull)" />
+      {[[-12, -84], [14, -84], [40, -84]].map(([x, y], i) => <rect key={i} x={x} y={y} width="14" height="12" rx="2" fill="#04111c" />)}
+      <path d={HULL} fill="url(#wreck-hull)" />
+      <g clipPath="url(#wreck-clip)">
+        {/* planks */}
+        <path d="M -30 -46 L 360 -46 M -30 -32 L 360 -32 M -30 -18 L 360 -18 M -30 -4 L 360 -4" stroke="#0a2233" strokeWidth="1.2" fill="none" />
+        <path d="M -30 -58 L 360 -58" stroke="#3f7f9f" strokeOpacity="0.45" strokeWidth="2" />
+        {/* the hole in the hull, and something glinting inside */}
+        <path d={HOLE} fill="#020a12" />
+        <circle className="aura-wreck-glint" cx="146" cy="-30" r="9" fill="url(#wreck-glint)" />
+        {[30, 62, 196, 226, 256].map(x => <circle key={x} cx={x} cy="-40" r="4.2" fill="#03101b" stroke="#3a7393" strokeOpacity="0.6" strokeWidth="1.4" />)}
+      </g>
+      {/* rail lit from above */}
+      <path d="M -20 -60 L 290 -60 C 318 -60 338 -70 352 -86" stroke="#57a3c4" strokeOpacity="0.55" strokeWidth="1.6" fill="none" />
+      {/* weed and small corals that have made it home */}
+      <path d={GROWTH} stroke="#1f6b5e" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.8" />
+      {[[40, -60], [210, -60], [300, -64]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill="#e879a6" opacity="0.55" />)}
+    </g>
+  );
+}
 
 // ── Reef ──────────────────────────────────────────────────────────
 
@@ -180,9 +307,7 @@ export default function Abyss({ variant = 'page' }) {
       <div className="aura-abyss-snow absolute inset-0" aria-hidden="true" />
 
       <div className="aura-abyss-whale absolute" aria-hidden="true">
-        <svg viewBox="-10 -40 390 130" className="w-full h-full" style={{ transform: 'scaleX(-1)' }}>
-          <path d={WHALE} fill="#0b2a46" />
-        </svg>
+        <Whale />
       </div>
 
       <div className={`absolute inset-x-0 bottom-0 ${page ? 'h-[58vh] min-h-[300px]' : 'h-[48vh] min-h-[250px]'}`}>
@@ -231,6 +356,11 @@ export default function Abyss({ variant = 'page' }) {
           <path d={areaUnder(MID_REEF, H)} fill="url(#abyss-mid)" filter="url(#abyss-rock2)" />
           <Kelp bed={KELP_MID} fill="#0f4440" leafFill="#0f4a44" />
           <path d={FANS.join(' ')} stroke="#0e3d56" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        </svg>
+
+        {/* A sailing ship, long sunk, settled into the sand */}
+        <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <Wreck />
         </svg>
 
         {/* The sea floor, with light rippling over the sand */}
