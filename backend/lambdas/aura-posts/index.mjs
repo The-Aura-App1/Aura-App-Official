@@ -7,6 +7,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
 import { canSeeAccount, hiddenAuthors, blockedBetween, eitherBlocked } from './privacy.mjs';
+import { addGroupXp, GROUP_STATS_TABLE } from './groupStats.mjs';
 import { checkStyle } from './postStyle.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
@@ -330,6 +331,7 @@ async function createPost(userId, body) {
     Item: post,
   }));
 
+  if (post.groupId) await addGroupXp(dynamo, post.groupId, userId, 'post');
   return response(201, post);
 }
 
@@ -594,6 +596,19 @@ async function getLikedPosts(userId, cursor) {
 }
 
 // ─── Group feed ───────────────────────────────────────────────
+// The group's current Spotlight post, if any (best effort: never breaks the feed)
+async function spotlightPost(groupId) {
+  try {
+    const spot = (await dynamo.send(new GetCommand({ TableName: GROUP_STATS_TABLE, Key: { groupId, sk: 'SPOTLIGHT' } }))).Item;
+    if (!spot || !(spot.until > Date.now())) return null;
+    const post = (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: spot.postId } }))).Item;
+    return post && post.status === 'active' && post.groupId === groupId ? { ...post, spotlightUntil: spot.until } : null;
+  } catch (err) {
+    console.warn(`Spotlight not read (${err.name}).`);
+    return null;
+  }
+}
+
 // Newest first, from groupId-index. cursor is the encoded LastEvaluatedKey.
 async function getGroupPosts(groupId, viewerId, cursor) {
   const access = await groupAccess(groupId, viewerId);
@@ -631,6 +646,16 @@ async function getGroupPosts(groupId, viewerId, cursor) {
   const nextCursor = ExclusiveStartKey
     ? Buffer.from(JSON.stringify(ExclusiveStartKey), 'utf8').toString('base64url')
     : null;
+
+  // The group's Spotlight (a power-up, see aura-aura/powerups.mjs) leads the first page
+  if (!cursor) {
+    const pinned = await spotlightPost(groupId);
+    if (pinned) {
+      const at = posts.findIndex(p => p.postId === pinned.postId);
+      if (at !== -1) posts.splice(at, 1);
+      posts.unshift({ ...pinned, spotlight: true });
+    }
+  }
 
   const visible = await forViewer(posts, viewerId);
   return response(200, {

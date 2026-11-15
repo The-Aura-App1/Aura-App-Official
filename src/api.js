@@ -129,6 +129,10 @@ export const api = {
   // ─── Group games (aura-aura) ──────────────────────────────
   getGroupGames:  (groupId)              => request('GET',  `/games/group/${id(groupId)}`),
   createGame:     (groupId, data)        => request('POST', `/games/group/${id(groupId)}`, data),
+  getPowerUps:    groupId                => request('GET',  `/power-ups/${id(groupId)}`),
+  spotlightPost:  (groupId, postId)      => request('POST', `/power-ups/${id(groupId)}/spotlight`, { postId }),
+  startRain:      (groupId, pot)         => request('POST', `/power-ups/${id(groupId)}/rain`, { pot }),
+  catchRain:      groupId                => request('POST', `/power-ups/${id(groupId)}/rain/catch`, {}),
   getAuraHistory: (userId, range)        => request('GET',  `/aura/history/${id(userId)}${query({ range })}`),
   getGame:        (matchId, have)        => request('GET',  `/games/${id(matchId)}${have != null ? `?have=${encodeURIComponent(have)}` : ''}`),
   gameAction:     (matchId, action)      => request('POST', `/games/${id(matchId)}/${id(action)}`, {}),

@@ -64,6 +64,15 @@
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-follows",
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
       ]
+    },
+    {
+      "Sid": "GroupLevelsAndSpotlight",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-stats"
     }
   ]
 }

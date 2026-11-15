@@ -22,6 +22,7 @@ import { randomInt } from 'crypto';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { GAMES, GameError, viewFor } from './gameRules.mjs';
 import { eitherBlocked } from './privacy.mjs';
+import { addGroupXp } from './groupStats.mjs';
 
 const GAMES_TABLE         = 'aura-games';
 const GAMES_INDEX         = 'groupId-createdAt-index';
@@ -318,6 +319,8 @@ export async function handleGames(ctx, user, method, segments, body) {
       match.stake ? [`That would pass your daily limit of ${checks.cap} aura in game stakes.`, 'Not enough aura.'] : ['Not enough aura.']);
     if (saved.statusCode) return saved;
     await notify(match.players[0].userId, 'game_accepted', { matchId: match.matchId, groupId: match.groupId, game: match.game, stake: match.stake });
+    // A game played counts toward the group's level, for both players
+    await Promise.all(players.map(p => addGroupXp(dynamo, match.groupId, p.userId, 'game')));
     return matchResponse(saved);
   }
 

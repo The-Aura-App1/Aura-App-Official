@@ -5,6 +5,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { cleanText, hasVisibleText } from './text.mjs';
 import { canSeeAccount, isFollowing, eitherBlocked, blockedBetween } from './privacy.mjs';
+import { addGroupXp } from './groupStats.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -392,6 +393,7 @@ async function createComment(userId, postId, body) {
 
   await notifyForComment(comment, post, parent, user).catch(err => console.warn(`Notifications skipped (${err.name}).`));
 
+  if (post.groupId) await addGroupXp(dynamo, post.groupId, userId, 'comment');
   return response(201, { ...publicComment(comment, userId, new Set(), user), replies: [] });
 }
 

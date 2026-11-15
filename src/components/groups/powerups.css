@@ -1,0 +1,51 @@
+/* Group power-ups: the Aura Rain banner, the Hearth level ring and the
+   Spotlight glow. Feedback moments, so they play even with reduced motion. */
+
+.aura-rain {
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgba(255, 255, 255, .22), transparent 60%),
+    linear-gradient(135deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+  box-shadow: 0 14px 34px -16px color-mix(in srgb, var(--brand-2) 80%, transparent);
+  animation: auraRainIn .5s cubic-bezier(.2, .9, .3, 1.1) both;
+}
+@keyframes auraRainIn { from { opacity: 0; transform: translateY(-10px) scale(.98); } }
+
+.aura-rain-drop {
+  position: absolute; top: -20px; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .9));
+  box-shadow: 0 0 6px rgba(255, 255, 255, .7);
+  animation: auraRainFall 1.6s linear infinite;
+}
+@keyframes auraRainFall {
+  0%   { transform: translateY(0); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateY(150px); opacity: 0; }
+}
+
+.aura-rain-catch { animation: auraCatchPulse 1.4s ease-in-out infinite; box-shadow: 0 0 0 0 rgba(255, 255, 255, .6); }
+@keyframes auraCatchPulse { 50% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); } }
+.aura-rain-caught { animation: auraCaught .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes auraCaught { from { transform: scale(.4); opacity: 0; } }
+
+.hearth-ring { transition: stroke-dashoffset 1.2s cubic-bezier(.3, .7, .2, 1); }
+
+/* A spotlit post in the group feed: a slowly turning glow around its card */
+.aura-spotlight { position: relative; border-radius: 1.1rem; padding: 2px; isolation: isolate; }
+.aura-spotlight::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+  background: conic-gradient(from var(--aura-angle, 0deg), var(--brand-1), var(--brand-3), #fcd34d, var(--brand-2), var(--brand-1));
+  animation: auraSpotSpin 6s linear infinite;
+  filter: blur(.5px);
+}
+.aura-spotlight::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 1.4rem; z-index: -2;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--brand-2) 45%, transparent), transparent);
+  opacity: .6; animation: auraSpotBreathe 3.2s ease-in-out infinite;
+}
+@keyframes auraSpotSpin { to { --aura-angle: 360deg; } }
+@keyframes auraSpotBreathe { 50% { opacity: .95; } }
+.aura-spotlight-label {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--brand-ink-2);
+}

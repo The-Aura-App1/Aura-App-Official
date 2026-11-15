@@ -6,6 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import GroupPosts from '../components/groups/GroupPosts';
 import GroupGames from '../components/games/GroupGames';
+import Hearth from '../components/groups/Hearth';
+import RainBanner from '../components/groups/RainBanner';
+import usePowerUps from '../components/groups/usePowerUps';
 import ConfirmButton from '../components/groups/ConfirmButton';
 import { JOIN_TYPES, JoinTypeBadge, GroupAvatar, memberCountText } from '../components/groups/GroupBits';
 
@@ -229,6 +232,21 @@ function Manage({ group, onChanged }) {
       </section>
 
       {group.isOwner && (
+        <section className="card flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-[var(--text-primary)]">Power-ups</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              {group.powerUpsEnabled !== false ? 'Members can start Aura Rains and spotlight their posts.' : 'Aura Rain and Spotlight are off. Levels and the weekly board still count.'}
+            </p>
+          </div>
+          <button disabled={busy} onClick={() => act(() => api.updateGroup(group.groupId, { powerUpsEnabled: group.powerUpsEnabled === false }))}
+            className="btn-secondary px-4 py-2 text-[var(--text-primary)] flex-shrink-0">
+            {group.powerUpsEnabled !== false ? 'Turn off' : 'Turn on'}
+          </button>
+        </section>
+      )}
+
+      {group.isOwner && (
         <section className="card flex flex-col gap-3">
           <h3 className="font-semibold text-[var(--text-primary)]">Group settings</h3>
           <textarea value={settings.description} maxLength={500} rows={3}
@@ -314,6 +332,8 @@ export default function GroupPage() {
     }
   }, [groupId]);
   useEffect(() => { setGroup(null); setLoadError(''); setTab('posts'); load(); }, [load]);
+  const isMember = group?.myStatus === 'active';
+  const powerUps = usePowerUps(groupId, isMember);
 
   async function act(request) {
     setBusy(true);
@@ -342,6 +362,7 @@ export default function GroupPage() {
   const count = memberCountText(group);
   const tabs = [
     group.canSeePosts   && { key: 'posts',    label: 'Posts' },
+    group.myStatus === 'active' && { key: 'hearth', label: 'Hearth' },
     group.myStatus === 'active' && { key: 'games', label: 'Games' },
     group.canSeeMembers && { key: 'members',  label: 'Members' },
     group.canModerate   && { key: 'requests', label: 'Requests' },
@@ -414,8 +435,12 @@ export default function GroupPage() {
         </div>
       </section>
 
+      {isMember && powerUps.data?.rain && (
+        <RainBanner groupId={group.groupId} rain={powerUps.data.rain} serverNow={powerUps.serverNow} onCaught={() => powerUps.reload()} />
+      )}
+
       {tabs.length > 0 && (
-        <div className="flex border-b border-[var(--border)]" role="tablist">
+        <div className="flex border-b border-[var(--border)] overflow-x-auto [scrollbar-width:none]" role="tablist">
           {tabs.map(t => (
             <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setTab(t.key)}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-all
@@ -429,6 +454,7 @@ export default function GroupPage() {
       )}
 
       {activeTab === 'posts'    && <GroupPosts key={group.groupId} groupId={group.groupId} takesOff={group.allowTakes === false} />}
+      {activeTab === 'hearth'   && <Hearth groupId={group.groupId} powerUps={powerUps} />}
       {activeTab === 'games'    && <GroupGames key={group.groupId} groupId={group.groupId} />}
       {activeTab === 'members'  && <Members group={group} viewerId={user?.userId} onChanged={load} />}
       {activeTab === 'requests' && <Requests group={group} onChanged={load} />}

@@ -419,10 +419,10 @@ async function updateGroup(groupId, userId, body) {
   const role = activeRole(group, await getMember(groupId, userId));
   if (role !== 'owner' && role !== 'moderator') return response(403, { error: 'Only owners and moderators can change settings.' });
 
-  const { joinType, hideMemberList, momentsEnabled, allowTakes } = body;
+  const { joinType, hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled } = body;
   const description = typeof body.description === 'string' ? cleanText(body.description) : body.description;
   const ownerOnly = description !== undefined || joinType !== undefined || hideMemberList !== undefined
-    || allowTakes !== undefined;
+    || allowTakes !== undefined || powerUpsEnabled !== undefined;
   if (ownerOnly && role !== 'owner') return response(403, { error: 'Only the owner can change these settings.' });
 
   if (description !== undefined && (typeof description !== 'string' || description.length > MAX_DESCRIPTION)) {
@@ -431,7 +431,7 @@ async function updateGroup(groupId, userId, body) {
   if (joinType !== undefined && !JOIN_TYPES.includes(joinType)) {
     return response(400, { error: `joinType must be one of: ${JOIN_TYPES.join(', ')}.` });
   }
-  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled, allowTakes })) {
+  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled })) {
     if (value !== undefined && typeof value !== 'boolean') return response(400, { error: `${field} must be true or false.` });
   }
 
@@ -441,6 +441,7 @@ async function updateGroup(groupId, userId, body) {
   if (hideMemberList !== undefined) updates.hideMemberList = hideMemberList;
   if (momentsEnabled !== undefined) updates.momentsEnabled = momentsEnabled;
   if (allowTakes     !== undefined) updates.allowTakes     = allowTakes;
+  if (powerUpsEnabled !== undefined) updates.powerUpsEnabled = powerUpsEnabled;
 
   const fields = Object.keys(updates);
   const result = await dynamo.send(new UpdateCommand({

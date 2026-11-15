@@ -12,6 +12,7 @@ import { EMBED_MODEL, EMBED_DIM, encodeVector } from './utils/embeddings';
 import { MAX_HASHTAGS, HASHTAG_PATTERN } from './utils/hashtags';
 import { THEMES, THEME_IDS } from './themes';
 import { REPORT_REASON_IDS } from './utils/reportReasons';
+import * as powerUpsApp from './utils/powerUps';
 
 const LAMBDAS = path.join(__dirname, '..', 'backend', 'lambdas');
 const MODEL   = path.join(__dirname, '..', 'public', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
@@ -155,4 +156,21 @@ test('report reasons: the app offers exactly the ones aura-posts, aura-comments 
     lambdaSource('aura-comments'),
     fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'follows.mjs'), 'utf8'),
   ]) expect(ids(source)).toEqual(REPORT_REASON_IDS);
+});
+
+test('group power-ups: the app shows the same prices, limits, XP and level curve aura-aura uses', () => {
+  const app = powerUpsApp;
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'powerups.mjs'), 'utf8');
+  const block = server.match(/export const POWER_UPS = \{([^}]*)\}/)[1];
+  const serverPowerUps = Object.fromEntries([...block.matchAll(/(\w+):\s*(\d+)/g)].map(m => [m[1], Number(m[2])]));
+  expect(serverPowerUps).toEqual(app.POWER_UPS);
+
+  const copies = ['aura-aura', 'aura-posts', 'aura-comments']
+    .map(name => fs.readFileSync(path.join(LAMBDAS, name, 'groupStats.mjs'), 'utf8').replace(/\r\n/g, '\n'));
+  expect(new Set(copies).size).toBe(1);
+  const stats = copies[0];
+  expect(JSON.parse(stats.match(/export const XP = (\{[^}]*\})/)[1].replace(/(\w+):/g, '"$1":'))).toEqual(app.XP);
+  expect(Number(stats.match(/XP_DAILY_CAP = (\d+)/)[1])).toBe(app.XP_DAILY_CAP);
+  expect(stats).toContain('export const levelFloor = level => 50 * level * (level - 1);');
+  expect([1, 2, 3, 10].map(app.levelFloor)).toEqual([0, 100, 300, 4500]);
 });

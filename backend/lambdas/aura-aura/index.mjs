@@ -2,6 +2,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { canSeeAccount, eitherBlocked } from './privacy.mjs';
 import { handleGames } from './games.mjs';
+import { handlePowerUps } from './powerups.mjs';
+import { recordGroupGive } from './groupStats.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -309,6 +311,7 @@ async function checkGroupAccess(target, userId) {
     return (await canSeeAccount(dynamo, userId, post.authorId)) ? null : response(404, { error: 'Post or comment not found.' });
   }
 
+  target.groupId = post.groupId;   // so a give can count toward the group's board and level
   const group  = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId: post.groupId } }))).Item;
   const member = (await dynamo.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { groupId: post.groupId, userId } }))).Item;
   if (member?.status === 'active' && group?.status === 'active') return null;
@@ -659,9 +662,10 @@ export const handler = async (event) => {
         return response(403, { error: "You can't give or take aura here." });
       }
 
-      return segments[3] === 'give'
-        ? await giveAura(user, target, amount)
-        : await takeAura(user, target, amount);
+      if (segments[3] !== 'give') return await takeAura(user, target, amount);
+      const given = await giveAura(user, target, amount);
+      if (given.statusCode === 200 && target.groupId) await recordGroupGive(dynamo, target.groupId, user, amount);
+      return given;
     }
 
     // POST /aura/daily-bonus
@@ -678,6 +682,13 @@ export const handler = async (event) => {
     // GET /aura/history/{userId}
     if (method === 'GET' && segments[0] === 'aura' && segments[1] === 'history' && segments.length === 3) {
       return await auraHistory(userId, segments[2], event.queryStringParameters?.range ?? '1m');
+    }
+
+    if (segments[0] === 'power-ups') {
+      return await handlePowerUps(
+        { dynamo, response, firstLimit, balanceUpdate, transactionRecord, commit },
+        user, method, segments, body,
+      );
     }
 
     if (segments[0] === 'games') {

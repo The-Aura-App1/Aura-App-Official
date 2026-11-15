@@ -1,6 +1,8 @@
 import React, { useCallback } from 'react';
 import { api } from '../../api';
+import { Sparkles } from 'lucide-react';
 import PostCard from '../post/PostCard';
+import './powerups.css';
 import Reveal from '../motion/Reveal';
 import LoadingSpinner from '../common/LoadingSpinner';
 import useInfiniteList from '../../hooks/useInfiniteList';
@@ -25,7 +27,14 @@ export default function GroupPosts({ groupId, takesOff = false }) {
   return (
     <div className="flex flex-col gap-4">
       {posts.map(post => (
-        <Reveal key={post.postId} className="aura-offscreen"><PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} /></Reveal>
+        <Reveal key={post.postId} className="aura-offscreen">
+          {post.spotlight ? (
+            <div>
+              <p className="aura-spotlight-label mb-1.5 ml-1"><Sparkles size={12} aria-hidden="true" /> Spotlight</p>
+              <div className="aura-spotlight"><PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} /></div>
+            </div>
+          ) : <PostCard post={post} takesOff={takesOff} onRemove={post.canRemove ? removePost : undefined} />}
+        </Reveal>
       ))}
 
       {done && posts.length === 0 && (
