@@ -111,8 +111,43 @@ export const KNOWLEDGE = [
   },
   {
     id: 'earn', q: 'How do I earn aura?',
-    keys: ['earn aura', 'get more aura', 'earn the points', 'earn points', 'get aura', 'more aura', 'earn more', 'free aura', 'daily bonus'],
+    keys: ['earn aura', 'give me aura', 'get more aura', 'earn the points', 'earn points', 'get aura', 'more aura', 'earn more', 'free aura', 'daily bonus'],
     a: 'You earn aura when people give it to your posts, comments and Moments; that\'s the only way to get earned aura. You also get spendable aura from the daily login bonus, winning group games, catching Aura Rain and watching an ad in your wallet.',
+  },
+  {
+    id: 'moderation', q: 'How does moderation work?',
+    keys: ['moderation', 'moderator', 'moderators', 'mods', 'admins', 'community rules', 'rules', 'guidelines', 'what is allowed', 'not allowed', 'banned', 'ban', 'safety', 'safe'],
+    a: 'Two layers. Across Aura, moderators review reports: you can report any post, comment or account from its ⋯ menu (spam, harassment, hate, violence, nudity, self-harm, misinformation or other). Something reported by several established accounts is hidden until a moderator keeps or removes it, and accounts that break the rules can be banned. Inside groups, the owner and the moderators they pick can remove posts, approve or remove members, and turn features like taking aura, Moments and power-ups on or off. You can also block anyone yourself.',
+  },
+  {
+    id: 'pins', q: 'Can I pin a post?',
+    keys: ['pin', 'pinned', 'pin a post', 'pin my post', 'pins'],
+    a: 'Pinning posts to your profile isn\'t here yet; it\'s planned (up to 3). In a group, the Spotlight power-up pins one of your posts to the top for 24 hours.',
+  },
+  {
+    id: 'settings', q: 'Where are my settings?',
+    keys: ['settings', 'setting', 'preferences page', 'find my settings', 'account settings'],
+    a: 'Settings is in the More menu: the sidebar on a computer, or the Me sheet on a phone. It has Account, Appearance (themes and scenery), Privacy (private account, blocks, your rank), Notifications and the Danger zone.',
+  },
+  {
+    id: 'verify', q: 'How do I get verified?',
+    keys: ['verify', 'verified', 'verification', 'blue check', 'checkmark', 'creator account'],
+    a: 'There\'s no verification yet. Verified creator accounts are on the roadmap: they\'ll be 18+ and are what cashing out earned aura will need. Watch the About page and Roadmap for when they open.',
+  },
+  {
+    id: 'support', q: 'How do I contact the Aura team?',
+    keys: ['contact support', 'support', 'contact the team', 'contact aura', 'talk to someone', 'customer service', 'help desk', 'email aura'],
+    a: 'There\'s no live support chat yet. To reach the team, use Suggestions & Reviews in the More menu (you can describe a problem there). To flag a post, comment or account, use Report in its ⋯ menu; moderators review those.',
+  },
+  {
+    id: 'delete-post', q: 'How do I delete a post?',
+    keys: ['delete a post', 'delete my post', 'remove my post', 'delete post', 'take down my post', 'edit a post', 'edit my post', 'edit post', 'change my post', 'edit a caption', 'edit my caption'],
+    a: 'Open the ⋯ menu on your post and choose Delete post, then tap again to confirm. Posts can\'t be edited after posting, so delete and repost if you need to change something.',
+  },
+  {
+    id: 'group-manage', q: 'How do I create or leave a group?',
+    keys: ['create a group', 'make a group', 'start a group', 'leave a group', 'leave group', 'join a group', 'group owner', 'group moderator'],
+    a: 'On the Groups tab, tap Create group and choose a name, description and whether it\'s open, request-to-join or invite-only. To join, open a group and tap Join (or Request). To leave, open the group and use Leave group. Owners can make members moderators from the member list.',
   },
   {
     id: 'wallet', q: 'How does the Aura Wallet work?',

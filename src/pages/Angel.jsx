@@ -38,7 +38,7 @@ function ThemeSwatch({ spec }) {
   );
 }
 
-function Reply({ reply, onAction, busy }) {
+function Reply({ reply, onAction, onAsk, busy }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="whitespace-pre-wrap">{reply.text}</p>
@@ -52,6 +52,14 @@ function Reply({ reply, onAction, busy }) {
       ))}
       {reply.theme && <ThemeSwatch spec={reply.theme} />}
       {reply.note && <p className="text-xs opacity-70">{reply.note}</p>}
+      {reply.followUps?.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {reply.followUps.map(q => (
+            <button key={q} type="button" disabled={busy} onClick={() => onAsk(q)}
+              className="px-3 py-1.5 rounded-full text-xs border border-[var(--border)] text-[var(--text-secondary)] hover:border-aura-500/50 text-left">{q}</button>
+          ))}
+        </div>
+      )}
       {reply.actions?.length > 0 && !reply.done && (
         <div className="flex flex-wrap gap-2 pt-1">
           {reply.actions.map(a => (
@@ -73,6 +81,8 @@ export default function Angel() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const lastTheme = useRef(null);
+  // What her last reply was about, so a follow-up ("a different one") continues it
+  const lastKind = useRef(null);
   const pool = useRef(null);
   const endRef = useRef(null);
 
@@ -94,8 +104,9 @@ export default function Angel() {
     say('you', { text: message });
     setBusy(true);
     try {
-      const reply = await respond(message, { prefs: loadPrefs(user?.userId), getPool, embed, lastTheme: lastTheme.current });
+      const reply = await respond(message, { prefs: loadPrefs(user?.userId), getPool, embed, lastTheme: lastTheme.current, lastKind: lastKind.current });
       if (reply.theme) lastTheme.current = reply.theme;
+      lastKind.current = reply.kind;
       say('angel', reply);
     } catch {
       say('angel', { kind: 'error', text: 'Something went wrong on my side. Try asking again.' });
@@ -160,7 +171,7 @@ export default function Angel() {
             <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
               ${m.from === 'you' ? 'bg-aura-500 text-white rounded-br-md' : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md'}`}>
               {m.from === 'angel' && <p className="text-[11px] font-semibold text-[var(--brand-ink-2)] mb-0.5 flex items-center gap-1"><Sparkles size={11} aria-hidden="true" /> Angel</p>}
-              {m.from === 'you' ? <p className="whitespace-pre-wrap break-words">{m.reply.text}</p> : <Reply reply={m.reply} onAction={onAction} busy={busy} />}
+              {m.from === 'you' ? <p className="whitespace-pre-wrap break-words">{m.reply.text}</p> : <Reply reply={m.reply} onAction={onAction} onAsk={send} busy={busy} />}
             </div>
           </div>
         ))}

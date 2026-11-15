@@ -3,7 +3,7 @@ import { decodeVector, similarity } from '../utils/embeddings';
 import { textMatch, fold } from '../utils/searchRanking';
 import { hashtagKey } from '../utils/hashtags';
 import { KNOWLEDGE } from './knowledge';
-import { describeTheme } from './themeMaker';
+import { describeTheme, describesNothing, MOOD_NAMES } from './themeMaker';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
 // they type is sent anywhere. She doesn't generate free text: she works out
@@ -156,7 +156,7 @@ const ASKING_HOW = /^(how (do|can|should|could) (i|we)|can (i|we|people|others) 
 const asksToWrite = text => !ASKING_HOW.test(text) && WRITE_REQUESTS.some(re => re.test(text));
 
 // Attempts to change her rules
-const OVERRIDE = /\b(ignore (all |any |the |your |previous |prior |above |these )*(instructions|rules|prompts?|limits|guidelines)|you are now|from now on,? you|pretend (you are|to be|you're|that you)|act as|roleplay|role play|jailbreak|dan mode|developer mode|god mode|sudo|(with|have|has) no (restrictions|rules|filters)|without (any )?(restrictions|rules|filters)|i authori[sz]e you|you (may|can|are allowed to) now|system prompt|your (instructions|prompt|programming|source code|training)|(print|show|reveal|repeat|tell me|output|what are) (me )?your (instructions|prompt|rules|system|code))\b|^\s*(system|assistant|developer|admin)\s*:/;
+const OVERRIDE = /\b((forget|drop|disable|turn off|break|bend) (all |any |the |your |these )*(rules|instructions|limits|restrictions|filters|guidelines)|ignore (all |any |the |your |previous |prior |above |these )*(instructions|rules|prompts?|limits|guidelines)|you are now|from now on,? you|pretend (you are|to be|you're|that you)|act as|roleplay|role play|jailbreak|dan mode|developer mode|god mode|sudo|(with|have|has) no (restrictions|rules|filters)|without (any )?(restrictions|rules|filters)|i authori[sz]e you|you (may|can|are allowed to) now|system prompt|your (instructions|prompt|programming|source code|training)|(print|show|reveal|repeat|tell me|output|what are) (me )?your (instructions|prompt|rules|system|code))\b|^\s*(system|assistant|developer|admin)\s*:/;
 
 // Looking into other people (beyond public trend totals) is off limits
 const WHO = '(users?|accounts?|creators?|persons?|influencers?|profiles?|posters?|people)';
@@ -221,7 +221,7 @@ function undisguise(text) {
 // Words that show a message is about Aura at all: the meaning-match
 // fallback only answers when one is present, so off-topic questions that
 // happen to sound similar to a known one are still refused
-const DOMAIN = /\b(aura|feed|timeline|posts?|posting|captions?|hashtags?|topics?|themes?|colou?rs?|fonts?|dark|light|app|profile|account|groups?|games?|poker|pool|connect 4|go fish|dice|coin flip|follow\w*|block\w*|report\w*|premium|ads?|wallet|angel|trend\w*|popular|notifications?|comments?|likes?|liked|shares?|settings|username|privacy|private|data|moments?|hearth|spotlight|rain|points|balance|rank|search|stake|bio|draft)\b/;
+const DOMAIN = /\b(moderation|moderators?|mods|rules|guidelines|safety|banned|ban|support|delete|edit|wallet|aura|feed|timeline|posts?|posting|captions?|hashtags?|topics?|themes?|colou?rs?|fonts?|dark|light|app|profile|account|groups?|games?|poker|pool|connect 4|go fish|dice|coin flip|follow\w*|block\w*|report\w*|premium|ads?|wallet|angel|trend\w*|popular|notifications?|comments?|likes?|liked|shares?|settings|username|privacy|private|data|moments?|hearth|spotlight|rain|points|balance|rank|search|stake|bio|draft)\b/;
 
 const INTENT_EXAMPLES = {
   feed: ['I want to see more cooking posts', 'stop showing me so much politics', 'my feed is boring', 'I am not seeing posts about soccer', 'how do I get more photography in my feed'],
@@ -395,10 +395,44 @@ function appReply(k) {
   return { kind: 'app', text: k.a };
 }
 
-function themeReply(text, ctx) {
-  const result = describeTheme(text, ctx.lastTheme);
+// For descriptions she has no word for ("pumpkin spice", "a rainy café"):
+// the closest mood by meaning, on the device
+let moodVecs = null;
+async function nearestMood(text, embed) {
+  if (!embed) return null;
+  try {
+    if (!moodVecs) {
+      const vecs = await embed(MOOD_NAMES.map(m => `${m} colors`));
+      if (!vecs) return null;
+      moodVecs = MOOD_NAMES.map((m, i) => ({ m, vec: decodeVector(vecs[i]) }));
+    }
+    const [mine] = (await embed([text])) ?? [];
+    const vec = decodeVector(mine);
+    if (!vec) return null;
+    let best = null;
+    for (const { m, vec: v } of moodVecs) {
+      const sim = similarity(vec, v);
+      if (!best || sim > best.sim) best = { m, sim };
+    }
+    return best && best.sim >= 0.35 ? best.m : null;
+  } catch {
+    return null;
+  }
+}
+
+async function themeReply(text, ctx) {
+  let result = describeTheme(text, ctx.lastTheme);
   if (!result) {
-    return { kind: 'theme', text: 'Describe the look you want, like "a dark ocean theme with a serif font" or "warm sunset colors, light". I\'ll make it and you can try it on.' };
+    const mood = describesNothing(text) ? null : await nearestMood(text, ctx.embed);
+    if (mood) result = describeTheme(`${mood} ${text}`, ctx.lastTheme);
+  }
+  if (!result) {
+    return {
+      kind: 'theme',
+      text: ctx.lastTheme
+        ? 'Tell me what to change: the colors ("make the accent teal", "a navy background"), light or dark ("pure black", "lighter"), the font ("a serif font"), or ask for "a different one".'
+        : 'Describe the look you want: colors ("purple and gold"), a mood or season ("cozy fall", "cyberpunk", "rainy day"), light or dark, and a font if you like ("serif", "mono").',
+    };
   }
   return {
     kind: 'theme', text: result.summary, theme: result.spec, note: result.note,
@@ -502,10 +536,21 @@ export async function respond(message, ctx = {}) {
   }
   if (either(PEOPLE)) return refusal('I don\'t look into other people\'s accounts or activity, or rank people. I can show which hashtags and topics are getting attention.');
   if (either(ABUSE)) return refusal('I can\'t help with getting around Aura\'s rules or into anything that isn\'t yours.');
+  // Small talk about her, and other apps, aren't her jobs
+  if (/\byour (favou?rite|opinion|feelings?|age|birthday|hobby|hobbies|thoughts on)\b|\bhow old are you\b|\bdo you (like|love|feel|enjoy|dream|sleep|eat)\b|\bare you (happy|sad|alive|single|ok|okay)\b/.test(text)) return refusal();
+  if (/\b(tiktok|instagram|insta|twitter|facebook|snapchat|reddit|youtube|threads app|bluesky|discord|whatsapp|bereal|pinterest|tumblr)\b/.test(text)) return refusal('I only know about Aura.');
 
-  // Follow-ups to a theme she just made ("darker", "use a serif font")
-  if (ctx.lastTheme && /\b(darker|lighter|brighter|muted|vivid|softer|bolder|warmer|cooler|font|serif|mono|sans|accent|background)\b/.test(text)) {
-    return themeReply(text, ctx);
+  // Follow-ups to a theme she just made: "darker", "use a serif font", and
+  // right after one, anything that reads as a change ("that's more grey than
+  // black", "can I have a different one", "fall leaf colors")
+  if (ctx.lastTheme || ctx.lastKind === 'theme') {
+    const themeWords = !!ctx.lastTheme && /\b(darker|lighter|brighter|muted|vivid|softer|bolder|warmer|cooler|font|serif|mono|sans|accent|background)\b/.test(text);
+    const aboutApp = QUESTION.test(text) && knowledgeByKeys(text);
+    const otherJob = aboutApp || INTENT_RULES.trends.test(text) || looksLikeFeed(text) || INTENT_RULES.post.test(text);
+    // right after she asked what look they want, a description is the answer
+    const answering = ctx.lastKind === 'theme' && !otherJob && !describesNothing(text)
+      && (describeTheme(text, ctx.lastTheme) || (!ctx.lastTheme && ctx.embed));
+    if (themeWords || answering) return themeReply(text, ctx);
   }
 
   // A draft to look at is the clearest sign of all
@@ -539,5 +584,30 @@ export async function respond(message, ctx = {}) {
   if (near?.intent === 'trends') return trendsReply(text, ctx);
   if (near?.intent === 'theme') return themeReply(text, ctx);
   if (near?.intent === 'post') return postReply(text, raw, ctx);
-  return refusal();
+  // About Aura, but nothing she knows: say so, and offer the closest things she does
+  const close = await closestKnowledge(raw, text, ctx.embed);
+  return {
+    kind: 'unknown',
+    text: 'I don\'t have an answer for that one yet. These are the closest things I can help with:',
+    followUps: close.map(k => k.q),
+  };
+}
+
+// The guide entries nearest a question: by meaning when the model is
+// loaded, else by shared words
+async function closestKnowledge(raw, text, embed) {
+  if (embed && exampleVecs) {
+    try {
+      const [mine] = (await embed([raw])) ?? [];
+      const vec = decodeVector(mine);
+      if (vec) {
+        return exampleVecs.filter(e => e.k).map(e => ({ k: e.k, sim: similarity(vec, e.vec) }))
+          .sort((a, b) => b.sim - a.sim).slice(0, 3).map(e => e.k);
+      }
+    } catch { /* fall back to words */ }
+  }
+  const words = new Set(text.split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 3 && !STOP.has(w)));
+  const scored = KNOWLEDGE.map(k => ({ k, n: lower(`${k.q} ${k.keys.join(' ')}`).split(/[^\p{L}\p{N}]+/u).filter(w => words.has(w)).length }));
+  const hits = scored.filter(s => s.n).sort((a, b) => b.n - a.n).slice(0, 3).map(s => s.k);
+  return hits.length ? hits : KNOWLEDGE.filter(k => ['angel', 'feed', 'what-is-aura'].includes(k.id));
 }
