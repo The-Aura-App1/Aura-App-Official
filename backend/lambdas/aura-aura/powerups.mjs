@@ -49,6 +49,11 @@ export async function handlePowerUps(ctx, user, method, segments, body) {
   if (!group || group.status !== 'active') return response(404, { error: 'Group not found.' });
   if (member?.status !== 'active') return response(403, { error: 'Only members can use power-ups here.' });
   const enabled = group.powerUpsEnabled !== false;
+  // How old a date is; a missing or unreadable one counts as brand new (fails closed)
+  const ageMs = iso => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? Date.now() - t : 0;
+  };
 
   // Gives back whatever an ended rain didn't hand out. Safe to call any time:
   // the condition means only one caller ever refunds a rain.
@@ -112,8 +117,8 @@ export async function handlePowerUps(ctx, user, method, segments, body) {
   // Why this person can't catch a rain, or null if they can
   function catchBlocker(rain) {
     if (rain.byUserId === user.userId) return 'You started this rain.';
-    if (Date.now() - Date.parse(user.createdAt ?? 0) < POWER_UPS.minAccountDays * DAY_MS) return `Accounts can catch aura once they're ${POWER_UPS.minAccountDays} days old.`;
-    if (Date.now() - Date.parse(member.joinedAt ?? 0) < POWER_UPS.minMemberDays * DAY_MS) return `You can catch aura once you've been in the group ${POWER_UPS.minMemberDays} days.`;
+    if (ageMs(user.createdAt) < POWER_UPS.minAccountDays * DAY_MS) return `Accounts can catch aura once they're ${POWER_UPS.minAccountDays} days old.`;
+    if (ageMs(member.joinedAt) < POWER_UPS.minMemberDays * DAY_MS) return `You can catch aura once you've been in the group ${POWER_UPS.minMemberDays} days.`;
     return null;
   }
 

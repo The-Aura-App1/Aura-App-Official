@@ -14,8 +14,13 @@ export default function FeedAd({ topics = [] }) {
     let cancelled = false;
     withGpt(googletag => {
       if (cancelled || !document.getElementById(id)) return;
-      const slot = googletag.defineSlot(FEED_UNIT, [[300, 250], [336, 280], 'fluid'], id);
+      const slot = googletag.defineSlot(FEED_UNIT, [[300, 250], [336, 280]], id);
       if (!slot) { setState('empty'); return; }
+      // Every creative renders in Google's cross-origin SafeFrame, sandboxed,
+      // so ad code can never reach this page (its storage holds the sign-in
+      // tokens and feed choices) or navigate it
+      slot.setForceSafeFrame(true);
+      slot.setSafeFrameConfig({ sandbox: true, allowOverlayExpansion: false, allowPushExpansion: false });
       slot.addService(googletag.pubads());
       if (topics.length) slot.setTargeting('topic', topics.slice(0, 3));
       slotRef.current = slot;

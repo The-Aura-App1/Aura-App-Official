@@ -513,24 +513,35 @@ async function deleteComment(commentId, userId) {
 const REPORT_REASONS = new Set(['spam', 'harassment', 'hate', 'violence', 'nudity', 'self_harm', 'misinformation', 'other']);
 const reportReason = reason => (REPORT_REASONS.has(reason) ? reason : 'other');
 
+// Every report reaches the moderators, but only reports from accounts at
+// least 7 days old count toward hiding (trustedReports), so a batch of new
+// accounts can't hide a comment on its own. Same rule as aura-posts.
+const REPORT_HIDE_AT = 5;
+const REPORT_TRUSTED_DAYS = 7;
+
 async function reportComment(commentId, userId, reason) {
-  const result = await dynamo.send(new GetCommand({
-    TableName: COMMENTS_TABLE,
-    Key: { commentId },
-  }));
+  const [result, reporterResult] = await Promise.all([
+    dynamo.send(new GetCommand({ TableName: COMMENTS_TABLE, Key: { commentId } })),
+    dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId }, ProjectionExpression: 'isBanned, createdAt' })),
+  ]);
+  const reporter = reporterResult.Item;
+  if (!reporter) return response(404, { error: 'User not found.' });
+  if (reporter.isBanned) return response(403, { error: 'Account banned.' });
 
   if (!result.Item || result.Item.status !== 'active') return response(404, { error: 'Comment not found.' });
   if (result.Item.authorId === userId) return response(400, { error: 'You cannot report your own comment.' });
+  const created = Date.parse(reporter.createdAt);
+  const trusted = Number.isFinite(created) && Date.now() - created >= REPORT_TRUSTED_DAYS * 86400000 ? 1 : 0;
 
-  // Each person can report a comment once, so it takes 5 different people to hide it
+  // Each person can report a comment once
   let updated;
   try {
     updated = await dynamo.send(new UpdateCommand({
       TableName:                 COMMENTS_TABLE,
       Key:                       { commentId },
-      UpdateExpression:          'ADD reportCount :one, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
+      UpdateExpression:          'ADD reportCount :one, trustedReports :trusted, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
       ConditionExpression:       'attribute_not_exists(reportedBy) OR NOT contains(reportedBy, :uid)',
-      ExpressionAttributeValues: { ':one': 1, ':me': new Set([userId]), ':uid': userId, ':why': new Set([reportReason(reason)]), ':now': new Date().toISOString() },
+      ExpressionAttributeValues: { ':one': 1, ':trusted': trusted, ':me': new Set([userId]), ':uid': userId, ':why': new Set([reportReason(reason)]), ':now': new Date().toISOString() },
       ReturnValues:              'ALL_NEW',
     }));
   } catch (err) {
@@ -538,15 +549,16 @@ async function reportComment(commentId, userId, reason) {
     return response(200, { message: 'Comment reported.' });
   }
 
-  // Auto-remove at 5 reports
-  if ((updated.Attributes?.reportCount ?? 0) >= 5) {
+  // Hidden for review at 5 trusted reports (never over a moderator's removal)
+  if ((updated.Attributes?.trustedReports ?? 0) >= REPORT_HIDE_AT) {
     await dynamo.send(new UpdateCommand({
       TableName:                 COMMENTS_TABLE,
       Key:                       { commentId },
       UpdateExpression:          'SET #status = :pending',
+      ConditionExpression:       '#status = :active',
       ExpressionAttributeNames:  { '#status': 'status' },
-      ExpressionAttributeValues: { ':pending': 'pending_review' },
-    }));
+      ExpressionAttributeValues: { ':pending': 'pending_review', ':active': 'active' },
+    })).catch(err => { if (err.name !== 'ConditionalCheckFailedException') throw err; });
   }
 
   return response(200, { message: 'Comment reported.' });

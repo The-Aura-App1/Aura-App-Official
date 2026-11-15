@@ -35,6 +35,7 @@ const NOTIFICATIONS_TABLE = 'aura-notifications';
 // games per UTC day, by account type. 0 is a friendly game.
 export const STAKE_CAP = { regular: 500, premium: 2000 };
 const DAILY_GAMES_CREATED = 30;
+const MIN_STAKE_ACCOUNT_DAYS = 7;                 // as for gifts counting as earned and catching Aura Rain
 const TURN_MS             = 2 * 60 * 1000;        // then the other player may claim the win
 const KEEP_FINISHED_DAYS  = 60;                   // finished games expire from the table (TTL)
 const LIST_LIMIT          = 60;
@@ -144,6 +145,12 @@ export async function handleGames(ctx, user, method, segments, body) {
   function stakeChecks(account, stake) {
     const cap = account.isPremium ? STAKE_CAP.premium : STAKE_CAP.regular;
     if (stake > cap) return { error: response(400, { error: `Games can be for at most ${cap} aura.` }) };
+    // Same rule as gifts and Aura Rain: new accounts can't move aura into
+    // another account through games (a missing date counts as new)
+    const created = Date.parse(account.createdAt);
+    if (stake > 0 && !(Number.isFinite(created) && Date.now() - created >= MIN_STAKE_ACCOUNT_DAYS * 86400000)) {
+      return { error: response(403, { error: `Accounts can play for aura once they're ${MIN_STAKE_ACCOUNT_DAYS} days old. Friendly games (0 aura) are open to everyone.` }) };
+    }
     const paid = payFor(account, stake);
     if (!paid) return { error: response(400, { error: `You need ${stake} aura to play for that. You have ${(account.auraSpendable ?? 0) + (account.auraEarned ?? 0)}.` }) };
     return { paid, cap };

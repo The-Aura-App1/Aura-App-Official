@@ -401,9 +401,10 @@ export async function handleFollows({ method, segments, query = {}, userId, isAd
     if (segments.length === 4 && action === 'report' && method === 'POST') {
       let body = {};
       try { body = JSON.parse(rawBody || '{}') ?? {}; } catch { return response(400, { error: 'The request body must be a JSON object.' }); }
+      if (viewer.isBanned) return response(403, { error: 'Account banned.' });
       const limited = await rateLimited(userId, 'report', 10, 3600);
       if (limited) return limited;
-      return reportUser(viewer, target, body.reason, response);
+      return reportUser(viewer, target, body?.reason, response);
     }
 
     if (segments.length === 4 && action === 'block') {

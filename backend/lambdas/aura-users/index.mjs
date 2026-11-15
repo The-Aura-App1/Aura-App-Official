@@ -774,7 +774,7 @@ export const handler = async (event) => {
 
       const todayStatus = await getToday(user);
       // Reports against you (and who made them) are for moderators only
-      const { reportCount, reportedBy, reportReasons, lastReportedAt, reviewedAt, reviewedBy, ...own } = user;
+      const { reportCount, trustedReports, reportedBy, reportReasons, lastReportedAt, reviewedAt, reviewedBy, ...own } = user;
       return response(200, {
         ...own, today: todayStatus, usernameStatus: usernameStatus(user),
         ...(ADMIN_IDS.has(userId) && { isAdmin: true }),

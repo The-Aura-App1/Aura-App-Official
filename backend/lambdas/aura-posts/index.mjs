@@ -390,6 +390,7 @@ async function forViewer(posts, viewerId) {
     // Report details are for moderation only, never for viewers
     delete post.reportCount;
     delete post.reportedBy;
+    delete post.trustedReports;
     delete post.reportReasons;
     delete post.lastReportedAt;
     delete post.reviewedAt;
@@ -671,24 +672,36 @@ async function getGroupPosts(groupId, viewerId, cursor) {
 // src/utils/reportReasons.js and aura-comments; a test keeps them equal).
 const REPORT_REASONS = ['spam', 'harassment', 'hate', 'violence', 'nudity', 'self_harm', 'misinformation', 'other'];
 const REPORT_HIDE_AT = 5;
+// Every report reaches the moderators, but only reports from accounts at
+// least this old count toward hiding a post, so a batch of new accounts
+// can't hide something on its own (trustedReports)
+const REPORT_TRUSTED_DAYS = 7;
 
 async function reportPost(postId, userId, reason) {
-  const result = await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } }));
+  const [result, reporterResult] = await Promise.all([
+    dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } })),
+    dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId }, ProjectionExpression: 'isBanned, createdAt' })),
+  ]);
+  const reporter = reporterResult.Item;
+  if (!reporter) return response(404, { error: 'User not found.' });
+  if (reporter.isBanned) return response(403, { error: 'Account banned.' });
   const post = result.Item;
   if (!post || post.status !== 'active' || !(await visibleToViewer([post], userId)).length) {
     return response(404, { error: 'Post not found.' });
   }
   if (post.authorId === userId) return response(400, { error: 'You cannot report your own post.' });
+  const created = Date.parse(reporter.createdAt);
+  const trusted = Number.isFinite(created) && Date.now() - created >= REPORT_TRUSTED_DAYS * 86400000 ? 1 : 0;
 
   let updated;
   try {
     updated = await dynamo.send(new UpdateCommand({
       TableName:                 POSTS_TABLE,
       Key:                       { postId },
-      UpdateExpression:          'ADD reportCount :one, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
+      UpdateExpression:          'ADD reportCount :one, trustedReports :trusted, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
       ConditionExpression:       'attribute_not_exists(reportedBy) OR NOT contains(reportedBy, :uid)',
       ExpressionAttributeValues: {
-        ':one': 1, ':me': new Set([userId]), ':uid': userId, ':now': new Date().toISOString(),
+        ':one': 1, ':trusted': trusted, ':me': new Set([userId]), ':uid': userId, ':now': new Date().toISOString(),
         ':why': new Set([REPORT_REASONS.includes(reason) ? reason : 'other']),
       },
       ReturnValues:              'ALL_NEW',
@@ -698,7 +711,7 @@ async function reportPost(postId, userId, reason) {
     return response(200, { message: 'Post reported.' });   // already reported by this person
   }
 
-  if ((updated.Attributes?.reportCount ?? 0) >= REPORT_HIDE_AT) {
+  if ((updated.Attributes?.trustedReports ?? 0) >= REPORT_HIDE_AT) {
     await dynamo.send(new UpdateCommand({
       TableName:                 POSTS_TABLE,
       Key:                       { postId },

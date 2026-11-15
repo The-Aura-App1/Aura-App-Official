@@ -3,7 +3,7 @@
 // People report posts (aura-posts), comments (aura-comments) and accounts
 // (aura-users, POST /follows/user/{username}/report). Each report adds to
 // reportCount, reportedBy (one per person) and reportReasons on the item.
-// Posts and comments with 5 reports are hidden ('pending_review') until a
+// Posts and comments with 5 reports from accounts at least 7 days old are hidden ('pending_review') until a
 // moderator decides. Accounts are never hidden by reports alone.
 //
 //   GET  /admin/reports   everything with open reports, most reported first
@@ -69,7 +69,9 @@ export async function listReports(db) {
 }
 
 const TABLES = { post: [POSTS_TABLE, 'postId'], comment: [COMMENTS_TABLE, 'commentId'], user: [USERS_TABLE, 'userId'] };
-const CLEAR = 'REMOVE reportCount, reportedBy, reportReasons, lastReportedAt';
+// Clearing keeps reportedBy, so the same people can't report a kept item
+// again and hide it again; new reporters still can
+const CLEAR = 'REMOVE reportCount, trustedReports, reportReasons, lastReportedAt';
 
 export async function reviewReport(db, moderatorId, body, { response, setBanned, isModerator }) {
   const { kind, id, action } = body ?? {};
