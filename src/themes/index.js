@@ -1,3 +1,5 @@
+import { customThemeInfo } from './customTheme';
+
 // Tiny landscape pictures for the picker cards, as inline SVGs.
 const svg = body => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 100' preserveAspectRatio='none'>${body}</svg>`)}")`;
 const PEAKS_ART = svg(
@@ -178,7 +180,14 @@ export const PUBLIC_ROTATION = ['day', 'city-skies', 'snowy-peaks', 'night', 'du
 export const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'northern-lights', 'firefly-grove', 'sky-isles', 'abyss', 'golden-dunes', 'lantern-lake', 'custom'];
 
 export function getTheme(id) {
+  if (id === 'custom') return customThemeInfo();
   return THEMES.find(t => t.id === id) ?? null;
+}
+
+// The built-in themes plus this device's custom theme, if there is one
+export function allThemes() {
+  const custom = customThemeInfo();
+  return custom ? [...THEMES, custom] : THEMES;
 }
 
 // New visitors start on Day or Night, matching their device's setting.

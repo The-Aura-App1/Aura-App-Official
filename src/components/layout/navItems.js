@@ -1,10 +1,11 @@
-import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info, Compass } from 'lucide-react';
+import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info, Compass, Sparkles } from 'lucide-react';
 
 // Everything outside the five main tabs. The sidebar shows these under
 // "More"; phones show them in the "Me" sheet. Keep the main tabs to five so
 // the phone bar never overflows; new pages go here.
 export function moreItems(isAdmin) {
   return [
+    { to: '/angel',    icon: Sparkles,           label: 'Angel' },
     { to: '/wallet',   icon: Wallet,             label: 'Aura Wallet' },
     { to: '/settings', icon: Settings,           label: 'Settings' },
     { to: '/feedback', icon: MessageSquareHeart, label: 'Suggestions & Reviews' },
@@ -15,5 +16,5 @@ export function moreItems(isAdmin) {
 }
 
 export function isMorePath(pathname) {
-  return ['/wallet', '/settings', '/feedback', '/moderation'].some(p => pathname.startsWith(p));
+  return ['/angel', '/wallet', '/settings', '/feedback', '/moderation'].some(p => pathname.startsWith(p));
 }

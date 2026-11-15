@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { getTheme, defaultThemeId } from '../themes';
+import { applyCustomVars } from '../themes/customTheme';
 
 const ThemeContext = createContext(null);
 
@@ -61,6 +62,8 @@ export function ThemeProvider({ children }) {
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = themeInfo.id;
+    // A custom theme's colors and font live on the page itself (customTheme.js)
+    applyCustomVars(themeInfo.id === 'custom');
     root.classList.toggle('dark', themeInfo.base === 'dark' && !publicScenes);
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute('content', themeInfo.bar));
     writeStorage(THEME_KEY, themeInfo.id);
@@ -71,8 +74,16 @@ export function ThemeProvider({ children }) {
     writeStorage('aura-sky-details', skyDetails ? 'on' : 'off');
   }, [skyDetails]);
 
+  // Re-reads the custom theme after it changes (Angel, the theme builder)
+  const [customVersion, setCustomVersion] = useState(0);
+  const refreshCustom = useCallback(() => setCustomVersion(v => v + 1), []);
+  useLayoutEffect(() => {
+    if (customVersion && themeInfo.id === 'custom') applyCustomVars(true);
+  }, [customVersion, themeInfo.id]);
+
   return (
     <ThemeContext.Provider value={{
+      refreshCustom,
       themeId: themeInfo.id, themeInfo, setThemeId,
       // 'light' or 'dark', for styling that only cares about the base
       theme: themeInfo.base,

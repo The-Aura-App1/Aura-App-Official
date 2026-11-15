@@ -413,6 +413,10 @@
   --wordmark-ink: #fff0e6;
 }
 
+/* Custom themes (src/themes/customTheme.js) set their variables on the page
+   itself; this only picks up their font. */
+[data-theme="custom"] body { font-family: var(--custom-font, 'Plus Jakarta Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif); }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {

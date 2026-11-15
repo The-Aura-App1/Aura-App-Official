@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Palette } from 'lucide-react';
-import { THEMES } from '../../themes';
+import { allThemes } from '../../themes';
 import { useTheme } from '../../context/ThemeContext';
 import useChooseTheme from '../../hooks/useChooseTheme';
 
@@ -31,7 +31,7 @@ export function ThemeCards({ onPick }) {
   const chooseTheme = useChooseTheme();
   return (
     <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Theme">
-      {THEMES.map(theme => {
+      {allThemes().map(theme => {
         const selected = theme.id === themeId;
         return (
           <button key={theme.id} type="button" role="radio" aria-checked={selected}
@@ -89,7 +89,7 @@ export function ThemeMenu({ placement = 'below', align = 'right', children, butt
         <div role="menu"
           className={`absolute z-40 w-56 p-1.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl animate-fade-in
             ${placement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'left' ? 'left-0' : 'right-0'}`}>
-          {THEMES.map(theme => (
+          {allThemes().map(theme => (
             <button key={theme.id} type="button" role="menuitemradio" aria-checked={theme.id === themeId}
               onClick={() => { chooseTheme(theme.id); setOpen(false); }}
               className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm text-[var(--text-primary)] hover:bg-[var(--accent-subtle)]">
