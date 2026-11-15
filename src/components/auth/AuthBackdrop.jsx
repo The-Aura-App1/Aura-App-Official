@@ -6,6 +6,10 @@ import { getTheme, PUBLIC_ROTATION } from '../../themes';
 import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
+import NorthernLights from '../scenes/NorthernLights';
+import FireflyGrove from '../scenes/FireflyGrove';
+import SkyIsles from '../scenes/SkyIsles';
+import Abyss from '../scenes/Abyss';
 import CitySkies from '../scenes/CitySkies';
 import TwinklingStars from '../scenes/TwinklingStars';
 import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
@@ -375,7 +379,7 @@ function useGentleMotion(ref) {
   }, [ref]);
 }
 
-const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies };
+const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies, aurora: NorthernLights, grove: FireflyGrove, isles: SkyIsles, deep: Abyss };
 
 // The scenery for a theme: Day and Night share the sky (styled by the
 // `dark` class), Snowy Peaks and Duskfall have their own.

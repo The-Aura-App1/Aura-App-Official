@@ -203,6 +203,146 @@
   --wordmark-ink: #f4eeff;
 }
 
+/* Northern Lights: deep polar blue with an aurora green-to-violet accent. */
+[data-theme="northern-lights"] {
+  --aura-950: 3 12 28;
+  --aura-900: 8 26 44;
+  --aura-850: 11 34 56;
+  --aura-800: 16 48 72;
+  --aura-700: 18 92 98;
+  --aura-600: 16 140 126;
+  --aura-500: 30 190 150;
+  --aura-400: 94 228 186;
+  --aura-300: 150 242 214;
+  --aura-200: 196 248 232;
+  --aura-100: 224 252 243;
+  --aura-50:  240 254 249;
+  --bg-primary:    #030c1c;
+  --bg-secondary:  #071628;
+  --bg-elevated:   #0e2238;
+  --bg-card:       #0a1a2c;
+  --border:        #173048;
+  --text-primary:  #eefcf7;
+  --text-secondary:#7ee8c4;
+  --text-muted:    #8aa3b8;
+  --accent:        #22b892;
+  --accent-hover:  #34d3a6;
+  --accent-subtle: #0f2a33;
+  /* Aurora green through teal into violet, like the curtains' hem to top. */
+  --brand-1: #0f9f80;
+  --brand-2: #1b8fb8;
+  --brand-3: #7c5ce6;
+  --brand-ink-1: #6ee7c4;
+  --brand-ink-2: #8fd8ff;
+  --brand-ink-3: #c4b5fd;
+  --wordmark-ink: #eafff6;
+}
+
+/* Firefly Grove: moonlit forest greens with a firefly-gold accent. */
+[data-theme="firefly-grove"] {
+  --aura-950: 4 14 12;
+  --aura-900: 10 28 24;
+  --aura-850: 14 38 32;
+  --aura-800: 20 52 44;
+  --aura-700: 44 88 52;
+  --aura-600: 82 124 48;
+  --aura-500: 132 168 44;
+  --aura-400: 181 224 90;
+  --aura-300: 214 240 150;
+  --aura-200: 232 248 196;
+  --aura-100: 243 251 224;
+  --aura-50:  249 253 240;
+  --bg-primary:    #06120f;
+  --bg-secondary:  #0a1a17;
+  --bg-elevated:   #13261f;
+  --bg-card:       #0c1c1a;
+  --border:        #1d3532;
+  --text-primary:  #f3fbe9;
+  --text-secondary:#c9e98a;
+  --text-muted:    #93ab9f;
+  --accent:        #8fbf3a;
+  --accent-hover:  #b5e05a;
+  --accent-subtle: #17291c;
+  /* Deep moss into lime, glowing amber at the end like a firefly. */
+  --brand-1: #2f7d5b;
+  --brand-2: #5e8a1e;
+  --brand-3: #a8691a;
+  --brand-ink-1: #86efac;
+  --brand-ink-2: #d9f99d;
+  --brand-ink-3: #fcd34d;
+  --wordmark-ink: #f6fde8;
+}
+
+/* Sky Isles: bright morning blues with a sunrise accent. */
+[data-theme="sky-isles"] {
+  --aura-950: 12 22 48;
+  --aura-900: 22 38 80;
+  --aura-850: 28 48 100;
+  --aura-800: 36 62 130;
+  --aura-700: 40 84 180;
+  --aura-600: 42 100 214;
+  --aura-500: 47 111 224;
+  --aura-400: 96 150 240;
+  --aura-300: 147 186 248;
+  --aura-200: 196 218 252;
+  --aura-100: 225 236 254;
+  --aura-50:  241 247 255;
+  --bg-primary:    #f3f8ff;
+  --bg-secondary:  #ffffff;
+  --bg-elevated:   #e7f0fc;
+  --bg-card:       #ffffff;
+  --border:        #d7e3f3;
+  --text-primary:  #122340;
+  --text-secondary:#2c5aa8;
+  --text-muted:    #5f6f86;
+  --accent:        #2f6fe0;
+  --accent-hover:  #2459bd;
+  --accent-subtle: #e3edfd;
+  /* Clear sky blue into periwinkle, warming to sunrise orange. */
+  --brand-1: #2f6fe0;
+  --brand-2: #5b5fe0;
+  --brand-3: #cf5f2a;
+  --brand-ink-1: #1f56c4;
+  --brand-ink-2: #4a46c8;
+  --brand-ink-3: #b8521f;
+  --wordmark-ink: #142a5c;
+}
+
+/* Abyss: the deep sea's navy with a bioluminescent cyan-to-violet accent. */
+[data-theme="abyss"] {
+  --aura-950: 2 8 21;
+  --aura-900: 4 18 39;
+  --aura-850: 6 26 50;
+  --aura-800: 10 40 70;
+  --aura-700: 12 74 110;
+  --aura-600: 14 116 144;
+  --aura-500: 34 184 214;
+  --aura-400: 103 232 249;
+  --aura-300: 165 243 252;
+  --aura-200: 207 250 254;
+  --aura-100: 226 252 255;
+  --aura-50:  240 253 255;
+  --bg-primary:    #041227;
+  --bg-secondary:  #061a33;
+  --bg-elevated:   #0b2542;
+  --bg-card:       #071a30;
+  --border:        #12304c;
+  --text-primary:  #ecfbff;
+  --text-secondary:#7fe3f5;
+  --text-muted:    #8aa4bd;
+  --accent:        #1ea7c7;
+  --accent-hover:  #22c3e6;
+  --accent-subtle: #0a2a40;
+  /* Glowing cyan into deep blue and jellyfish violet. */
+  --brand-1: #0e7490;
+  --brand-2: #2563eb;
+  --brand-3: #8b5cf6;
+  --brand-ink-1: #67e8f9;
+  --brand-ink-2: #93c5fd;
+  --brand-ink-3: #c4b5fd;
+  --wordmark-ink: #e6fbff;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
