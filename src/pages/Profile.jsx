@@ -564,7 +564,7 @@ export default function Profile() {
           </div>
         )}
         {activeTab === 'timeline' && (
-          <AuraTimelineGraph userId={profile.userId} />
+          <AuraTimelineGraph userId={profile.userId} balance={profile.auraBalance ?? 0} />
         )}
         {activeTab === 'liked' && isOwner && <LikedPosts />}
       </div>

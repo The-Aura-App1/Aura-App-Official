@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { canSeeAccount } from './privacy.mjs';
 import { handleGames } from './games.mjs';
 
@@ -192,10 +192,89 @@ function transactionRecord(fields) {
   };
 }
 
+// ─── Balance history ──────────────────────────────────────────
+// Every change to someone's balance also adds to their running totals for
+// the day (HIST#<userId>#<date>) and the month (HISTM#<userId>#<yyyy-mm>) in
+// aura-daily-budgets, in the same transaction. The profile's aura graph
+// works backwards from today's balance through these totals.
+export function historyUpdates(items, day = today()) {
+  const deltas = new Map();
+  for (const item of items) {
+    const u = item.Update;
+    const delta = u?.TableName === USERS_TABLE ? u.ExpressionAttributeValues?.[':auraBalance'] : undefined;
+    if (typeof delta === 'number' && delta) deltas.set(u.Key.userId, (deltas.get(u.Key.userId) ?? 0) + delta);
+  }
+  const writes = [];
+  for (const [userId, delta] of deltas) {
+    if (!delta) continue;
+    for (const budgetKey of [`HIST#${userId}#${day}`, `HISTM#${userId}#${day.slice(0, 7)}`]) {
+      writes.push({ Update: {
+        TableName: DAILY_BUDGETS_TABLE,
+        Key: { budgetKey },
+        UpdateExpression: 'ADD net :d, moves :one',
+        ExpressionAttributeValues: { ':d': delta, ':one': 1 },
+      } });
+    }
+  }
+  return writes;
+}
+
+const HISTORY_RANGES = { '1w': 7, '1m': 30, '3m': 90, '1y': 365 };
+const HISTORY_MONTHS = 60;   // "All" goes back at most five years, a point a month
+
+async function batchGetBudgets(keys) {
+  const found = [];
+  for (let i = 0; i < keys.length; i += 100) {
+    let request = { [DAILY_BUDGETS_TABLE]: { Keys: keys.slice(i, i + 100).map(budgetKey => ({ budgetKey })), ProjectionExpression: 'budgetKey, net' } };
+    while (request && Object.keys(request).length) {
+      const result = await dynamo.send(new BatchGetCommand({ RequestItems: request }));
+      found.push(...(result.Responses?.[DAILY_BUDGETS_TABLE] ?? []));
+      request = result.UnprocessedKeys;
+    }
+  }
+  return new Map(found.map(item => [item.budgetKey, item.net ?? 0]));
+}
+
+// GET /aura/history/{userId}?range=1w|1m|3m|1y|all: today's balance and the
+// net change for each day (or month, for "all") in the range, oldest first
+async function auraHistory(viewerId, targetId, range) {
+  const result = await dynamo.send(new GetCommand({
+    TableName: USERS_TABLE, Key: { userId: targetId },
+    ProjectionExpression: 'userId, auraBalance, auraVersion, isBanned, createdAt',
+  }));
+  const target = result.Item;
+  if (!target || target.isBanned || targetId.startsWith('USERNAME#')) return response(404, { error: 'User not found.' });
+  if (!(await canSeeAccount(dynamo, viewerId, targetId))) {
+    return response(403, { error: 'This account is private.', private: true });
+  }
+  const balance = target.auraVersion === AURA_VERSION ? (target.auraBalance ?? 0) : 0;
+  const now = new Date();
+
+  if (range === 'all') {
+    const months = [];
+    for (let i = HISTORY_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      months.push(d.toISOString().slice(0, 7));
+    }
+    const joined = (target.createdAt ?? '').slice(0, 7);
+    const shown = joined ? months.filter(m => m >= joined) : months.slice(-12);
+    const nets = await batchGetBudgets(shown.map(m => `HISTM#${targetId}#${m}`));
+    return response(200, { balance, unit: 'month', points: shown.map(date => ({ date, net: nets.get(`HISTM#${targetId}#${date}`) ?? 0 })) });
+  }
+
+  const days = HISTORY_RANGES[range];
+  if (!days) return response(400, { error: 'Pick a range: 1w, 1m, 3m, 1y or all.' });
+  const dates = [];
+  for (let i = days - 1; i >= 0; i--) dates.push(new Date(now.getTime() - i * 86400000).toISOString().slice(0, 10));
+  const nets = await batchGetBudgets(dates.map(d => `HIST#${targetId}#${d}`));
+  return response(200, { balance, unit: 'day', points: dates.map(date => ({ date, net: nets.get(`HIST#${targetId}#${date}`) ?? 0 })) });
+}
+
 // Runs the writes all-or-nothing. messages[i] explains a failed condition on items[i].
+// Balance history rides along at the end, so the messages still line up.
 async function commit(items, messages) {
   try {
-    await dynamo.send(new TransactWriteCommand({ TransactItems: items }));
+    await dynamo.send(new TransactWriteCommand({ TransactItems: [...items, ...historyUpdates(items)] }));
     return null;
   } catch (err) {
     if (err.name !== 'TransactionCanceledException') throw err;
@@ -592,6 +671,11 @@ export const handler = async (event) => {
     }
 
     // /games/* (group games, see games.mjs)
+    // GET /aura/history/{userId}
+    if (method === 'GET' && segments[0] === 'aura' && segments[1] === 'history' && segments.length === 3) {
+      return await auraHistory(userId, segments[2], event.queryStringParameters?.range ?? '1m');
+    }
+
     if (segments[0] === 'games') {
       return await handleGames(
         { dynamo, response, firstLimit, balanceUpdate, transactionRecord, commit, today, query: event.queryStringParameters ?? {} },
