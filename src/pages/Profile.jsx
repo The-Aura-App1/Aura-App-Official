@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Grid, Heart, TrendingUp, Camera, Edit3,
-  Save, X, Plus, Sparkles, Lock
+  Save, X, Plus, Sparkles, Lock, MoreHorizontal, Ban
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -14,6 +14,7 @@ import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
 import LikedPosts from '../components/profile/LikedPosts';
 import { FollowButton, FollowCount, FollowListSheet } from '../components/profile/FollowBits';
 import { updateUserAttributes } from 'aws-amplify/auth';
+import SafetyActions, { useBlockedAuthor } from '../components/moderation/SafetyActions';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
 
@@ -59,6 +60,10 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('posts');
   const [isOwner, setIsOwner]     = useState(false);
   const [rel, setRel]             = useState(null);    // follow relationship (see api.getFollowStatus)
+  const [youBlocked, setYouBlocked] = useState(false);
+  const [menuOpen, setMenuOpen]   = useState(false);
+  const [safetyNotice, setSafetyNotice] = useState('');
+  const [unblocking, setUnblocking] = useState(false);
   const [listOpen, setListOpen]   = useState(null);    // 'followers' | 'following'
   const [editing, setEditing]     = useState(false);
 
@@ -83,7 +88,9 @@ export default function Profile() {
   useEffect(() => { loadProfile(); }, [profileUsername]);
 
   // Private accounts' posts load only for the owner and approved followers
-  const canSeePosts = isOwner || !profile?.isPrivate || rel?.canSeePosts === true;
+  const blockedHere = useBlockedAuthor(profile?.userId);
+  useEffect(() => { if (blockedHere) { setYouBlocked(true); setRel(r => r && { ...r, status: 'none', canSeePosts: false }); } }, [blockedHere]);
+  const canSeePosts = !youBlocked && (isOwner || !profile?.isPrivate || rel?.canSeePosts === true);
   useEffect(() => {
     if (profile?.userId && canSeePosts) loadPosts(profile.userId);
     else setPosts([]);
@@ -94,6 +101,8 @@ export default function Profile() {
       setLoading(true);
       const data = await api.getUser(profileUsername);
       setProfile(data);
+      setYouBlocked(!!data.youBlocked);
+      setSafetyNotice('');
       const mine = data.userId === user?.userId;
       setIsOwner(mine);
       setRel(null);
@@ -120,6 +129,20 @@ export default function Profile() {
       setPosts(data.posts ?? []);
     } catch (err) {
       console.error('Failed to load posts:', err);
+    }
+  }
+
+  async function unblock() {
+    setUnblocking(true);
+    try {
+      await api.unblockUser(profile.username);
+      setYouBlocked(false);
+      setSafetyNotice('');
+      api.getFollowStatus(profile.username).then(setRel, () => setRel(null));
+    } catch (err) {
+      setSafetyNotice(err.message || 'Could not unblock.');
+    } finally {
+      setUnblocking(false);
     }
   }
 
@@ -339,7 +362,29 @@ export default function Profile() {
                 </button>
               )
             ) : (
-              <FollowButton username={profile.username} rel={rel} onChange={applyFollow} />
+              <>
+                {youBlocked ? (
+                  <button type="button" onClick={unblock} disabled={unblocking} className="btn-secondary text-sm px-4 py-2 text-[var(--text-primary)]">
+                    {unblocking ? 'Unblocking…' : 'Unblock'}
+                  </button>
+                ) : (
+                  <FollowButton username={profile.username} rel={rel} onChange={applyFollow} />
+                )}
+                {user && (
+                  <div className="relative">
+                    <button type="button" onClick={() => setMenuOpen(o => !o)} aria-label="More options for this account" aria-expanded={menuOpen}
+                      className="p-2 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-subtle)]">
+                      <MoreHorizontal size={18} />
+                    </button>
+                    {menuOpen && (
+                      <div className="absolute right-0 top-full mt-1 z-30 min-w-[12rem] rounded-xl p-1 bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg">
+                        <SafetyActions kind="user" username={profile.username} userId={profile.userId} showBlock={!youBlocked}
+                          onNotice={setSafetyNotice} onDone={() => setMenuOpen(false)} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -544,9 +589,16 @@ export default function Profile() {
 
       {/* ── Tab content ── */}
       <div className="flex-1 px-4 pt-4">
+        {safetyNotice && <p className="mb-3 text-sm text-center text-[var(--text-muted)]" role="status">{safetyNotice}</p>}
         {activeTab === 'posts' && (
           <div className="flex flex-col gap-4">
-            {!canSeePosts ? (
+            {youBlocked ? (
+              <div className="card text-center py-10 flex flex-col items-center gap-2">
+                <Ban size={22} className="text-[var(--text-muted)]" />
+                <p className="font-semibold text-[var(--text-primary)]">You blocked @{profile.username}</p>
+                <p className="text-sm text-[var(--text-muted)]">You won't see their posts, and they can't interact with yours. Unblock to undo it.</p>
+              </div>
+            ) : !canSeePosts ? (
               <div className="card text-center py-10 flex flex-col items-center gap-2">
                 <Lock size={22} className="text-[var(--text-muted)]" />
                 <p className="font-semibold text-[var(--text-primary)]">This account is private</p>
@@ -563,7 +615,7 @@ export default function Profile() {
             ))}
           </div>
         )}
-        {activeTab === 'timeline' && (
+        {activeTab === 'timeline' && !youBlocked && (
           <AuraTimelineGraph userId={profile.userId} balance={profile.auraBalance ?? 0} />
         )}
         {activeTab === 'liked' && isOwner && <LikedPosts />}

@@ -3,7 +3,8 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, Transac
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handleFeedback } from './feedback.mjs';
-import { handleFollows, approveAllPending } from './follows.mjs';
+import { handleFollows, approveAllPending, blockState } from './follows.mjs';
+import { listReports, reviewReport } from './moderation.mjs';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
 const client = new DynamoDBClient({ region: 'us-east-1' });
@@ -707,7 +708,7 @@ export const handler = async (event) => {
     // /follows/... — following and follow requests (follows.mjs, its own limits)
     const follows = await handleFollows({
       method, segments, query: event.queryStringParameters ?? {}, userId, isAdmin: !!userId && ADMIN_IDS.has(userId),
-      findUserByUsername, rateLimited, response,
+      findUserByUsername, rateLimited, response, rawBody: event.body,
     });
     if (follows) return follows;
 
@@ -772,8 +773,10 @@ export const handler = async (event) => {
       }
 
       const todayStatus = await getToday(user);
+      // Reports against you (and who made them) are for moderators only
+      const { reportCount, reportedBy, reportReasons, lastReportedAt, reviewedAt, reviewedBy, ...own } = user;
       return response(200, {
-        ...user, today: todayStatus, usernameStatus: usernameStatus(user),
+        ...own, today: todayStatus, usernameStatus: usernameStatus(user),
         ...(ADMIN_IDS.has(userId) && { isAdmin: true }),
       });
     }
@@ -792,14 +795,31 @@ export const handler = async (event) => {
         return response(404, { error: 'User not found.' });
       }
 
+      // Someone who blocked you doesn't show up for you at all; someone you
+      // blocked shows, marked, so you can unblock them
+      const blocks = ADMIN_IDS.has(userId) ? { youBlocked: false, blockedYou: false } : await blockState(userId, user.userId);
+      if (blocks.blockedYou) return response(404, { error: 'User not found.' });
+
       // Your own profile through this route shows the same fields everyone sees
-      return response(200, publicProfile(user, !!userId && ADMIN_IDS.has(userId)));
+      return response(200, { ...publicProfile(user, !!userId && ADMIN_IDS.has(userId)), ...(blocks.youBlocked && { youBlocked: true }) });
     }
 
     // POST /admin/ban — ban or unban an account (site moderators only)
     if (method === 'POST' && path === '/admin/ban') {
       if (!userId || !ADMIN_IDS.has(userId)) return response(403, { error: 'Moderators only.' });
       return await setBanned(userId, body);
+    }
+
+    // GET /admin/reports — reported posts, comments and accounts waiting for review
+    if (method === 'GET' && path === '/admin/reports') {
+      if (!userId || !ADMIN_IDS.has(userId)) return response(403, { error: 'Moderators only.' });
+      return response(200, await listReports(db));
+    }
+
+    // POST /admin/review — { kind: post|comment|user, id, action: keep|remove|ban }
+    if (method === 'POST' && path === '/admin/review') {
+      if (!userId || !ADMIN_IDS.has(userId)) return response(403, { error: 'Moderators only.' });
+      return await reviewReport(db, userId, body, { response, setBanned, isModerator: id => ADMIN_IDS.has(id) });
     }
 
     return response(404, { error: 'Route not found.' });

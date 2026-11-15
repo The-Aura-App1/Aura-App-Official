@@ -11,6 +11,7 @@ import AuraScore   from '../motion/AuraScore';
 import LikeHeart   from '../motion/LikeHeart';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
 import { topicLabel } from '../../utils/topics';
+import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
@@ -28,6 +29,8 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving]           = useState(false);
   const [removeError, setRemoveError]     = useState('');
+  const [notice, setNotice]               = useState('');
+  const blockedNow = useBlockedAuthor(post.authorId);
 
   async function handleRemove() {
     if (!confirmRemove) { setConfirmRemove(true); return; }
@@ -96,6 +99,9 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
 
   const frame = frameProps(post.style);
 
+  // Blocked from this card or anywhere else on the page: gone at once
+  if (blockedNow) return null;
+
   return (
     <>
       <article
@@ -150,7 +156,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
                          transition-all duration-200">
               <MoreHorizontal size={18} />
             </button>
-            {menuOpen && (onRemove || canPrefer) && (
+            {menuOpen && (onRemove || canPrefer || (user && !isOwner)) && (
               <div className="absolute right-0 top-full mt-1 z-20 min-w-[11rem] rounded-xl
                               bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-1">
                 {canPrefer && (preferred ? (
@@ -181,10 +187,16 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
                   {removing ? 'Deleting...' : confirmRemove ? 'Tap again to delete' : isOwner ? 'Delete post' : 'Remove post'}
                 </button>}
                 {removeError && <p className="px-3 py-1 text-xs text-red-400">{removeError}</p>}
+                {user && !isOwner && (
+                  <SafetyActions kind="post" targetId={post.postId} username={post.authorUsername} userId={post.authorId}
+                    onNotice={setNotice} onDone={() => setMenuOpen(false)} />
+                )}
               </div>
             )}
           </div>
         </div>
+
+        {notice && <p className="px-4 pb-2 text-xs text-[var(--text-muted)]" role="status">{notice}</p>}
 
         {/* ── Media ── */}
         {post.type !== 'text' && !hideMedia && (

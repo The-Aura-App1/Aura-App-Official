@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, MoreHorizontal, Sparkles, Flag, Trash2, CornerDownRight } from 'lucide-react';
+import { ArrowLeft, MessageCircle, MoreHorizontal, Sparkles, Trash2, CornerDownRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
 import { api } from '../../api';
 import PostMedia from './PostMedia';
 import PostCard from './PostCard';
@@ -23,13 +24,6 @@ const LIMIT_GLOBAL = 2200;
 const LIMIT_GROUP  = 10000;
 const PAGE = 50;
 const MAX_PAGE = 200;
-
-const REPORT_REASONS = [
-  ['spam', 'Spam or scam'],
-  ['harassment', 'Harassment or bullying'],
-  ['hate', 'Hate or violence'],
-  ['other', 'Something else'],
-];
 
 function profileLink(username) {
   return `/profile/${encodeURIComponent(username ?? '')}`;
@@ -223,11 +217,11 @@ function Comment({ comment, post, isReply, onReply, onDeleted, onAura, isAccount
   const [liking, setLiking]       = useState(false);
   const [menuOpen, setMenuOpen]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [reporting, setReporting] = useState(false);
   const [notice, setNotice]       = useState('');
   const [busy, setBusy]           = useState(false);
-  const closeMenu = useCallback(() => { setMenuOpen(false); setConfirmDelete(false); setReporting(false); }, []);
+  const closeMenu = useCallback(() => { setMenuOpen(false); setConfirmDelete(false); }, []);
   const menuRef = useDismiss(menuOpen, closeMenu);
+  const blockedNow = useBlockedAuthor(comment.authorId);
 
   async function toggleLike() {
     if (liking) return;
@@ -258,19 +252,7 @@ function Comment({ comment, post, isReply, onReply, onDeleted, onAura, isAccount
     }
   }
 
-  async function report(reason) {
-    setBusy(true);
-    try {
-      await api.reportComment(comment.commentId, reason);
-      setNotice('Thanks. Our moderators will take a look.');
-    } catch (err) {
-      setNotice(err.message || 'Could not send the report.');
-    } finally {
-      setBusy(false);
-      setReporting(false);
-      setMenuOpen(false);
-    }
-  }
+  if (blockedNow) return null;
 
   return (
     <div className="flex gap-3">
@@ -305,22 +287,10 @@ function Comment({ comment, post, isReply, onReply, onDeleted, onAura, isAccount
                     {busy ? 'Deleting...' : confirmDelete ? 'Tap again to delete' : isMine ? 'Delete comment' : 'Remove comment'}
                   </button>
                 )}
-                {!isMine && (reporting ? (
-                  <div className="p-1">
-                    <p className="px-2 pb-1 text-xs text-[var(--text-muted)]">What's wrong with it?</p>
-                    {REPORT_REASONS.map(([value, label]) => (
-                      <button key={value} onClick={() => report(value)} disabled={busy}
-                        className="w-full text-left px-2 py-1.5 rounded-lg text-sm text-[var(--text-primary)] hover:bg-[var(--accent-subtle)] disabled:opacity-50">
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <button onClick={() => setReporting(true)}
-                    className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-lg text-sm text-[var(--text-primary)] hover:bg-[var(--accent-subtle)]">
-                    <Flag size={14} /> Report comment
-                  </button>
-                ))}
+                {!isMine && (
+                  <SafetyActions kind="comment" targetId={comment.commentId} username={comment.authorUsername}
+                    userId={comment.authorId} onNotice={setNotice} onDone={closeMenu} />
+                )}
               </div>
             )}
           </div>}

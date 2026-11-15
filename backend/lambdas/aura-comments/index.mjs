@@ -4,7 +4,7 @@ import {
   UpdateCommand, ScanCommand, TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
 import { cleanText, hasVisibleText } from './text.mjs';
-import { canSeeAccount, isFollowing } from './privacy.mjs';
+import { canSeeAccount, isFollowing, eitherBlocked, blockedBetween } from './privacy.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -248,6 +248,8 @@ async function notifyForComment(comment, post, parent, commenter) {
     const recipient = reason.user ?? await userById(userId);
     if (!recipient || recipient.isBanned) return;
     if (recipient.notificationPrefs?.[reason.prefKey] === false) return;
+    // Nobody hears from someone they blocked, or who blocked them
+    if (await eitherBlocked(dynamo, userId, commenter.userId)) return;
     // Post authors and repliers already saw the post; a tagged person must be able to
     if (reason.type === 'mention' && !(await canSeePost(post, userId))) return;
     try {
@@ -303,6 +305,11 @@ async function createComment(userId, postId, body) {
     });
   }
 
+  // Neither side of a block can comment on the other's posts
+  if (await eitherBlocked(dynamo, userId, post.authorId)) {
+    return response(403, { error: "You can't comment on this post." });
+  }
+
   // Followers-only posts: the author and approved followers may comment.
   // Any other stored value also fails closed rather than letting anyone in.
   const visibility = post.commentVisibility ?? 'anyone';
@@ -340,6 +347,9 @@ async function createComment(userId, postId, body) {
       return response(400, { error: 'Cannot reply to a reply.' });
     }
     parent = parentResult.Item;
+    if (await eitherBlocked(dynamo, userId, parent.authorId)) {
+      return response(403, { error: "You can't reply to this comment." });
+    }
   }
 
   const commentId = generateId();
@@ -396,6 +406,8 @@ async function getComments(postId, viewerId, limit = 50) {
   if (!post.groupId && !(await canSeeAccount(dynamo, viewerId, post.authorId, ADMIN_IDS.has(viewerId)))) {
     return response(404, { error: 'Post not found.' });
   }
+  const moderator = ADMIN_IDS.has(viewerId);
+  if (!moderator && await eitherBlocked(dynamo, viewerId, post.authorId)) return response(404, { error: 'Post not found.' });
 
   // Scan every page: a single page stops at 1 MB, before the filter is applied
   const items = [];
@@ -411,6 +423,14 @@ async function getComments(postId, viewerId, limit = 50) {
     items.push(...(result.Items ?? []));
     ExclusiveStartKey = result.LastEvaluatedKey;
   } while (ExclusiveStartKey);
+
+  // Comments by people the viewer blocked, or who blocked the viewer, are left
+  // out (with their replies)
+  const blocked = moderator ? new Set() : await blockedBetween(dynamo, viewerId, items.map(c => c.authorId));
+  if (blocked.size) {
+    const gone = new Set(items.filter(c => blocked.has(c.authorId)).map(c => c.commentId));
+    items.splice(0, items.length, ...items.filter(c => !gone.has(c.commentId) && !gone.has(c.parentCommentId)));
+  }
 
   // The top `limit` comments by aura (then newest), each with its replies
   // oldest first. Replies to a removed comment go with it.
@@ -487,6 +507,10 @@ async function deleteComment(commentId, userId) {
 }
 
 // ─── Report comment ───────────────────────────────────────────
+// Reasons are kept for the moderators' review queue; anything else is 'other'
+const REPORT_REASONS = new Set(['spam', 'harassment', 'hate', 'violence', 'nudity', 'self_harm', 'misinformation', 'other']);
+const reportReason = reason => (REPORT_REASONS.has(reason) ? reason : 'other');
+
 async function reportComment(commentId, userId, reason) {
   const result = await dynamo.send(new GetCommand({
     TableName: COMMENTS_TABLE,
@@ -502,9 +526,9 @@ async function reportComment(commentId, userId, reason) {
     updated = await dynamo.send(new UpdateCommand({
       TableName:                 COMMENTS_TABLE,
       Key:                       { commentId },
-      UpdateExpression:          'ADD reportCount :one, reportedBy :me',
+      UpdateExpression:          'ADD reportCount :one, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
       ConditionExpression:       'attribute_not_exists(reportedBy) OR NOT contains(reportedBy, :uid)',
-      ExpressionAttributeValues: { ':one': 1, ':me': new Set([userId]), ':uid': userId },
+      ExpressionAttributeValues: { ':one': 1, ':me': new Set([userId]), ':uid': userId, ':why': new Set([reportReason(reason)]), ':now': new Date().toISOString() },
       ReturnValues:              'ALL_NEW',
     }));
   } catch (err) {

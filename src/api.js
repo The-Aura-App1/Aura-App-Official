@@ -96,6 +96,13 @@ export const api = {
   deleteComment:  (commentId)            => request('DELETE', `/comments/${id(commentId)}`),
   setBanned:      (username, banned, reason) => request('POST', '/admin/ban', { username, banned, reason }),
   reportComment:  (commentId, reason)    => request('POST', `/comments/${id(commentId)}/report`, { reason }),
+  reportPost:     (postId, reason)       => request('POST', `/posts/${id(postId)}/report`, { reason }),
+  reportUser:     (username, reason)     => request('POST', `/follows/user/${id(username)}/report`, { reason }),
+  blockUser:      username               => request('POST',   `/follows/user/${id(username)}/block`),
+  unblockUser:    username               => request('DELETE', `/follows/user/${id(username)}/block`),
+  getBlocked:     ()                     => request('GET',  '/follows/blocked'),
+  getReports:     ()                     => request('GET',  '/admin/reports'),
+  reviewReport:   (kind, itemId, action) => request('POST', '/admin/review', { kind, id: itemId, action }),
 
   // ─── Groups ───────────────────────────────────────────────
   listGroups:     (q = '')               => request('GET',  `/groups${q ? `?q=${encodeURIComponent(q)}` : ''}`),

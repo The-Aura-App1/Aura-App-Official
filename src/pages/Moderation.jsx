@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { ShieldAlert, UserX, Trash2, MessageSquareX, MessageSquareHeart } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { ShieldAlert, UserX, Trash2, MessageSquareX, MessageSquareHeart, Flag, EyeOff, RotateCcw } from 'lucide-react';
+import { reasonLabel } from '../utils/reportReasons';
+import { timeAgo } from '../utils/format';
 import Stars from '../components/common/Stars';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -113,6 +115,89 @@ function FeedbackQueue() {
   );
 }
 
+// Reported posts, comments and accounts, most reported first. Posts and
+// comments with 5 reports are already hidden ("Hidden") until you decide.
+const KIND_LABEL = { post: 'Post', comment: 'Comment', user: 'Account' };
+
+function ReportCard({ item, onAct, busy }) {
+  const href = item.kind === 'post' ? `/post/${encodeURIComponent(item.id)}`
+    : item.kind === 'comment' ? `/post/${encodeURIComponent(item.postId)}`
+    : `/profile/${encodeURIComponent(item.username)}`;
+  const who = item.kind === 'user' ? item.username : item.authorUsername;
+  const body = item.kind === 'post' ? (item.caption || `(${item.type} post, no caption)`) : item.kind === 'comment' ? item.text : (item.bio || '(no bio)');
+  return (
+    <div className="rounded-xl border border-[var(--border)] p-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-semibold uppercase tracking-wide text-[var(--text-muted)]">{KIND_LABEL[item.kind]}</span>
+        <span className="font-semibold text-[var(--text-primary)]">@{who}</span>
+        <span className="px-2 py-0.5 rounded-full bg-red-400/10 text-red-400 border border-red-400/20 font-semibold">
+          {item.reportCount} report{item.reportCount === 1 ? '' : 's'}
+        </span>
+        {item.hidden && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/30 font-semibold">
+            <EyeOff size={11} aria-hidden="true" /> Hidden
+          </span>
+        )}
+        {item.lastReportedAt && <span className="text-[var(--text-muted)]">last {timeAgo(item.lastReportedAt)}</span>}
+      </div>
+      <p className="mt-1.5 text-sm text-[var(--text-secondary)] whitespace-pre-wrap break-words line-clamp-4">{body}</p>
+      <p className="mt-1 text-xs text-[var(--text-muted)]">{item.reasons.map(reasonLabel).join(' · ')}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Link to={href} className="btn-ghost text-xs">Open</Link>
+        <button onClick={() => onAct(item, 'keep')} disabled={busy}
+          className="btn-secondary px-3 py-1.5 text-xs text-[var(--text-primary)]">
+          <RotateCcw size={12} aria-hidden="true" /> {item.hidden ? 'Restore' : 'Keep'}
+        </button>
+        {item.kind === 'user' ? (
+          <button onClick={() => window.confirm(`Ban @${who}? Their profile, posts and comments will be hidden.`) && onAct(item, 'ban')} disabled={busy}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30">Ban account</button>
+        ) : (
+          <button onClick={() => onAct(item, 'remove')} disabled={busy}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30">Remove</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ReportsQueue() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(null);
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    api.getReports().then(setData).catch(err => setError(err.message));
+  }, []);
+
+  async function act(item, action) {
+    setBusy(item.id);
+    setNotice(null);
+    try {
+      const res = await api.reviewReport(item.kind, item.id, action);
+      setNotice({ message: res.message });
+      const key = { post: 'posts', comment: 'comments', user: 'users' }[item.kind];
+      setData(d => ({ ...d, [key]: d[key].filter(x => x.id !== item.id) }));
+    } catch (err) {
+      setNotice({ error: err.message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const items = data ? [...data.posts, ...data.comments, ...data.users].sort((a, b) => (b.hidden - a.hidden) || (b.reportCount - a.reportCount)) : [];
+  return (
+    <Section icon={Flag} title={`Reports${data ? ` (${items.length})` : ''}`}
+      hint="What people reported, hidden items first. Keep clears the reports (and brings back anything hidden); Remove takes a post or comment down; Ban works like the ban form below.">
+      {error && <Result result={{ error }} />}
+      <Result result={notice} />
+      {!data && !error && <p className="text-sm text-[var(--text-muted)]">Loading...</p>}
+      {data && !items.length && <p className="text-sm text-[var(--text-muted)]">Nothing reported right now.</p>}
+      {items.map(item => <ReportCard key={`${item.kind}-${item.id}`} item={item} onAct={act} busy={busy === item.id} />)}
+    </Section>
+  );
+}
+
 export default function Moderation() {
   const { dbProfile } = useAuth();
   const [username, setUsername] = useState('');
@@ -167,6 +252,8 @@ export default function Moderation() {
         Only moderator accounts can see this page or use these actions. You can also remove any
         post from its ⋯ menu.
       </p>
+
+      <ReportsQueue />
 
       <Section icon={UserX} title="Ban or unban an account"
         hint="Banning hides their profile, posts and comments and stops them posting, commenting and giving aura. Unbanning restores what the ban hid.">

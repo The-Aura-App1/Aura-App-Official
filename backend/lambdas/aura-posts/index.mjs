@@ -6,7 +6,7 @@ import {
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
-import { canSeeAccount, hiddenAuthors } from './privacy.mjs';
+import { canSeeAccount, hiddenAuthors, blockedBetween, eitherBlocked } from './privacy.mjs';
 import { checkStyle } from './postStyle.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
@@ -207,10 +207,12 @@ async function groupAccess(groupId, viewerId) {
 // (checking each group once), other posts follow the author's privacy
 async function visibleToViewer(posts, viewerId) {
   const access = new Map();
+  const blocked = ADMIN_IDS.has(viewerId) ? new Set() : await blockedBetween(dynamo, viewerId, posts.map(p => p.authorId));
   const hidden = await hiddenAuthors(dynamo, viewerId,
     posts.filter(p => !p.groupId).map(p => p.authorId), ADMIN_IDS.has(viewerId));
   const visible = [];
   for (const post of posts) {
+    if (blocked.has(post.authorId)) continue;
     if (post.groupId) {
       if (!access.has(post.groupId)) access.set(post.groupId, await groupAccess(post.groupId, viewerId));
       if (!access.get(post.groupId).canSee) continue;
@@ -372,6 +374,11 @@ async function batchGet(table, keys) {
 
 // Adds likedByMe for the viewer and hides author-only counts from everyone else
 async function forViewer(posts, viewerId) {
+  // Posts by people the viewer blocked, or who blocked the viewer, never show
+  if (viewerId && !ADMIN_IDS.has(viewerId) && posts.length) {
+    const blocked = await blockedBetween(dynamo, viewerId, posts.map(p => p.authorId));
+    if (blocked.size) posts = posts.filter(p => !blocked.has(p.authorId));
+  }
   const liked = new Set();
   if (viewerId && posts.length) {
     const likes = await batchGet(LIKES_TABLE, posts.map(p => ({ userId: viewerId, postId: likeKey('post', p.postId) })));
@@ -381,6 +388,10 @@ async function forViewer(posts, viewerId) {
     // Report details are for moderation only, never for viewers
     delete post.reportCount;
     delete post.reportedBy;
+    delete post.reportReasons;
+    delete post.lastReportedAt;
+    delete post.reviewedAt;
+    delete post.reviewedBy;
     if (post.authorId !== viewerId) {
       delete post.viewCount;
       delete post.likeCount;
@@ -425,6 +436,9 @@ async function getFeed(viewerId) {
 async function getUserPosts(authorId, viewerId, limit = 20) {
   if (!(await canSeeAccount(dynamo, viewerId, authorId, ADMIN_IDS.has(viewerId)))) {
     return response(403, { error: 'This account is private.', private: true });
+  }
+  if (!ADMIN_IDS.has(viewerId) && await eitherBlocked(dynamo, viewerId, authorId)) {
+    return response(200, { posts: [] });
   }
   const authored = await scanAll({
     TableName:        POSTS_TABLE,
@@ -625,6 +639,53 @@ async function getGroupPosts(groupId, viewerId, cursor) {
   });
 }
 
+// ─── Report post ──────────────────────────────────────────────
+// One report per person per post. At REPORT_HIDE_AT reports the post is
+// hidden ('pending_review') until a moderator keeps or removes it in
+// /moderation. Reasons are kept for the review queue (the list matches
+// src/utils/reportReasons.js and aura-comments; a test keeps them equal).
+const REPORT_REASONS = ['spam', 'harassment', 'hate', 'violence', 'nudity', 'self_harm', 'misinformation', 'other'];
+const REPORT_HIDE_AT = 5;
+
+async function reportPost(postId, userId, reason) {
+  const result = await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } }));
+  const post = result.Item;
+  if (!post || post.status !== 'active' || !(await visibleToViewer([post], userId)).length) {
+    return response(404, { error: 'Post not found.' });
+  }
+  if (post.authorId === userId) return response(400, { error: 'You cannot report your own post.' });
+
+  let updated;
+  try {
+    updated = await dynamo.send(new UpdateCommand({
+      TableName:                 POSTS_TABLE,
+      Key:                       { postId },
+      UpdateExpression:          'ADD reportCount :one, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
+      ConditionExpression:       'attribute_not_exists(reportedBy) OR NOT contains(reportedBy, :uid)',
+      ExpressionAttributeValues: {
+        ':one': 1, ':me': new Set([userId]), ':uid': userId, ':now': new Date().toISOString(),
+        ':why': new Set([REPORT_REASONS.includes(reason) ? reason : 'other']),
+      },
+      ReturnValues:              'ALL_NEW',
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+    return response(200, { message: 'Post reported.' });   // already reported by this person
+  }
+
+  if ((updated.Attributes?.reportCount ?? 0) >= REPORT_HIDE_AT) {
+    await dynamo.send(new UpdateCommand({
+      TableName:                 POSTS_TABLE,
+      Key:                       { postId },
+      UpdateExpression:          'SET #status = :pending',
+      ConditionExpression:       '#status = :active',
+      ExpressionAttributeNames:  { '#status': 'status' },
+      ExpressionAttributeValues: { ':pending': 'pending_review', ':active': 'active' },
+    })).catch(err => { if (err.name !== 'ConditionalCheckFailedException') throw err; });
+  }
+  return response(200, { message: 'Post reported.' });
+}
+
 async function deletePost(postId, userId) {
   const result = await dynamo.send(new GetCommand({
     TableName: POSTS_TABLE,
@@ -752,6 +813,14 @@ export const handler = async (event) => {
       const actionLimited = await firstLimit([userId, 'like', 60, 60]);
       if (actionLimited) return actionLimited;
       return await setLike(userId, segments[0], segments[1], method === 'POST');
+    }
+
+    // POST /posts/{id}/report
+    if (method === 'POST' && segments[0] === 'posts' && segments.length === 3 && segments[2] === 'report') {
+      if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'report', 10, 3600]);
+      if (actionLimited) return actionLimited;
+      return await reportPost(segments[1], userId, body?.reason);
     }
 
     // GET /groups/{id}/posts — a group's feed

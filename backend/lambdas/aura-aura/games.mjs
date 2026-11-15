@@ -21,6 +21,7 @@
 import { randomInt } from 'crypto';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { GAMES, GameError, viewFor } from './gameRules.mjs';
+import { eitherBlocked } from './privacy.mjs';
 
 const GAMES_TABLE         = 'aura-games';
 const GAMES_INDEX         = 'groupId-createdAt-index';
@@ -241,6 +242,7 @@ export async function handleGames(ctx, user, method, segments, body) {
         const opponentId = reservation?.ownerId;
         if (!opponentId || !(await membership(groupId, opponentId))) return response(404, { error: `@${name} isn't a member of this group.` });
         if (opponentId === user.userId) return response(400, { error: 'You can\'t challenge yourself.' });
+        if (await eitherBlocked(dynamo, user.userId, opponentId)) return response(403, { error: `You can't challenge @${name}.` });
         invited = { userId: opponentId, username: name };
       }
 
@@ -297,6 +299,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     if (seat !== -1) return response(400, { error: 'You can\'t accept your own challenge.' });
     if (match.invited && match.invited.userId !== user.userId) return response(403, { error: `This challenge is for @${match.invited.username}.` });
     if (!(await membership(match.groupId, user.userId))) return response(403, { error: 'Only members of this group can play its games.' });
+    if (await eitherBlocked(dynamo, user.userId, match.players[0].userId)) return response(403, { error: "You can't accept this challenge." });
     const checks = stakeChecks(user, match.stake);
     if (checks.error) return checks.error;
 

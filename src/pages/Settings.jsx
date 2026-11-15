@@ -39,6 +39,63 @@ function Section({ id, icon: Icon, title, children }) {
   );
 }
 
+// Accounts you've blocked, each with Unblock. Loads when first opened.
+function BlockedAccounts() {
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(null);
+
+  useEffect(() => {
+    if (!open || list) return;
+    api.getBlocked().then(data => setList(data.users ?? []), err => setError(err.message));
+  }, [open, list]);
+
+  async function unblock(u) {
+    setBusy(u.userId);
+    try {
+      await api.unblockUser(u.username);
+      setList(l => l.filter(x => x.userId !== u.userId));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm text-[var(--text-primary)]">Blocked accounts</p>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">People you've blocked can't see your posts or interact with you. Block someone from the ⋯ menu on their profile, posts or comments.</p>
+        </div>
+        <button type="button" className="btn-secondary shrink-0" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-3 flex flex-col gap-2">
+          {error && <p className="text-xs text-red-400" role="alert">{error}</p>}
+          {!list && !error && <p className="text-xs text-[var(--text-muted)]">Loading…</p>}
+          {list && !list.length && <p className="text-xs text-[var(--text-muted)]">You haven't blocked anyone.</p>}
+          {list?.map(u => (
+            <div key={u.userId} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-[var(--border)]">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{u.displayName || u.username}</p>
+                <p className="text-xs text-[var(--text-muted)] truncate">@{u.username}</p>
+              </div>
+              <button type="button" disabled={busy === u.userId} onClick={() => unblock(u)} className="btn-secondary px-3 py-1.5 text-xs shrink-0">
+                {busy === u.userId ? 'Unblocking…' : 'Unblock'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
     <div className="flex items-center justify-between gap-4">
@@ -292,6 +349,7 @@ export default function Settings() {
                 <option value="followers">Followers only</option>
               </select>
             </div>
+            <BlockedAccounts />
           </Section>
 
           {/* ── Notifications ── */}

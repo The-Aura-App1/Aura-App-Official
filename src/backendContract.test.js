@@ -11,6 +11,7 @@ import { TOPIC_IDS, MAX_POST_TOPICS } from './utils/topics';
 import { EMBED_MODEL, EMBED_DIM, encodeVector } from './utils/embeddings';
 import { MAX_HASHTAGS, HASHTAG_PATTERN } from './utils/hashtags';
 import { THEMES, THEME_IDS } from './themes';
+import { REPORT_REASON_IDS } from './utils/reportReasons';
 
 const LAMBDAS = path.join(__dirname, '..', 'backend', 'lambdas');
 const MODEL   = path.join(__dirname, '..', 'public', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
@@ -145,4 +146,13 @@ test('post styles: aura-posts accepts exactly the fonts, backgrounds, frames and
     const file = path.join(__dirname, '..', 'public', 'fonts', 'post', `${f.id}.woff2`);
     expect(fs.existsSync(file) && fs.readFileSync(file).subarray(0, 4).toString('latin1')).toBe('wOF2');
   }
+});
+
+test('report reasons: the app offers exactly the ones aura-posts, aura-comments and aura-users keep', () => {
+  const ids = src => [...src.match(/const REPORT_REASONS = (?:new Set\()?\[([^\]]*)\]/)[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]);
+  for (const source of [
+    lambdaSource('aura-posts'),
+    lambdaSource('aura-comments'),
+    fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'follows.mjs'), 'utf8'),
+  ]) expect(ids(source)).toEqual(REPORT_REASON_IDS);
 });

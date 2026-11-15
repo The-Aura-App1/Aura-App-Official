@@ -19,12 +19,20 @@
 //   POST   /follows/requests/{userId}/approve
 //   POST   /follows/requests/{userId}/decline
 //   DELETE /follows/followers/{userId}          remove one of my followers
+//   POST   /follows/user/{username}/block       block (also ends follows both ways)
+//   DELETE /follows/user/{username}/block       unblock
+//   GET    /follows/blocked                     the accounts I've blocked
+//   POST   /follows/user/{username}/report      report an account: { reason } (once per person)
+//
+// A block is one item, { userId: blocker, edge: 'BLOCK#<blocked>', otherId,
+// status: 'active', createdAt }. The other Lambdas check it both ways with
+// privacy.mjs (eitherBlocked, blockedBetween).
 //
 // The other Lambdas check follows with privacy.mjs (read only).
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, BatchGetCommand, TransactWriteCommand,
+  DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, BatchGetCommand, TransactWriteCommand, DeleteCommand, UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { randomBytes } from 'node:crypto';
 
@@ -38,8 +46,13 @@ const LIST_PAGE      = 50;
 const MAX_FOLLOWING  = 5000;   // active follows plus open requests
 const USER_ID_RE     = /^[A-Za-z0-9-]{1,64}$/;
 
+const MAX_BLOCKS     = 10000;
+// Report reasons, the same list as aura-posts, aura-comments and src/utils/reportReasons.js
+const REPORT_REASONS = ['spam', 'harassment', 'hate', 'violence', 'nudity', 'self_harm', 'misinformation', 'other'];
+
 const out = id => `OUT#${id}`;
 const inn = id => `IN#${id}`;
+const blk = id => `BLOCK#${id}`;
 
 async function getEdge(userId, edge) {
   const result = await db.send(new GetCommand({ TableName: FOLLOWS_TABLE, Key: { userId, edge } }));
@@ -119,15 +132,17 @@ async function relationship(viewerId, target) {
   if (viewerId === target.userId) {
     return { status: 'self', followsYou: false, canSeePosts: true };
   }
-  const [mine, theirs] = await Promise.all([
+  const [mine, theirs, blocked] = await Promise.all([
     getEdge(viewerId, out(target.userId)),
     getEdge(target.userId, out(viewerId)),
+    getEdge(viewerId, blk(target.userId)),
   ]);
   const status = mine?.status ?? 'none';
   return {
     status,
     followsYou:  theirs?.status === 'active',
-    canSeePosts: !target.isPrivate || status === 'active',
+    canSeePosts: !blocked && (!target.isPrivate || status === 'active'),
+    blocked:     !!blocked,
   };
 }
 
@@ -145,6 +160,7 @@ async function follow(viewer, target, response) {
   if (viewer.isBanned) return response(403, { error: 'Account banned.' });
   if (viewer.userId === target.userId) return response(400, { error: "You can't follow yourself." });
 
+  if (await isBlockedEitherWay(viewer.userId, target.userId)) return response(403, { error: "You can't follow this account." });
   const existing = await getEdge(viewer.userId, out(target.userId));
   if (existing) return response(200, summary(target, await relationship(viewer.userId, target)));
 
@@ -194,6 +210,68 @@ async function unlink(followerId, followeeId, response) {
     ...(edge.status === 'active' ? counterUpdates(followerId, followeeId, -1) : []),
   ];
   return transact(items, response);
+}
+
+// Which way a block runs between the viewer and someone else
+export async function blockState(viewerId, otherId) {
+  if (!viewerId || !otherId || viewerId === otherId) return { youBlocked: false, blockedYou: false };
+  const [x, y] = await Promise.all([getEdge(viewerId, blk(otherId)), getEdge(otherId, blk(viewerId))]);
+  return { youBlocked: !!x, blockedYou: !!y };
+}
+
+export async function isBlockedEitherWay(a, b) {
+  if (!a || !b || a === b) return false;
+  const [x, y] = await Promise.all([getEdge(a, blk(b)), getEdge(b, blk(a))]);
+  return !!(x || y);
+}
+
+// Blocks someone: ends any follow or request between the two, either way,
+// then saves the block
+async function block(viewer, target, response) {
+  if (viewer.userId === target.userId) return response(400, { error: "You can't block yourself." });
+  if (await getEdge(viewer.userId, blk(target.userId))) return response(200, { blocked: true });
+  const existing = await db.send(new QueryCommand({
+    TableName:                 FOLLOWS_TABLE,
+    KeyConditionExpression:    'userId = :u AND begins_with(edge, :p)',
+    ExpressionAttributeValues: { ':u': viewer.userId, ':p': 'BLOCK#' },
+    Select:                    'COUNT',
+    Limit:                     MAX_BLOCKS,
+  }));
+  if ((existing.Count ?? 0) >= MAX_BLOCKS) return response(400, { error: 'You have blocked the most accounts allowed.' });
+
+  const conflict = () => ({ conflict: true });
+  await unlink(viewer.userId, target.userId, conflict);
+  await unlink(target.userId, viewer.userId, conflict);
+  await db.send(new PutCommand({
+    TableName: FOLLOWS_TABLE,
+    Item: { userId: viewer.userId, edge: blk(target.userId), otherId: target.userId, status: 'active', createdAt: new Date().toISOString() },
+  }));
+  return response(200, { blocked: true });
+}
+
+async function unblock(viewerId, targetId, response) {
+  await db.send(new DeleteCommand({ TableName: FOLLOWS_TABLE, Key: { userId: viewerId, edge: blk(targetId) } }));
+  return response(200, { blocked: false });
+}
+
+// Reports an account for the moderators' queue. Each person counts once.
+async function reportUser(viewer, target, reason, response) {
+  if (viewer.userId === target.userId) return response(400, { error: "You can't report yourself." });
+  try {
+    await db.send(new UpdateCommand({
+      TableName:                 USERS_TABLE,
+      Key:                       { userId: target.userId },
+      UpdateExpression:          'ADD reportCount :one, reportedBy :me, reportReasons :why SET lastReportedAt = :now',
+      ConditionExpression:       'attribute_exists(userId) AND (attribute_not_exists(reportedBy) OR NOT contains(reportedBy, :uid))',
+      ExpressionAttributeValues: {
+        ':one': 1, ':me': new Set([viewer.userId]), ':uid': viewer.userId, ':now': new Date().toISOString(),
+        ':why': new Set([REPORT_REASONS.includes(reason) ? reason : 'other']),
+      },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+  }
+  return response(200, { message: 'Account reported. Thanks for letting us know.' });
 }
 
 // Turns a pending request into a follow
@@ -286,7 +364,7 @@ export async function approveAllPending(ownerId) {
   } while (cursor);
 }
 
-export async function handleFollows({ method, segments, query = {}, userId, isAdmin, findUserByUsername, rateLimited, response }) {
+export async function handleFollows({ method, segments, query = {}, userId, isAdmin, findUserByUsername, rateLimited, response, rawBody }) {
   if (segments[0] !== 'follows') return null;
   if (!userId) return response(401, { error: 'Sign in first.' });
 
@@ -320,6 +398,19 @@ export async function handleFollows({ method, segments, query = {}, userId, isAd
       }
     }
 
+    if (segments.length === 4 && action === 'report' && method === 'POST') {
+      let body = {};
+      try { body = JSON.parse(rawBody || '{}') ?? {}; } catch { return response(400, { error: 'The request body must be a JSON object.' }); }
+      const limited = await rateLimited(userId, 'report', 10, 3600);
+      if (limited) return limited;
+      return reportUser(viewer, target, body.reason, response);
+    }
+
+    if (segments.length === 4 && action === 'block') {
+      if (method === 'POST')   return block(viewer, target, response);
+      if (method === 'DELETE') return unblock(userId, target.userId, response);
+    }
+
     if (segments.length === 4 && method === 'GET' && (action === 'followers' || action === 'following')) {
       const rel = await relationship(userId, target);
       if (!rel.canSeePosts && !isAdmin) {
@@ -330,6 +421,13 @@ export async function handleFollows({ method, segments, query = {}, userId, isAd
       if (!page) return response(400, { error: 'Invalid cursor.' });
       return response(200, { users: await cards(page.items.map(e => e.otherId)), next: page.next });
     }
+  }
+
+  // GET /follows/blocked
+  if (area === 'blocked' && method === 'GET' && segments.length === 2) {
+    const page = await queryEdges(userId, 'BLOCK#', { status: 'active', cursor: query.cursor, limit: 100 });
+    if (!page) return response(400, { error: 'Invalid cursor.' });
+    return response(200, { users: await cards(page.items.map(e => e.otherId)), next: page.next });
   }
 
   // /follows/requests[/{userId}/approve|decline]

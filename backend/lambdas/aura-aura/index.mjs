@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, TransactWriteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
-import { canSeeAccount } from './privacy.mjs';
+import { canSeeAccount, eitherBlocked } from './privacy.mjs';
 import { handleGames } from './games.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
@@ -247,6 +247,7 @@ async function auraHistory(viewerId, targetId, range) {
   if (!(await canSeeAccount(dynamo, viewerId, targetId))) {
     return response(403, { error: 'This account is private.', private: true });
   }
+  if (await eitherBlocked(dynamo, viewerId, targetId)) return response(404, { error: 'User not found.' });
   const balance = target.auraVersion === AURA_VERSION ? (target.auraBalance ?? 0) : 0;
   const now = new Date();
 
@@ -654,6 +655,9 @@ export const handler = async (event) => {
       }
       const denied = await checkGroupAccess(target, userId);
       if (denied) return denied;
+      if (await eitherBlocked(dynamo, userId, target.item.authorId)) {
+        return response(403, { error: "You can't give or take aura here." });
+      }
 
       return segments[3] === 'give'
         ? await giveAura(user, target, amount)

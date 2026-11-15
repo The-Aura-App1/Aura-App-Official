@@ -103,8 +103,8 @@ All routes require a Cognito JWT except where the gateway allows otherwise.
 
 | Lambda | Routes |
 |---|---|
-| `aura-users` | `POST /users` · `GET/PUT /users/me` · `POST /users/me/upload-urls` · `GET /users/{username}` · `POST /admin/ban` (moderator only) |
-| `aura-posts` | `GET /posts` (feed pools) · `POST /posts` · `GET/DELETE /posts/{id}` · `POST /posts/upload-urls` · `POST /posts/fix-author` · `POST/DELETE /{posts\|comments}/{id}/like` · `GET /users/{id}/posts` · `GET /users/me/likes` · `GET /groups/{id}/posts` |
+| `aura-users` | `POST /users` · `GET/PUT /users/me` · `POST /users/me/upload-urls` · `GET /users/{username}` · `/follows/*` (follow, block, report accounts) · `POST /admin/ban`, `GET /admin/reports`, `POST /admin/review` (moderator only) |
+| `aura-posts` | `GET /posts` (feed pools) · `POST /posts` · `GET/DELETE /posts/{id}` · `POST /posts/{id}/report` · `POST /posts/upload-urls` · `POST /posts/fix-author` · `POST/DELETE /{posts\|comments}/{id}/like` · `GET /users/{id}/posts` · `GET /users/me/likes` · `GET /groups/{id}/posts` |
 | `aura-aura` | `POST /{target}/{id}/aura/give` · `POST /{target}/{id}/aura/take` · `POST /aura/daily-bonus` · `POST /ads/watch` |
 | `aura-groups` | `GET/POST /groups` · `GET /groups/mine` · `GET/PUT/DELETE /groups/{id}` · `GET /groups/{id}/members` · `POST /groups/{id}/{join\|leave\|invite\|mute}` · member moderation |
 | `aura-comments` | `GET/POST /posts/{id}/comments` · `DELETE /comments/{id}` · `POST /comments/{id}/report` |

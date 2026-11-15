@@ -24,6 +24,7 @@
       "Sid": "ModerationHideBannedContent",
       "Effect": "Allow",
       "Action": [
+        "dynamodb:GetItem",
         "dynamodb:Scan",
         "dynamodb:UpdateItem"
       ],
