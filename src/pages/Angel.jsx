@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -8,6 +9,8 @@ import { respond, MAX_MESSAGE } from '../angel/angel';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
 import { loadPrefs, savePrefs, clearPrefs, setTopics, addKeyword, hasKeyword, MAX_KEYWORDS } from '../utils/feedPrefs';
 import { saveCustom, customVars } from '../themes/customTheme';
+import { getTheme } from '../themes';
+import { loadTaste, prepareTaste, isLearningOn } from '../utils/tasteProfile';
 import { fontFamily, loadPostFont } from '../utils/postStyle';
 
 // Angel's chat. Everything happens here, on the device: messages are kept in
@@ -16,12 +19,27 @@ import { fontFamily, loadPostFont } from '../utils/postStyle';
 // a tap (feed choices and themes, both stored on this device).
 
 const STARTERS = [
-  'Show me more NFL and less politics',
+  'What is my feed like right now?',
   'Which NFL teams are getting the most aura?',
-  'Make me a dark ocean theme with a serif font',
+  'Make me a black theme that feels spacey',
+  'What themes are there?',
+  'How much aura do I have?',
   'Feedback on my caption: "Golden hour at the lake. Worth the 5am alarm?"',
-  'How does taking aura work?',
 ];
+
+// A built-in theme's own picker card, so she can show it before switching
+function BuiltInSwatch({ id }) {
+  const t = getTheme(id);
+  if (!t?.preview) return null;
+  const p = t.preview;
+  return (
+    <div className="mt-2 rounded-xl overflow-hidden border border-[var(--border)] h-24 relative" style={{ background: p.background }}>
+      <div className="absolute left-3 bottom-3 px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: p.card, color: p.text, border: `1px solid ${p.muted}` }}>
+        {t.name} <span style={{ color: p.accent }}>●</span>
+      </div>
+    </div>
+  );
+}
 
 function ThemeSwatch({ spec }) {
   const v = customVars(spec);
@@ -38,7 +56,7 @@ function ThemeSwatch({ spec }) {
   );
 }
 
-function Reply({ reply, onAction, onAsk, busy }) {
+function Reply({ reply, onAction, onAsk, onGo, busy }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="whitespace-pre-wrap">{reply.text}</p>
@@ -51,12 +69,23 @@ function Reply({ reply, onAction, onAsk, busy }) {
         </div>
       ))}
       {reply.theme && <ThemeSwatch spec={reply.theme} />}
+      {reply.builtIn && <BuiltInSwatch id={reply.builtIn} />}
       {reply.note && <p className="text-xs opacity-70">{reply.note}</p>}
       {reply.followUps?.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
           {reply.followUps.map(q => (
             <button key={q} type="button" disabled={busy} onClick={() => onAsk(q)}
               className="px-3 py-1.5 rounded-full text-xs border border-[var(--border)] text-[var(--text-secondary)] hover:border-aura-500/50 text-left">{q}</button>
+          ))}
+        </div>
+      )}
+      {reply.links?.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {reply.links.map(l => (
+            <button key={l.to} type="button" onClick={() => onGo(l.to)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-aura-500/40 text-[var(--brand-ink-2)] hover:bg-aura-500/10">
+              {l.label} <ArrowRight size={12} aria-hidden="true" />
+            </button>
           ))}
         </div>
       )}
@@ -72,8 +101,9 @@ function Reply({ reply, onAction, onAsk, busy }) {
 }
 
 export default function Angel() {
-  const { user } = useAuth();
-  const { themeId, refreshCustom } = useTheme();
+  const { user, dbProfile } = useAuth();
+  const { themeId, refreshCustom, skyDetails, setSkyDetails } = useTheme();
+  const navigate = useNavigate();
   const chooseTheme = useChooseTheme();
   const [messages, setMessages] = useState([
     { from: 'angel', reply: { kind: 'hello', text: 'Hi, I\'m Angel. I can help you tune your feed, look up trends, answer questions about Aura, make you a custom theme, or give feedback on a post you\'re writing. I run on your device, and what you tell me never leaves it.' } },
@@ -104,7 +134,11 @@ export default function Angel() {
     say('you', { text: message });
     setBusy(true);
     try {
-      const reply = await respond(message, { prefs: loadPrefs(user?.userId), getPool, embed, lastTheme: lastTheme.current, lastKind: lastKind.current });
+      const reply = await respond(message, { prefs: loadPrefs(user?.userId), getPool, embed, lastTheme: lastTheme.current, lastKind: lastKind.current,
+        // their own app state, all already on this device
+        me: dbProfile, currentThemeId: themeId, skyDetails,
+        taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
+      });
       if (reply.theme) lastTheme.current = reply.theme;
       lastKind.current = reply.kind;
       say('angel', reply);
@@ -142,6 +176,16 @@ export default function Angel() {
         markDone();
         say('angel', { kind: 'feed', text: 'Cleared. Your feed starts fresh the next time it loads.' });
       }
+      if (action.id === 'use-theme') {
+        chooseTheme(action.payload);
+        markDone();
+        say('angel', { kind: 'builtin-theme', text: `Switched to ${getTheme(action.payload)?.name ?? 'that theme'}. Want to tweak it? Ask me for a custom version, like "${getTheme(action.payload)?.name ?? 'it'} but pink".` });
+      }
+      if (action.id === 'scenery') {
+        setSkyDetails(action.payload);
+        markDone();
+        say('angel', { kind: 'scenery', text: action.payload ? 'Scenery is back on.' : 'Scenery is off. Your theme\'s colors stay the same.' });
+      }
       if (action.id === 'apply-theme') {
         saveCustom(action.payload);
         if (themeId === 'custom') refreshCustom();
@@ -171,7 +215,7 @@ export default function Angel() {
             <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
               ${m.from === 'you' ? 'bg-aura-500 text-white rounded-br-md' : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded-bl-md'}`}>
               {m.from === 'angel' && <p className="text-[11px] font-semibold text-[var(--brand-ink-2)] mb-0.5 flex items-center gap-1"><Sparkles size={11} aria-hidden="true" /> Angel</p>}
-              {m.from === 'you' ? <p className="whitespace-pre-wrap break-words">{m.reply.text}</p> : <Reply reply={m.reply} onAction={onAction} onAsk={send} busy={busy} />}
+              {m.from === 'you' ? <p className="whitespace-pre-wrap break-words">{m.reply.text}</p> : <Reply reply={m.reply} onAction={onAction} onAsk={send} onGo={navigate} busy={busy} />}
             </div>
           </div>
         ))}

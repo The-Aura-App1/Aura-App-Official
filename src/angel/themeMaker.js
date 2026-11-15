@@ -1,5 +1,6 @@
 import { POST_FONTS } from '../utils/postStyle';
 import { cleanCustom, THEME_FONT_CATEGORIES, hexToRgb, rgbToHex, rgbToHsl, hslToRgb } from '../themes/customTheme';
+import { nearWord } from './skills';
 
 // Turns a description ("a dark ocean theme with a serif font", "fall leaf
 // colors", "pure black") into a custom theme (themes/customTheme.js), and
@@ -85,20 +86,37 @@ const tune = (hex, dl = 0, ds = 0, dh = 0) => {
 const cap = w => `${w[0].toUpperCase()}${w.slice(1)}`;
 
 // Named colors in the order they appear, hex codes too
+// A word as its plain form: "spacey" → space, "beachy" → beach, "oceanic" → ocean
+const stems = word => [word, word.replace(/(ey|y|ish|ic|ly|s|es)$/, ''), word.replace(/(iy|ey|y)$/, 'e')].filter(w => w.length >= 3);
+// The vocabulary word a typed word means, allowing a typo ("purpel", "turquise")
+function lookup(word, vocab) {
+  for (const w of stems(word)) if (Object.hasOwn(vocab, w)) return w;
+  if (word.length >= 6) for (const key of Object.keys(vocab)) if (key.length >= 6 && nearWord(word, key)) return key;
+  return null;
+}
+
 function colorsIn(text) {
   const found = [];
   for (const m of text.matchAll(/#[0-9a-f]{6}\b/gi)) found.push({ word: null, hex: m[0].toLowerCase() });
-  for (const word of text.split(/[^a-z]+/)) {
-    if (Object.hasOwn(COLORS, word) && !found.some(f => f.word === word)) found.push({ word, hex: COLORS[word] });
+  for (const raw of text.split(/[^a-z]+/)) {
+    const word = raw && lookup(raw, COLORS);
+    if (word && !found.some(f => f.word === word)) found.push({ word, hex: COLORS[word] });
   }
   return found;
 }
 
+// Seasons and temperatures are the vaguest moods: "summer on the beach" is a beach
+const GENERIC_MOODS = new Set(['summer', 'winter', 'spring', 'autumn', 'warm', 'cool', 'calm', 'chill', 'nature', 'minimal', 'elegant']);
 function moodIn(text) {
+  const found = [];
   for (const [phrase, mood] of Object.entries(MOOD_WORDS)) {
-    if (phrase.includes(' ') ? text.includes(phrase) : new RegExp(`\\b${phrase}\\b`).test(text)) return mood;
+    if (phrase.includes(' ') ? text.includes(phrase) : new RegExp(`\\b${phrase}\\b`).test(text)) found.push(mood);
   }
-  return Object.keys(MOODS).find(m => new RegExp(`\\b${m}\\b`).test(text)) ?? null;
+  for (const raw of text.split(/[^a-z0-9]+/)) {
+    const word = raw && lookup(raw, MOODS);
+    if (word) found.push(word);
+  }
+  return found.find(m => !GENERIC_MOODS.has(m)) ?? found[0] ?? null;
 }
 
 // The nearest everyday name for a color, so replies say "magenta", not "#e040c0"
@@ -150,10 +168,11 @@ function settle(spec) {
  * @param last the theme she made last in this conversation, for follow-ups
  * @returns { spec, summary, note, changed } or null when nothing in the words describes a theme
  */
-export function describeTheme(text, previous = null) {
+export function describeTheme(text, previous = null, { remix = false } = {}) {
   const t = text.toLowerCase().replace(/[’]/g, "'");
-  // A new request starts fresh (keeping the font they chose); anything else changes the last theme
-  const fresh = !!previous && (NEW_THEME.test(t) || !!moodIn(t));
+  // A new request starts fresh (keeping the font they chose); anything else
+  // changes the last theme. A remix ("like Abyss but pink") always builds on it.
+  const fresh = !remix && !!previous && (NEW_THEME.test(t) || !!moodIn(t));
   const last = fresh ? null : previous;
   let spec = last ? { ...last } : previous?.font ? { name: 'My theme', base: 'light', background: '#f8f7ff', accent: '#7c3aed', font: previous.font } : null;
   const notes = [];
@@ -201,6 +220,8 @@ export function describeTheme(text, previous = null) {
       if (n.base) spec.base = n.base;
       spec.background = spec.base === 'light' && n.light ? n.light : n.background;
       if (!hues.length && !mood && !last) spec.accent = n.accent;
+      // "a black theme that feels spacey": the mood's colors on that background
+      if (mood && !last) spec.name = `${cap(neutrals[0].word)} ${spec.name.toLowerCase()}`;
       changed.push('background');
     }
   }
@@ -253,7 +274,8 @@ export function describeTheme(text, previous = null) {
   const clean = { ...cleanCustom(settle(spec)), turns: spec.turns ?? 0 };
   const fontName = clean.font ? POST_FONTS.find(f => f.id === clean.font)?.name : 'the standard font';
   const look = `a ${clean.base} theme with ${colorName(clean.accent)} accents on ${describeBackground(clean)}, in ${fontName}`;
-  const opener = changed.includes('variation') ? `How about this: ${look}.`
+  const opener = remix ? `Here's "${clean.name}": ${look}.`
+    : changed.includes('variation') ? `How about this: ${look}.`
     : !last ? `Here's "${clean.name}": ${look}.`
     : changed.includes('black') ? `Pure black it is: ${look}.`
     : changed.includes('darker') ? `Darker: ${look}.`
@@ -262,7 +284,8 @@ export function describeTheme(text, previous = null) {
   return {
     spec: clean,
     changed,
-    summary: `${opener} Try it on, or keep adjusting: "darker", "pure black", "make the accent teal", "a different one" or "use a serif font".`,
+    // the tips once, on a conversation's first theme
+    summary: previous ? `${opener} Try it on?` : `${opener} Try it on, or keep shaping it: "darker", "pure black", "make the accent teal", "a different one" or "use a serif font".`,
     note: notes.join(' ') || 'Your theme stays on this device. Every color is checked so text stays readable.',
   };
 }

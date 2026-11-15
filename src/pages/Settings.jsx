@@ -202,11 +202,13 @@ export default function Settings() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
-  // Links such as /settings#appearance open at that section
+  // Links such as /settings#appearance open at that section (Privacy and
+  // Notifications appear once the profile loads, so this runs again then)
+  const profileLoaded = !!dbProfile;
   useEffect(() => {
     const id = window.location.hash.slice(1);
     if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  }, [profileLoaded]);
 
   useEffect(() => {
     if (!dbProfile) return;
@@ -353,7 +355,7 @@ export default function Settings() {
           </Section>
 
           {/* ── Notifications ── */}
-          <Section icon={Bell} title="Notifications">
+          <Section id="notifications" icon={Bell} title="Notifications">
             <p className="text-xs text-[var(--text-muted)] -mt-2">
               Choose which notifications you get. Group mutes are set on each group's page.
             </p>

@@ -2,8 +2,12 @@ import { TOPICS } from '../utils/topics';
 import { decodeVector, similarity } from '../utils/embeddings';
 import { textMatch, fold } from '../utils/searchRanking';
 import { hashtagKey } from '../utils/hashtags';
-import { KNOWLEDGE } from './knowledge';
+import { KNOWLEDGE, KNOWLEDGE_LINKS } from './knowledge';
 import { describeTheme, describesNothing, MOOD_NAMES } from './themeMaker';
+import {
+  builtInThemeIn, builtInThemeReply, specFromBuiltIn, themeListReply, currentThemeReply, sceneryReply, balanceReply, feedSummaryReply,
+  ASKS_THEME_LIST, ASKS_CURRENT_THEME, ASKS_SCENERY, ASKS_BALANCE, ASKS_FEED_SUMMARY,
+} from './skills';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
 // they type is sent anywhere. She doesn't generate free text: she works out
@@ -101,7 +105,7 @@ export function subjectsOf(text) {
 
 const INTENT_RULES = {
   theme: /\b(theme|palette|make it look like|make (it|everything) (look|feel)|(make|turn) (the |my )?app (more |less |all )?\w+|app to (look|feel) like|colou?r scheme|colou?rs? for (the )?app|app('s)? (look|colou?rs?|font)|make (the |my )?app (look|feel|be)|(change|switch|set) (the |my )?(app'?s? )?colou?rs?|colou?rs? to|the app be|custom theme|dark mode|light mode)\b/,
-  trends: /\b(trend|trends|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what('?s| is) (hot|big|popping|blowing up)|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least)|underrated|overlooked|ignored|niche|(people|everyone) (are )?(posting|talking) about|most (posted|talked)|doing well|doing badly|getting more (aura|attention|love)|(more|less) (aura|attention) than|which (one |is |are |team |topic )?(gets|getting|has|have) (more|less|the most|the least)|(tags?|hashtags?|topics?) (are |is )?(hot|big|popular|doing well|blowing up)|(is|are) (anyone|anybody|people) (posting|talking) about|how (popular|big) is|(most|least) active)\b/,
+  trends: /\b(trend|trends|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what('?s| is) (hot|big|popping|blowing up)|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least)|underrated|overlooked|ignored|niche|(people|everyone) (are )?(posting|talking) about|most (posted|talked)|doing well|doing badly|getting more (aura|attention|love)|(more|less) (aura|attention) than|which (one |is |are |team |topic )?(gets|getting|has|have) (more|less|the most|the least)|(tags?|hashtags?|topics?) (are |is )?(hot|big|popular|doing well|blowing up)|(is|are) (anyone|anybody|people) (posting|talking) about|how (popular|big) is|(most|least) active|(are|is) (hot|popping|buzzing|big)|b(vs|versus)b.{0,40}b(bigger|more|most|better|ahead|winning|popular)|which (one )?is (bigger|more popular|ahead)|(hot|popping|buzzing) (right now|today|lately|this week)|(topics?|hashtags?|tags?|teams?|niches?) (are|is) (dead|dying|cold|quiet|flopping))\b/,
   feed: /\b(my feed|feed|timeline|see more|see less|show me (more|less|fewer)|show (more|less|fewer)|more (posts|content|stuff|videos|photos) (about|on|from|of)|less (posts|content|stuff)|fewer|stop showing|not getting|not seeing|keep seeing|tune|recommended (posts|content)|(stop|quit) recommending|reset my|i only want to see|i (just )?want to see|i miss seeing|enough (with|of) (the )?|no more \w+)\b/,
   post: /\b(my (post|caption|draft)|this (post|caption|draft)|a post (i'?m|about)|caption|draft|feedback on|improve my|review my|check my|help (me )?with (a|my|this) post|what topics? (should|for)|which topics?|hashtags? (should|for)|before i post|(suggest|give me|recommend) (some |good )?(hashtags|topics)|best time to post|when should i post|what time (should|to) post)\b/,
 };
@@ -277,6 +281,22 @@ function knowledgeByKeys(text) {
   return best?.k ?? null;
 }
 
+// Pages she can take people to by name
+const PAGES = [
+  [/^(profile|account page|page)$/, { to: '/profile', label: 'Open my profile' }],
+  [/^(wallet|aura wallet|aura|balance)$/, { to: '/wallet', label: 'Open Aura Wallet' }],
+  [/^(settings|setting)$/, { to: '/settings', label: 'Open Settings' }],
+  [/^(notifications|notification|bell|inbox)$/, { to: '/notifications', label: 'Open Notifications' }],
+  [/^(groups|group)$/, { to: '/groups', label: 'Open Groups' }],
+  [/^(feed|home|home page|timeline)$/, { to: '/', label: 'Open my feed' }],
+  [/^(search)$/, { to: '/search', label: 'Open Search' }],
+  [/^(post|new post|create|create post)$/, { to: '/create', label: 'Make a post' }],
+  [/^(feedback|suggestions|reviews|suggestions & reviews)$/, { to: '/feedback', label: 'Open Suggestions & Reviews' }],
+  [/^(about|about page|roadmap)$/, { to: '/about', label: 'Open About Aura' }],
+  [/^(appearance|themes|theme settings)$/, { to: '/settings#appearance', label: 'Appearance settings' }],
+  [/^(privacy|privacy settings)$/, { to: '/settings#privacy', label: 'Privacy settings' }],
+];
+
 // "How do I…", "what is…", "can people…": questions about the app itself
 const QUESTION = /^(how|why|where|when|what('?s| is| are| does| do| happens| happened)|whats|can (i|people|someone|others|anyone|you)|do (i|you|people|others)|does|is (it|there|my)|are (my|you|people)|should i|will|could i|who (made|built|created|are)|explain)\b/;
 
@@ -285,6 +305,8 @@ function looksLikeFeed(text) {
   if (INTENT_RULES.feed.test(text)) return true;
   if (/^(more|less|fewer|no more|hide|mute|show me|give me more|i want more|i need more)\b/.test(text)) return true;
   if (/\b(more|less|fewer) of\b|\b(give|show|get) me (more|less)\b|\bmore (\w+ )?(please|pls)\b/.test(text)) return true;
+  // "I want less sports and more music": more or less of a real topic
+  if (/\b(more|less|fewer)\b/.test(text) && subjectsOf(text).topics.length && !/\b(theme|colou?rs?|aura|darker|lighter)\b/.test(text)) return true;
   if (/\b(i (really )?(like|love|enjoy|adore|am into|'m into|am a fan of|'m a fan of|hate|can'?t stand)|(i'?m|im|i am) (\w+ )?(into|obsessed with|a fan of|interested in|hooked on)|i'?m (so )?(tired|sick) of|hide (posts|content|stuff|anything)|mute)\b/.test(text)) {
     const { topics, keywords } = subjectsOf(text);
     return topics.length + keywords.length > 0;
@@ -336,7 +358,7 @@ async function trendsReply(text, ctx) {
   posts = posts.filter(p => p && p.status !== 'removed');
   if (!posts.length) return { kind: 'trends', text: 'I couldn\'t load the public posts just now, so I can\'t look at trends. Try again in a moment.' };
   const { topics, keywords } = subjectsOf(text);
-  const leastFirst = has(text, /\b(least|lowest|unpopular|worst|dying|ignored|underrated|not doing well|losing)\b/);
+  const leastFirst = has(text, /\b(least|lowest|unpopular|worst|dying|dead|cold|quiet|flopping|ignored|underrated|not doing well|losing)\b/);
   const words = keywords.map(w => fold(w));
   // Within the topic, prefer posts that also mention the specific words (NFL
   // inside Sports); without a topic, the words alone decide
@@ -392,7 +414,8 @@ async function trendsReply(text, ctx) {
 }
 
 function appReply(k) {
-  return { kind: 'app', text: k.a };
+  const link = KNOWLEDGE_LINKS[k.id];
+  return { kind: 'app', text: k.a, ...(link && { links: [link] }) };
 }
 
 // For descriptions she has no word for ("pumpkin spice", "a rainy café"):
@@ -421,10 +444,11 @@ async function nearestMood(text, embed) {
 }
 
 async function themeReply(text, ctx) {
-  let result = describeTheme(text, ctx.lastTheme);
+  const opts = { remix: !!ctx.remix };
+  let result = describeTheme(text, ctx.lastTheme, opts);
   if (!result) {
     const mood = describesNothing(text) ? null : await nearestMood(text, ctx.embed);
-    if (mood) result = describeTheme(`${mood} ${text}`, ctx.lastTheme);
+    if (mood) result = describeTheme(`${mood} ${text}`, ctx.lastTheme, opts);
   }
   if (!result) {
     return {
@@ -540,6 +564,37 @@ export async function respond(message, ctx = {}) {
   if (/\byour (favou?rite|opinion|feelings?|age|birthday|hobby|hobbies|thoughts on)\b|\bhow old are you\b|\bdo you (like|love|feel|enjoy|dream|sleep|eat)\b|\bare you (happy|sad|alive|single|ok|okay)\b/.test(text)) return refusal();
   if (/\b(tiktok|instagram|insta|twitter|facebook|snapchat|reddit|youtube|threads app|bluesky|discord|whatsapp|bereal|pinterest|tumblr)\b/.test(text)) return refusal('I only know about Aura.');
 
+  // Their own app: the scenery switch, their wallet, the built-in themes, their feed
+  if (ASKS_THEME_LIST.test(text) && !/\bhow (do|does)\b/.test(text)) return themeListReply(text, ctx);
+  if (ASKS_SCENERY.test(text) && !/\b(theme|themes|colou?rs?)\b/.test(text)) return sceneryReply(text, ctx);
+  if (ASKS_BALANCE.test(text)) return balanceReply(ctx, text);
+  if (ASKS_CURRENT_THEME.test(text)) return currentThemeReply(ctx);
+  if (ASKS_THEME_LIST.test(text)) return themeListReply(text, ctx);
+  // right after the list: "the dark ones", "just the light ones", "ones that move"
+  if (ctx.lastKind === 'builtin-theme' && /\b(dark|light|moving|animated)\b.{0,12}\b(ones?|themes?)\b|\bones that (move|are (dark|light))\b/.test(text)) return themeListReply(text, ctx);
+  // "take me to settings", "open my wallet": straight there
+  const nav = /^(please |can you |could you )?(take me to|open|go to|bring me to|navigate to|show me) (the |my )?([a-z &]+?)( page| tab)?( please)?$/.exec(text);
+  if (nav) {
+    const page = PAGES.find(([re]) => re.test(nav[4]));
+    const k = page ? null : knowledgeByKeys(text);
+    const link = page ? page[1] : k && KNOWLEDGE_LINKS[k.id];
+    if (link) return { kind: 'app', text: 'Here you go.', links: [link] };
+  }
+  const builtIn = builtInThemeIn(text);
+  if (builtIn) {
+    // "like Abyss but pink": a custom theme starting from that one's colors
+    const rest = text.replace(builtIn.phrase, ' ');
+    const base = specFromBuiltIn(builtIn.theme);
+    const remix = /\b(but|except|with|only|version|remix|more|less|instead)\b/.test(text) && describeTheme(rest, base, { remix: true })?.changed.length;
+    if (remix) return themeReply(rest, { ...ctx, lastTheme: base, remix: true });
+    return builtInThemeReply(builtIn.theme, ctx);
+  }
+  if (ASKS_FEED_SUMMARY.test(text)) {
+    let pool = [];
+    try { pool = (await ctx.getPool?.()) ?? []; } catch { pool = []; }
+    return feedSummaryReply(text, ctx, pool);
+  }
+
   // Follow-ups to a theme she just made: "darker", "use a serif font", and
   // right after one, anything that reads as a change ("that's more grey than
   // black", "can I have a different one", "fall leaf colors")
@@ -568,11 +623,17 @@ export async function respond(message, ctx = {}) {
   if (INTENT_RULES.theme.test(text)) return themeReply(text, ctx);
   // Colors or a font for the app, without saying "theme" ("spring colors with a serif font")
   if (/\b(colou?rs|colou?r|fonts?|serif|sans|mono)\b/.test(text) && !/\b(post|posts|caption|captions|text post)\b/.test(text) && describeTheme(text)) return themeReply(text, ctx);
+  // "make the background white", "set the accent to gold" (not a post's background)
+  const aboutPost = /\b(post|posts|caption|captions|text post)\b/.test(text);
+  if (/\b(make|change|set|turn|switch|use) (the |my )?(app'?s? )?(background|accent|bg)\b/.test(text) && !aboutPost) return themeReply(text, ctx);
   if (INTENT_RULES.trends.test(text)) return trendsReply(text, ctx);
   if (looksLikeFeed(text)) return feedReply(text, ctx);
   if (INTENT_RULES.post.test(text)) return postReply(text, raw, ctx);
   const known = knowledgeByKeys(text);
   if (known) return appReply(known);
+  // Just a look ("something minimal and grey", "matrix style"): a theme
+  const look = !aboutPost && describeTheme(text);
+  if (look && look.changed.some(c => c === 'mood' || c === 'accent' || c === 'background')) return themeReply(text, ctx);
 
   // No clear words: match by meaning, on the device, but only for messages
   // that are about Aura at all (so "capital of France" can't land on a
