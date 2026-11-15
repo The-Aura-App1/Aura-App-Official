@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Gift, Tv, Clock, Coins, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { watchRewardedAd } from '../ads/rewarded';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import OrbBurst from '../components/motion/OrbBurst';
 import useCountUp from '../hooks/useCountUp';
 
 // Ad rewards stay off until a real ad network verifies views. aura-aura
-// enforces this (its own ADS_ENABLED); this only hides the button.
-export const ADS_ENABLED = false;
+// enforces this (its own ADS_ENABLED); this only hides the button. The ad
+// itself is Google's rewarded web ad (src/ads/rewarded.js), in Limited Ads mode.
+export const ADS_ENABLED = true;
 
 function formatNumber(n) {
   return (n ?? 0).toLocaleString();
@@ -218,12 +220,17 @@ export default function AuraWallet() {
               </div>
               {ADS_ENABLED ? (
                 <button
-                  onClick={e => run('ad', api.watchAd, e.currentTarget)}
+                  onClick={e => run('ad', async () => {
+                    // the server opens a session, Google shows the ad, then the session is claimed
+                    const { sessionId } = await api.watchAd({ start: true });
+                    await watchRewardedAd();
+                    return api.watchAd({ sessionId });
+                  }, e.currentTarget)}
                   disabled={!adReady || busy !== null}
                   className="btn-secondary px-4 py-2 flex-shrink-0 text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed">
                   {!adReady
                     ? `Available in ${formatCountdown(Date.parse(nextAdAt) - now)}`
-                    : busy === 'ad' ? 'Loading...' : 'Watch'}
+                    : busy === 'ad' ? 'Playing ad...' : 'Watch'}
                 </button>
               ) : (
                 <span className="text-xs text-[var(--text-muted)] flex-shrink-0">Coming soon</span>

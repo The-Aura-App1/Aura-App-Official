@@ -25,7 +25,9 @@ const AURA_VERSION = 2;
 const MAX_TAKE_PER_TARGET    = 50;
 const MAX_EARNED_PER_SOURCE  = 500;   // per giver, per recipient, per day
 const NEW_ACCOUNT_DAYS       = 7;     // gifts from younger accounts are spendable
-const ADS_ENABLED            = false; // see watchAd; keep in sync with ADS_ENABLED in src/pages/AuraWallet.jsx
+const ADS_ENABLED            = true;  // see watchAd; keep in sync with ADS_ENABLED in src/pages/AuraWallet.jsx
+const AD_MIN_WATCH_MS        = 15 * 1000;        // a session must be this old before it pays
+const AD_SESSION_MS          = 15 * 60 * 1000;   // and is good for this long
 const AD_REWARD              = 25;
 const AD_COOLDOWN_MS         = 60 * 60 * 1000;
 
@@ -574,33 +576,73 @@ async function claimDailyBonus(user) {
 }
 
 // ─── Watch ad for aura ────────────────────────────────────────
+// Two steps on POST /ads/watch, so no new API route is needed:
+//   { start: true }     opens a one-time ad session (before the ad shows)
+//   { sessionId }       claims it after Google reports the reward as earned
+// Google offers server-side proof of a watched rewarded ad only in its phone
+// SDKs (AdMob SSV), not on the web, so the web guards are: one session at a
+// time, stored on the server; it pays only once it's AD_MIN_WATCH_MS old (an
+// ad was on screen that long) and before AD_SESSION_MS; the hourly cooldown;
+// and spendable-only aura (never cashable). The phone apps should use SSV.
 // The cooldown lives on the user record so it doesn't reset at midnight.
-async function watchAd(user) {
-  // Nothing proves an ad was actually watched yet, so the reward would be free
-  // aura for anyone who calls this route. Off until a real ad network verifies views.
-  if (!ADS_ENABLED) {
-    return response(403, { error: 'Ad rewards are paused until ads launch.' });
-  }
+function adCooldown(user) {
   const cutoff = new Date(Date.now() - AD_COOLDOWN_MS).toISOString();
   if (user.lastAdAt && user.lastAdAt > cutoff) {
     const minutesLeft = Math.ceil((Date.parse(user.lastAdAt) + AD_COOLDOWN_MS - Date.now()) / 60000);
     return response(429, { error: `Ad cooldown active. Try again in ${minutesLeft} minutes.`, minutesLeft });
   }
+  return null;
+}
+
+async function watchAd(user, body) {
+  if (!ADS_ENABLED) return response(403, { error: 'Ad rewards are paused.' });
+  const waiting = adCooldown(user);
+  if (waiting) return waiting;
+  const sessionKey = `ADSESSION#${user.userId}`;
+
+  if (body?.start === true) {
+    const sessionId = generateId();
+    await dynamo.send(new UpdateCommand({
+      TableName: DAILY_BUDGETS_TABLE, Key: { budgetKey: sessionKey },
+      UpdateExpression: 'SET sessionId = :sid, startedAt = :now, expiresAt = :ttl',
+      ExpressionAttributeValues: { ':sid': sessionId, ':now': Date.now(), ':ttl': Math.floor(Date.now() / 1000) + 3600 },
+    }));
+    return response(200, { sessionId, minWatchSeconds: AD_MIN_WATCH_MS / 1000 });
+  }
+
+  const sessionId = body?.sessionId;
+  if (typeof sessionId !== 'string' || !sessionId) return response(400, { error: 'Start the ad first.' });
+  const session = (await dynamo.send(new GetCommand({ TableName: DAILY_BUDGETS_TABLE, Key: { budgetKey: sessionKey } }))).Item;
+  if (!session || session.sessionId !== sessionId) return response(409, { error: 'That ad session has ended. Start a new one.' });
+  const age = Date.now() - session.startedAt;
+  if (age < AD_MIN_WATCH_MS) return response(409, { error: 'Watch the whole ad to earn the aura.' });
+  if (age > AD_SESSION_MS) return response(409, { error: 'That ad session expired. Start a new one.' });
 
   const now = new Date().toISOString();
+  const cutoff = new Date(Date.now() - AD_COOLDOWN_MS).toISOString();
   const error = await commit([
     {
       Update: {
         TableName:                 USERS_TABLE,
         Key:                       { userId: user.userId },
-        UpdateExpression:          'SET lastAdAt = :now ADD auraSpendable :reward, auraBalance :reward',
+        // :auraBalance (not :reward) so the balance history picks this change up
+        UpdateExpression:          'SET lastAdAt = :now ADD auraSpendable :reward, auraBalance :auraBalance',
         ConditionExpression:       'auraVersion = :v AND (attribute_not_exists(lastAdAt) OR lastAdAt <= :cutoff)',
-        ExpressionAttributeValues: { ':now': now, ':reward': AD_REWARD, ':v': AURA_VERSION, ':cutoff': cutoff },
+        ExpressionAttributeValues: { ':now': now, ':reward': AD_REWARD, ':v': AURA_VERSION, ':cutoff': cutoff, ':auraBalance': AD_REWARD },
+      },
+    },
+    {
+      Update: {
+        TableName: DAILY_BUDGETS_TABLE, Key: { budgetKey: sessionKey },
+        UpdateExpression: 'REMOVE sessionId',
+        ConditionExpression: 'sessionId = :sid',
+        ExpressionAttributeValues: { ':sid': sessionId },
       },
     },
     transactionRecord({ type: 'ad', toUserId: user.userId, amount: AD_REWARD }),
   ], [
     'Ad cooldown active. Try again later.',
+    'That ad session was already used.',
   ]);
   if (error) return error;
 
@@ -675,7 +717,7 @@ export const handler = async (event) => {
 
     // POST /ads/watch
     if (method === 'POST' && path === '/ads/watch') {
-      return await watchAd(user);
+      return await watchAd(user, body);
     }
 
     // /games/* (group games, see games.mjs)

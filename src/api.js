@@ -86,7 +86,7 @@ export const api = {
   takeAura:       (postId, amount)       => request('POST', `/posts/${id(postId)}/aura/take`, { amount }),
   giveCommentAura:(commentId, amount)    => request('POST', `/comments/${id(commentId)}/aura/give`, { amount }),
   takeCommentAura:(commentId, amount)    => request('POST', `/comments/${id(commentId)}/aura/take`, { amount }),
-  watchAd:        ()                     => request('POST', '/ads/watch'),
+  watchAd:        (body = {})            => request('POST', '/ads/watch', body),
   claimDailyBonus:()                     => request('POST', '/aura/daily-bonus'),
 
   // ─── Comments ─────────────────────────────────────────────

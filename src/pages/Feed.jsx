@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/post/PostCard';
+import FeedAd from '../ads/FeedAd';
+import { AD_EVERY } from '../ads/adsConfig';
 import TuneFeed from '../components/feed/TuneFeed';
 import { ViewSwitch, CaptionFilter, CaptionRow, captionMatches, loadView, saveView } from '../components/feed/CaptionList';
 import Reveal from '../components/motion/Reveal';
@@ -135,10 +137,14 @@ export default function Feed() {
           {listed.slice(0, shown).map(post => <CaptionRow key={post.postId} post={post} />)}
         </div>
       ) : listed.slice(0, shown).map((post, i) => (
-        <Reveal key={post.postId} delay={i < 4 ? i * 80 : 0} className="aura-offscreen">
-          <PostCard post={post} onUpdate={loadFeed} onPrefer={preferPost}
-            onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
-        </Reveal>
+        <React.Fragment key={post.postId}>
+          <Reveal delay={i < 4 ? i * 80 : 0} className="aura-offscreen">
+            <PostCard post={post} onUpdate={loadFeed} onPrefer={preferPost}
+              onRemove={dbProfile?.isAdmin ? moderatorRemove : undefined} />
+          </Reveal>
+          {/* One sponsored card after every AD_EVERY posts; Premium is ad-free */}
+          {!dbProfile?.isPremium && (i + 1) % AD_EVERY === 0 && <FeedAd topics={post.tags ?? []} />}
+        </React.Fragment>
       ))}
 
       {shown < listed.length && <div ref={sentinelRef} aria-hidden="true" />}

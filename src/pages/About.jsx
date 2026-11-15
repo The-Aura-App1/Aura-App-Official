@@ -71,6 +71,8 @@ const PROMISES = [
       'Ads are never personalized or targeted using your activity.',
       'At most 1 ad per 10 posts, clearly labeled "Sponsored", and nothing autoplays.',
       'Premium members get an ad-free feed.',
+      "Ads come from Google in its cookie-free Limited Ads mode: no cookies, no device IDs, no profile. An ad only knows the topic of the post above it. Google's ad script does see your IP address, as any website you load does.",
+
     ],
   },
   {

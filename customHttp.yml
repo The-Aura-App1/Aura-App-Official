@@ -11,6 +11,7 @@
 #   img-src/media-src S3 + blob:   post media, and previews of files picked for upload
 #   connect-src                    the Aura API, Cognito sign-in, and S3 uploads
 #   worker-src 'self' blob:        the keyword model's web worker
+#   Google domains (script/img/connect/frame)  Google Ad Manager in Limited Ads mode (src/ads/)
 customHeaders:
   - pattern: '**/*'
     headers:
@@ -29,12 +30,13 @@ customHeaders:
       - key: Content-Security-Policy-Report-Only
         value: >-
           default-src 'self';
-          script-src 'self' 'wasm-unsafe-eval';
+          script-src 'self' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://securepubads.g.doubleclick.net https://tpc.googlesyndication.com https://*.googlesyndication.com;
           style-src 'self' 'unsafe-inline';
-          img-src 'self' data: blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          img-src 'self' data: blob: https://*.googlesyndication.com https://*.doubleclick.net https://*.gstatic.com https://*.google.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           media-src 'self' blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           font-src 'self' data:;
-          connect-src 'self' https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          connect-src 'self' https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.safeframe.googlesyndication.com https://*.google.com;
           worker-src 'self' blob:;
           object-src 'none';
           base-uri 'self';
