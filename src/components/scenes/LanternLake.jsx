@@ -61,11 +61,24 @@ function riser(seed, count, { size, dur, sway }) {
   return Array.from({ length: count }, () => ({
     left: 4 + rand() * 92, size: size[0] + rand() * (size[1] - size[0]),
     dur: dur[0] + rand() * (dur[1] - dur[0]), delay: -rand() * dur[1], sway: (rand() - 0.5) * sway,
-    flick: 1.6 + rand() * 1.8,
+    flick: 1.6 + rand() * 1.8, tilt: (rand() - 0.5) * 10,
   }));
 }
-const SKY_LANTERNS = [...riser(5, 16, { size: [10, 16], dur: [55, 85], sway: 60 }), ...riser(9, 8, { size: [16, 24], dur: [40, 60], sway: 90 })];
+const SKY_LANTERNS = [...riser(5, 16, { size: [12, 18], dur: [55, 85], sway: 60 }), ...riser(9, 8, { size: [20, 30], dur: [40, 60], sway: 90 })];
 const FAR_LANTERNS = riser(12, 34, { size: [3, 6], dur: [120, 180], sway: 30 });
+
+// The moon's reflection: glints scattered down the water, wider and looser
+// toward us, each trembling at its own pace
+const MOON_PATH = (() => {
+  const rand = seeded(41);
+  return Array.from({ length: 16 }, (_, k) => {
+    const t = k / 15;
+    return {
+      top: t * 92 + rand() * 3, width: 18 + t * 55 + rand() * 25, shift: (rand() - 0.5) * (8 + t * 30),
+      opacity: 0.65 - t * 0.4 + rand() * 0.1, height: 1.5 + t * 2.5, dur: 2.2 + rand() * 2.4, delay: -rand() * 4,
+    };
+  });
+})();
 
 // Lanterns floating on the water: x, depth (0 far … 1 near)
 const FLOATERS = [[560, 0.1], [700, 0.25], [860, 0.05], [980, 0.4], [760, 0.6], [1080, 0.75], [620, 0.85], [920, 0.95], [1180, 0.3], [480, 0.5]];
@@ -76,9 +89,106 @@ const LEAVES = Array.from({ length: 14 }, (_, i) => ({
 }));
 const LEAF = 'M 0 -10 L 2.5 -4 L 8 -6 L 5 0 L 9 3 L 3 3 L 2 9 L 0 5 L -2 9 L -3 3 L -9 3 L -5 0 L -8 -6 L -2.5 -4 Z';
 
-function Lantern({ size, style, className = '' }) {
+// A paper sky lantern: wider at the top, open at the bottom where the
+// flame hangs, so it glows brightest low down; bamboo ribs show through the
+// paper, and a halo spills around it. Colors are shared gradients (LanternDefs).
+const SKY_LANTERN = 'M -9.5 -13 Q -10 -16.5 0 -16.5 Q 10 -16.5 9.5 -13 L 6.8 10 Q 0 11.8 -6.8 10 Z';
+function SkyLantern({ size, flick, tilt }) {
   return (
-    <span className={`aura-lantern ${className}`} style={{ width: size, height: size * 1.25, ...style }} />
+    <svg width={size} height={size * 1.4} viewBox="-12 -17 24 34" className="aura-sky-lantern block overflow-visible"
+      style={{ animationDuration: `${flick}s`, '--tilt': `${tilt}deg` }}>
+      <ellipse cy="4" rx="22" ry="24" fill="url(#ll-sl-halo)" />
+      <path d={SKY_LANTERN} fill="url(#ll-sl-paper)" />
+      <path d={SKY_LANTERN} fill="url(#ll-sl-shade)" />
+      <path d="M -4.6 -16.2 Q -4 -3 -3.4 10.9 M 0 -16.5 L 0 11.4 M 4.6 -16.2 Q 4 -3 3.4 10.9" stroke="#a8381c" strokeOpacity="0.3" strokeWidth="0.45" fill="none" />
+      <path d="M -9.6 -12 Q 0 -13.6 9.6 -12" stroke="#8a2a16" strokeOpacity="0.35" strokeWidth="0.6" fill="none" />
+      <path d="M -6.8 10 Q 0 11.8 6.8 10" stroke="#6e1f10" strokeWidth="1.1" fill="none" strokeLinecap="round" />
+      <path d="M -6 10.3 L 0 6.5 L 6 10.3" stroke="#5a1a0e" strokeWidth="0.4" fill="none" opacity="0.7" />
+      <ellipse cy="7" rx="2.6" ry="1.8" fill="#fff8d8" className="aura-sky-lantern-flame" />
+    </svg>
+  );
+}
+
+// The gradients every lantern (and the moon) share, defined once on the page
+function LanternDefs() {
+  return (
+    <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="ll-sl-paper" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#d2482a" />
+          <stop offset="35%" stopColor="#f2783a" />
+          <stop offset="70%" stopColor="#ffb257" />
+          <stop offset="100%" stopColor="#ffe7a6" />
+        </linearGradient>
+        {/* rounded sides: darker at the edges, glowing through the middle */}
+        <linearGradient id="ll-sl-shade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#6e1a12" stopOpacity="0.5" />
+          <stop offset="28%" stopColor="#6e1a12" stopOpacity="0" />
+          <stop offset="62%" stopColor="#fff2c8" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#6e1a12" stopOpacity="0.55" />
+        </linearGradient>
+        <radialGradient id="ll-sl-halo" cy="62%">
+          <stop offset="0%" stopColor="#ffb760" stopOpacity="0.5" />
+          <stop offset="45%" stopColor="#ff8a45" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="#ff7a3d" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="ll-box" cx="50%" cy="68%" r="70%">
+          <stop offset="0%" stopColor="#fff4cc" />
+          <stop offset="45%" stopColor="#ffb85c" />
+          <stop offset="100%" stopColor="#d9522a" />
+        </radialGradient>
+        <radialGradient id="ll-moon-face" cx="42%" cy="38%" r="65%">
+          <stop offset="0%" stopColor="#fff9ea" />
+          <stop offset="60%" stopColor="#fbe7c2" />
+          <stop offset="100%" stopColor="#efc994" />
+        </radialGradient>
+        <radialGradient id="ll-moon-halo">
+          <stop offset="30%" stopColor="#ffe2b0" stopOpacity="0.35" />
+          <stop offset="60%" stopColor="#ffb98a" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#ff9a7a" stopOpacity="0" />
+        </radialGradient>
+        <filter id="ll-moon-tex" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="3" seed="11" />
+          <feColorMatrix values="0 0 0 0 0.62  0 0 0 0 0.45  0 0 0 0 0.3  0 0 0 0.9 -0.42" />
+        </filter>
+        <filter id="ll-moon-blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6" /></filter>
+        <clipPath id="ll-moon-clip"><circle r="30" /></clipPath>
+      </defs>
+    </svg>
+  );
+}
+
+// A full harvest moon: warm and textured, with darker seas, a few craters,
+// a soft halo, and thin cloud drifting across it
+function Moon() {
+  return (
+    <div className="aura-ll-moon absolute" aria-hidden="true">
+      <svg viewBox="-70 -70 140 140" className="w-full h-full overflow-visible">
+        <circle r="70" fill="url(#ll-moon-halo)" className="aura-ll-moon-halo" />
+        <circle r="30" fill="url(#ll-moon-face)" />
+        <g clipPath="url(#ll-moon-clip)">
+          <g fill="#d6aa78" opacity="0.5" filter="url(#ll-moon-blur)">
+            <ellipse cx="-9" cy="-8" rx="10" ry="7" transform="rotate(-20)" />
+            <ellipse cx="6" cy="-12" rx="7" ry="5" />
+            <ellipse cx="9" cy="4" rx="9" ry="6.5" transform="rotate(25)" />
+            <ellipse cx="-4" cy="9" rx="6" ry="4" />
+            <ellipse cx="-17" cy="6" rx="4" ry="6" />
+          </g>
+          <rect x="-30" y="-30" width="60" height="60" filter="url(#ll-moon-tex)" />
+          {/* craters: a shaded hollow with a lit rim on the side away from the light */}
+          {[[-2, 20, 3.2], [15, -18, 2], [-20, -12, 1.6], [18, 14, 2.4], [-12, 22, 1.3]].map(([cx, cy, r], k) => (
+            <g key={k}>
+              <circle cx={cx} cy={cy} r={r} fill="#c4935f" opacity="0.38" />
+              <circle cx={cx + r * 0.35} cy={cy + r * 0.35} r={r * 0.8} fill="#fff6e2" opacity="0.3" />
+            </g>
+          ))}
+          {/* the limb darkens toward the edge */}
+          <circle r="30" fill="none" stroke="#c8925c" strokeOpacity="0.35" strokeWidth="6" filter="url(#ll-moon-blur)" />
+        </g>
+      </svg>
+      <div className="aura-ll-moon-cloud absolute" />
+      <div className="aura-ll-moon-cloud aura-ll-moon-cloud-2 absolute" />
+    </div>
   );
 }
 
@@ -88,7 +198,8 @@ export default function LanternLake({ variant = 'page' }) {
     <>
       <div className="aura-ll-sky absolute inset-0" />
       <div className="absolute inset-0 aura-ll-stars"><TwinklingStars seed={73} count={40} /></div>
-      <div className="aura-ll-moon absolute" aria-hidden="true" />
+      <LanternDefs />
+      <Moon />
 
       {/* Lanterns far away, already high: tiny warm points drifting up */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -103,10 +214,6 @@ export default function LanternLake({ variant = 'page' }) {
         {/* Hills, the village and the far shore */}
         <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
           <defs>
-            <linearGradient id="ll-hills-far" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3d1226" />
-              <stop offset="100%" stopColor="#2a0b1b" />
-            </linearGradient>
             <linearGradient id="ll-glow" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#ff8a4c" stopOpacity="0" />
               <stop offset="100%" stopColor="#ff8a4c" stopOpacity="0.28" />
@@ -125,7 +232,7 @@ export default function LanternLake({ variant = 'page' }) {
               <feDisplacementMap in="SourceGraphic" scale="8" />
             </filter>
           </defs>
-          <path d={areaUnder(HILLS_FAR, H)} fill="url(#ll-hills-far)" filter="url(#ll-soft)" />
+          <path d={areaUnder(HILLS_FAR, H)} fill="#341021" filter="url(#ll-soft)" />
           <rect x="-80" y="250" width={W + 160} height="170" fill="url(#ll-glow)" />
           <path d={areaUnder(HILLS_NEAR, H)} fill="#1d0712" filter="url(#ll-soft)" />
           <path d={ROOFS} fill="#14040c" />
@@ -147,22 +254,31 @@ export default function LanternLake({ variant = 'page' }) {
               <stop offset="0%" stopColor="#ffd28a" stopOpacity="0.9" />
               <stop offset="100%" stopColor="#ff7a3d" stopOpacity="0" />
             </radialGradient>
-            <linearGradient id="ll-reflect" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#ffb86b" stopOpacity="0.7" />
-              <stop offset="100%" stopColor="#ffb86b" stopOpacity="0" />
-            </linearGradient>
           </defs>
           {FLOATERS.map(([x, depth], i) => {
             const y = SHORE + 14 + depth * 170;
             const s = 0.45 + depth * 1.1;
             return (
               <g key={i} transform={`translate(${x} ${y}) scale(${s})`}>
-                <rect className="aura-ll-reflect" x="-5" y="4" width="10" height="44" rx="5" fill="url(#ll-reflect)" style={{ animationDelay: `${-i * 0.7}s` }} />
+                {/* light pooling on the water around it */}
+                <ellipse cy="6" rx="34" ry="7" fill="url(#ll-float-glow)" opacity="0.55" />
+                {/* its reflection: broken, trembling strokes of light */}
+                <g className="aura-ll-reflect" style={{ animationDelay: `${-i * 0.7}s` }}>
+                  {[[10, 15, 0.6], [16, 12, 0.45], [23, 9, 0.32], [31, 7, 0.2], [40, 4, 0.12]].map(([ry, rw, o], k) => (
+                    <rect key={k} x={-rw / 2 + (k % 2 ? 1.5 : -1.5)} y={ry} width={rw} height="2.2" rx="1.1" fill="#ffc47a" opacity={o} />
+                  ))}
+                </g>
                 <g className="aura-ll-bob" style={{ animationDelay: `${-i * 0.9}s` }}>
-                  <circle r="22" cy="-6" fill="url(#ll-float-glow)" className="aura-ll-flicker" style={{ animationDelay: `${-i * 0.4}s` }} />
-                  <path d="M -9 2 L -7 -12 L 7 -12 L 9 2 Z" fill="#ffae55" />
-                  <path d="M -9 2 L -7 -12 L -2 -12 L -3 2 Z" fill="#ffd08a" />
-                  <path d="M -11 2 L 11 2 L 9 5 L -9 5 Z" fill="#5a1f18" />
+                  <circle r="24" cy="-7" fill="url(#ll-float-glow)" className="aura-ll-flicker" style={{ animationDelay: `${-i * 0.4}s` }} />
+                  {/* a little wooden raft */}
+                  <path d="M -12 3 L 12 3 L 10.5 6.5 L -10.5 6.5 Z" fill="#3b1510" />
+                  <path d="M -12 3 L 12 3" stroke="#7a3a22" strokeWidth="0.8" />
+                  {/* the paper box, lit from inside, in its wooden frame */}
+                  <path d="M -8.5 3 L -7.5 -14 L 7.5 -14 L 8.5 3 Z" fill="url(#ll-box)" />
+                  <path d="M -8.5 3 L -7.5 -14 L -3.5 -14 L -4 3 Z" fill="#7a2014" opacity="0.18" />
+                  <path d="M -8.5 3 L -7.5 -14 L 7.5 -14 L 8.5 3 Z M 0 -14 L 0 3" stroke="#4a160e" strokeWidth="0.9" fill="none" />
+                  <path d="M -8.8 -14.6 L 8.8 -14.6" stroke="#4a160e" strokeWidth="1.6" strokeLinecap="round" />
+                  <ellipse cy="-2" rx="2.4" ry="3.4" fill="#fffae0" opacity="0.85" />
                 </g>
               </g>
             );
@@ -171,6 +287,14 @@ export default function LanternLake({ variant = 'page' }) {
             <path key={i} className="aura-ll-ripple" d={`M ${x} ${y} q ${w / 2} -3 ${w} 0`} stroke="#ffb88a" strokeOpacity="0.25" strokeWidth="1.4" fill="none" style={{ animationDelay: `${-i * 1.3}s` }} />
           ))}
         </svg>
+
+        {/* The moon's road of light, trembling across the lake */}
+        <div className="aura-ll-moonpath absolute" aria-hidden="true">
+          {MOON_PATH.map((b, k) => (
+            <span key={k} className="aura-ll-moonpath-bar absolute"
+              style={{ top: `${b.top}%`, width: `${b.width}%`, marginLeft: `${b.shift}%`, opacity: b.opacity, height: b.height, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }} />
+          ))}
+        </div>
 
         {/* The near banks: maples blazing crimson, a dock and its lantern post */}
         <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -210,7 +334,7 @@ export default function LanternLake({ variant = 'page' }) {
         <div className="absolute inset-x-0 bottom-0 top-[-120vh] overflow-hidden pointer-events-none" aria-hidden="true">
           {SKY_LANTERNS.map((l, i) => (
             <span key={i} className="aura-ll-rise absolute" style={{ left: `${l.left}%`, '--sway': `${l.sway}px`, animationDuration: `${l.dur}s`, animationDelay: `${l.delay}s` }}>
-              <Lantern size={l.size} style={{ animationDuration: `${l.flick}s` }} />
+              <SkyLantern size={l.size} flick={l.flick} tilt={l.tilt} />
             </span>
           ))}
         </div>
