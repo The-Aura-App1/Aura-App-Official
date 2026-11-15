@@ -8,6 +8,8 @@ import {
   builtInThemeIn, builtInThemeReply, specFromBuiltIn, themeListReply, currentThemeReply, sceneryReply, balanceReply, feedSummaryReply,
   ASKS_THEME_LIST, ASKS_CURRENT_THEME, ASKS_SCENERY, ASKS_BALANCE, ASKS_FEED_SUMMARY,
 } from './skills';
+import { THEMES } from '../themes';
+import INTENT_MODEL from './intentModel.json';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
 // they type is sent anywhere. She doesn't generate free text: she works out
@@ -105,7 +107,7 @@ export function subjectsOf(text) {
 
 const INTENT_RULES = {
   theme: /\b(theme|palette|make it look like|make (it|everything) (look|feel)|(make|turn) (the |my )?app (more |less |all )?\w+|app to (look|feel) like|colou?r scheme|colou?rs? for (the )?app|app('s)? (look|colou?rs?|font)|make (the |my )?app (look|feel|be)|(change|switch|set) (the |my )?(app'?s? )?colou?rs?|colou?rs? to|the app be|custom theme|dark mode|light mode)\b/,
-  trends: /\b(trend|trends|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what('?s| is) (hot|big|popping|blowing up)|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least)|underrated|overlooked|ignored|niche|(people|everyone) (are )?(posting|talking) about|most (posted|talked)|doing well|doing badly|getting more (aura|attention|love)|(more|less) (aura|attention) than|which (one |is |are |team |topic )?(gets|getting|has|have) (more|less|the most|the least)|(tags?|hashtags?|topics?) (are |is )?(hot|big|popular|doing well|blowing up)|(is|are) (anyone|anybody|people) (posting|talking) about|how (popular|big) is|(most|least) active|(are|is) (hot|popping|buzzing|big)|b(vs|versus)b.{0,40}b(bigger|more|most|better|ahead|winning|popular)|which (one )?is (bigger|more popular|ahead)|(hot|popping|buzzing) (right now|today|lately|this week)|(topics?|hashtags?|tags?|teams?|niches?) (are|is) (dead|dying|cold|quiet|flopping))\b/,
+  trends: /\b(nobody|no one|noone) (is )?(posting|posts|talking)\b|\b(trend|trends|trending|popular|unpopular|most (aura|attention|engagement|liked|popular)|least (aura|attention|engagement|popular)|what('?s| is) (hot|big|popping|blowing up)|hottest|top (posts?|hashtags?|topics?|teams?)|performing|generating (the )?most|getting (the )?most|blowing up|which .{1,40} (most|least)|underrated|overlooked|ignored|niche|(people|everyone) (are )?(posting|talking) about|most (posted|talked)|doing well|doing badly|getting more (aura|attention|love)|(more|less) (aura|attention) than|which (one |is |are |team |topic )?(gets|getting|has|have) (more|less|the most|the least)|(tags?|hashtags?|topics?) (are |is )?(hot|big|popular|doing well|blowing up)|(is|are) (anyone|anybody|people) (posting|talking) about|how (popular|big) is|(most|least) active|(are|is) (hot|popping|buzzing|big)|b(vs|versus)b.{0,40}b(bigger|more|most|better|ahead|winning|popular)|which (one )?is (bigger|more popular|ahead)|(hot|popping|buzzing) (right now|today|lately|this week)|(topics?|hashtags?|tags?|teams?|niches?) (are|is) (dead|dying|cold|quiet|flopping))\b/,
   feed: /\b(my feed|feed|timeline|see more|see less|show me (more|less|fewer)|show (more|less|fewer)|more (posts|content|stuff|videos|photos) (about|on|from|of)|less (posts|content|stuff)|fewer|stop showing|not getting|not seeing|keep seeing|tune|recommended (posts|content)|(stop|quit) recommending|reset my|i only want to see|i (just )?want to see|i miss seeing|enough (with|of) (the )?|no more \w+)\b/,
   post: /\b(my (post|caption|draft)|this (post|caption|draft)|a post (i'?m|about)|caption|draft|feedback on|improve my|review my|check my|help (me )?with (a|my|this) post|what topics? (should|for)|which topics?|hashtags? (should|for)|before i post|(suggest|give me|recommend) (some |good )?(hashtags|topics)|best time to post|when should i post|what time (should|to) post)\b/,
 };
@@ -200,7 +202,9 @@ const PEOPLE = new RegExp([
 // Getting around Aura's rules, or into what isn't yours
 const ABUSE = new RegExp([
   '\\b(hack|hacks|hacking|hacked|exploit|exploits|exploiting|cheat|cheats|cheating|botting|auto ?clicker|farm(ing)? aura|aura farm(ing)?|dupe|duplicate aura|circumvent|evade|ban evasion|ddos|scrape|scraping|phish|phishing|steal|stealing|crack)\\b',
-  '\\b(use|using|make|run|running|build|write|code|with|my|our) (a |an |some )?bots?\\b',
+  '\\b(use|using|make|run|running|build|write|code|with|my|our) (a |an |some )?(bots?|macros?|auto ?clickers?)\\b',
+  // a script to farm aura, not a script font
+  '\\b(use|using|run|running|build|write|code|with|via) (a |an |some )?scripts?\\b(?! fonts?)',
   '\\b(win every|always win|never lose|guaranteed (win|to win)|rig|rigged|predict the (cards|dice|coin|deck))\\b',
   '\\b(get|getting|go|work) (around|past) (a |the |my |their |his |her )?(block|ban|limit|limits|cap|caps|cooldown|rules?|filter|private)\\b',
   '\\bbypass\\w*\\b',
@@ -234,6 +238,46 @@ const INTENT_EXAMPLES = {
   post: ['can you give me feedback on my caption', 'what topic should my post be in', 'is my post too long', 'how can I make my post better'],
 };
 
+// The message's vector, worked out once per message
+let lastVector = { text: null, vec: null };
+async function vectorOf(text, embed) {
+  if (!embed) return null;
+  if (lastVector.text === text) return lastVector.vec;
+  try {
+    const [mine] = (await embed([text])) ?? [];
+    lastVector = { text, vec: decodeVector(mine) };
+  } catch {
+    lastVector = { text, vec: null };
+  }
+  return lastVector.vec;
+}
+
+// A small classifier trained on hundreds of example messages
+// (scripts/angel-intents), on top of the same on-device vectors. It only
+// picks which of her existing answers to give; it never writes anything.
+let intentWeights = null;
+function weightsOf() {
+  if (!intentWeights) {
+    intentWeights = INTENT_MODEL.weights.map(({ scale, w }) => {
+      const bin = atob(w);
+      const out = new Float32Array(INTENT_MODEL.dim);
+      for (let d = 0; d < out.length; d++) { const c = bin.charCodeAt(d); out[d] = (c > 127 ? c - 256 : c) * scale; }
+      return out;
+    });
+  }
+  return intentWeights;
+}
+export async function classifyIntent(text, embed) {
+  const vec = await vectorOf(text, embed);
+  if (!vec) return null;
+  const z = weightsOf().map((w, k) => similarity(w, vec) + INTENT_MODEL.bias[k]);
+  const top = Math.max(...z);
+  const ex = z.map(v => Math.exp(v - top));
+  const sum = ex.reduce((a, c) => a + c, 0);
+  const k = ex.indexOf(1);
+  return { label: INTENT_MODEL.labels[k], p: ex[k] / sum };
+}
+
 let exampleVecs = null;
 async function nearestIntent(text, embed) {
   if (!embed) return null;
@@ -247,8 +291,7 @@ async function nearestIntent(text, embed) {
       if (!vecs) return null;
       exampleVecs = entries.map((e, i) => ({ ...e, vec: decodeVector(vecs[i]) }));
     }
-    const [mine] = (await embed([text])) ?? [];
-    const vec = decodeVector(mine);
+    const vec = await vectorOf(text, embed);
     if (!vec) return null;
     let best = null;
     for (const e of exampleVecs) {
@@ -534,6 +577,41 @@ async function postReply(text, raw, ctx) {
 
 // ── Answering ─────────────────────────────────────────────────────────
 
+// Her answer for an intent the classifier picked
+async function byIntent(label, text, raw, ctx) {
+  switch (label) {
+    case 'switch': {
+      const named = builtInThemeIn(text);
+      if (named) return builtInThemeReply(named.theme, ctx);
+      if (/\b(default|normal|original|regular|standard|usual|old|back)\b/.test(text)) return builtInThemeReply(THEMES.find(t => t.id === 'day'), ctx);
+      return themeListReply(text, ctx);
+    }
+    case 'theme-list': return themeListReply(text, ctx);
+    case 'current-theme': return currentThemeReply(ctx);
+    case 'theme': return themeReply(text, ctx);
+    case 'account': return balanceReply(ctx, text);
+    case 'scenery': return sceneryReply(text, ctx);
+    case 'feed': return feedReply(text, ctx);
+    case 'feed-summary': {
+      let pool = [];
+      try { pool = (await ctx.getPool?.()) ?? []; } catch { pool = []; }
+      return feedSummaryReply(text, ctx, pool);
+    }
+    case 'trends': return trendsReply(text, ctx);
+    case 'post': return postReply(text, raw, ctx);
+    case 'app': {
+      const near = await nearestIntent(raw, ctx.embed);
+      if (near?.k && near.sim >= 0.45) return appReply(near.k);
+      const close = await closestKnowledge(raw, text, ctx.embed);
+      return { kind: 'unknown', text: 'I don\'t have an answer for that one yet. These are the closest things I can help with:', followUps: close.map(k => k.q) };
+    }
+    default: return refusal();
+  }
+}
+// When the words point one way but the classifier is sure of another job
+const SURE = 0.85;
+const OWN_JOBS = new Set(['switch', 'theme-list', 'current-theme', 'theme', 'account', 'scenery', 'feed', 'feed-summary', 'trends', 'post']);
+
 /**
  * @param {string} message  what the person typed
  * @param {object} ctx      { prefs, getPool(): Promise<post[]>, embed(texts): Promise<string[]|null>, lastTheme }
@@ -578,6 +656,9 @@ export async function respond(message, ctx = {}) {
     const page = PAGES.find(([re]) => re.test(nav[4]));
     const k = page ? null : knowledgeByKeys(text);
     const link = page ? page[1] : k && KNOWLEDGE_LINKS[k.id];
+    // "show me every theme you have" names a guide topic but asks for a list
+    const c = !page && link ? await classifyIntent(raw, ctx.embed) : null;
+    if (c && c.p >= SURE && OWN_JOBS.has(c.label)) return byIntent(c.label, text, raw, ctx);
     if (link) return { kind: 'app', text: 'Here you go.', links: [link] };
   }
   const builtIn = builtInThemeIn(text);
@@ -614,7 +695,13 @@ export async function respond(message, ctx = {}) {
   const problem = /\b(gone|disappeared|vanished|missing|removed|hidden|glitch\w*|bug|broken|not working|crash\w*|won'?t load)\b/.test(text);
   if ((QUESTION.test(text) || problem) && !INTENT_RULES.theme.test(text) && !INTENT_RULES.trends.test(text)) {
     const known = knowledgeByKeys(text);
-    if (known) return appReply(known);
+    if (known) {
+      // a guide word alone ("show me every theme you have") can be the wrong job
+      const c = problem ? null : await classifyIntent(raw, ctx.embed);
+      if (c && c.p >= SURE && OWN_JOBS.has(c.label)) return byIntent(c.label, text, raw, ctx);
+      if (c?.label === 'write' && c.p >= 0.6 && !ASKING_HOW.test(text)) return refusal();
+      return appReply(known);
+    }
   }
 
   // Predictions and outside events aren't Aura data
@@ -630,7 +717,12 @@ export async function respond(message, ctx = {}) {
   if (looksLikeFeed(text)) return feedReply(text, ctx);
   if (INTENT_RULES.post.test(text)) return postReply(text, raw, ctx);
   const known = knowledgeByKeys(text);
-  if (known) return appReply(known);
+  if (known) {
+    const c = await classifyIntent(raw, ctx.embed);
+    if (c && c.p >= SURE && OWN_JOBS.has(c.label)) return byIntent(c.label, text, raw, ctx);
+    if (c?.label === 'write' && c.p >= 0.6 && !ASKING_HOW.test(text)) return refusal();
+    return appReply(known);
+  }
   // Just a look ("something minimal and grey", "matrix style"): a theme
   const look = !aboutPost && describeTheme(text);
   if (look && look.changed.some(c => c === 'mood' || c === 'accent' || c === 'background')) return themeReply(text, ctx);
@@ -638,6 +730,11 @@ export async function respond(message, ctx = {}) {
   // No clear words: match by meaning, on the device, but only for messages
   // that are about Aura at all (so "capital of France" can't land on a
   // similar-sounding app answer)
+  // The classifier, trained on many phrasings: without an Aura word it has to
+  // be sure, so off-topic questions are still refused
+  const c = await classifyIntent(raw, ctx.embed);
+  if (c && (c.label === 'offtopic' || c.label === 'write') && c.p >= 0.5) return refusal();
+  if (c && c.label !== 'offtopic' && c.label !== 'write' && c.p >= (DOMAIN.test(text) ? 0.45 : c.label === 'app' ? 0.9 : 0.65)) return byIntent(c.label, text, raw, ctx);
   if (!DOMAIN.test(text)) return refusal();
   const near = await nearestIntent(raw, ctx.embed);
   if (near?.intent === 'app') return appReply(near.k);

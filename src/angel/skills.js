@@ -60,7 +60,11 @@ const SWITCH = /\b(switch|change|go|put|set|use|turn|move|swap|apply|give me|i w
 
 // The built-in theme a message names, and the words that named it. When the
 // message is plainly about themes, a name may be two slips off ("abbys").
+// "go back to the normal look", "restore the default theme": Day
+const BACK_TO_DEFAULT = /\b(back|reset|restore|revert|return|undo)\b.{0,30}\b(normal|default|original|regular|usual|standard|old)\b.{0,12}\b(look|theme|colou?rs?|one|style)\b|\b(go|switch|change|put|set) (it |me )?back to (the )?(normal|default|original|regular|usual|standard)\b/;
 export function builtInThemeIn(text) {
+  const back = BACK_TO_DEFAULT.exec(text);
+  if (back) return { theme: THEMES.find(t => t.id === 'day'), phrase: back[0] };
   const words = text.split(/[^a-z]+/);
   const aboutThemes = /\b(theme|switch|change|use)\b/.test(text);
   const close = (w, phrase) => w === phrase
@@ -103,7 +107,7 @@ export function builtInThemeReply(theme, ctx) {
 }
 
 export const ASKS_THEME_LIST = /\b(what|which|show|list|see|all|any|got)\b.{0,25}\bthemes\b|\b(other|more) themes\b|\btheme options\b/;
-export const ASKS_CURRENT_THEME = /\b(what|which)( theme| one)? (am i|i'?m) (using|on)\b|\b(my|the) current theme\b|\bwhat('?s| is) my theme\b|\b(what|which) theme is (this|that|it|on)\b|\bwhat('?s| is) this theme\b/;
+export const ASKS_CURRENT_THEME = /\b(what|which)( theme| one)? (am i|i'?m) (using|on)\b|\b(my|the) current theme\b|\bwhat('?s| is) my theme\b|\b(what|which) theme is (this|that|it|on)\b|\bwhat('?s| is) this theme\b|^is (this|it|that) (the )?[a-z]+( [a-z]+)? (theme|one)\??$/;
 
 export function themeListReply(text, ctx) {
   const dark = /\bdark\b/.test(text) && !/\blight\b/.test(text);
@@ -197,7 +201,7 @@ export function balanceReply(ctx, text = "") {
 
 // ── Your feed ────────────────────────────────────────────────────────
 
-export const ASKS_FEED_SUMMARY = /\b(what('?s| is| does)?|how('?s| is| does)?|describe|tell me about|summari[sz]e|explain)\b.{0,25}\b(my|the) (current )?feed\b.{0,20}\b(like|look|show|showing|made of|about|doing|tuned|set|work)?|\bwhat (have you|has my feed|does my feed|has the app) (learn|learned|learnt|know)\w*\b|\bwhat do you know about (me|my taste|my interests)\b|\bmy (taste|interests)\b|\bwhy (am i|do i keep) seeing\b|\bwhat am i seeing\b/;
+export const ASKS_FEED_SUMMARY = /\b(what('?s| is| does)?|how('?s| is| does)?|describe|tell me about|summari[sz]e|explain)\b.{0,25}\b(my|the) (current )?feed\b.{0,20}\b(like|look|show|showing|made of|about|doing|tuned|set|work)?|\bwhat (have you|has my feed|does my feed|has the app) (learn|learned|learnt|know)\w*\b|\bwhat do you know about (me|my taste|my interests)\b|\bmy (taste|interests)\b|\bwhy (am i|do i keep) seeing\b|\b(why|how come) (is|are) there (so much|so many|a lot of|lots of|all this|all these)\b|\bwhy is my (feed|timeline) (so|all|full)\b|\bwhat am i seeing\b/;
 
 export function feedSummaryReply(text, ctx, poolPosts = []) {
   const p = ctx.prefs ?? { more: [], less: [], words: [] };

@@ -296,3 +296,23 @@ describe('skills with their own app state', () => {
     expect((await ask(text, own)).theme).toMatchObject(want);
   });
 });
+
+describe('intent classifier', () => {
+  const model = require('./intentModel.json');
+  test('the trained model matches the vector size and decodes', () => {
+    expect(model.weights).toHaveLength(model.labels.length);
+    expect(model.bias).toHaveLength(model.labels.length);
+    for (const { w, scale } of model.weights) {
+      expect(atob(w)).toHaveLength(model.dim);
+      expect(scale).toBeGreaterThan(0);
+    }
+    expect(model.dim).toBe(384);
+  });
+  test('without the model loaded she still works by her rules', async () => {
+    expect((await ask('go back to the normal look pls')).kind).toBe('builtin-theme');
+    expect((await ask('is this the night theme', { currentThemeId: 'night' })).kind).toBe('builtin-theme');
+    expect((await ask('why is there so much cooking in my feed', { taste: { topics: {}, tags: {}, authors: {}, vectors: [] } })).kind).toBe('feed-summary');
+    expect((await ask('what nobody is posting about')).kind).toBe('trends');
+    expect((await ask('how do i get free aura with a script')).kind).toBe('refuse');
+  });
+});
