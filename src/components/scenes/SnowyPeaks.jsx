@@ -7,7 +7,7 @@ const HEIGHT = 600;
 
 // A jagged ridgeline: peaks spread across the width with valleys between,
 // and small bumps along each slope so it reads as rock, not a zigzag.
-function ridge(seed, { peaks, top, bottom, valley }) {
+export function ridge(seed, { peaks, top, bottom, valley }) {
   const rand = seeded(seed);
   const step = WIDTH / peaks;
   const keys = [{ x: -60, y: valley + rand() * 40 }];
@@ -39,7 +39,7 @@ function ridge(seed, { peaks, top, bottom, valley }) {
 
 // Snow above a jagged snowline that dips lowest under each peak. It's
 // clipped to the mountain, so it only ever covers rock.
-function snowPath(apexes, rand, depth) {
+export function snowPath(apexes, rand, depth) {
   const pts = [];
   for (let x = -60; x <= WIDTH + 60; x += 14) {
     let y = 0;
@@ -57,7 +57,7 @@ function snowPath(apexes, rand, depth) {
 // down the slope so it doesn't read as a vertical stripe. Each shadow fades
 // out towards its far side (`from`/`to`), so where it reaches into the next
 // peak it doesn't end in a hard vertical edge.
-function shadePaths(apexes, rand) {
+export function shadePaths(apexes, rand) {
   return apexes.map(a => {
     const crest = [];
     for (let t = 0; t <= 1.001; t += 0.125) {
@@ -119,7 +119,7 @@ function pines(seed, { base, minH, maxH, gap, clearing = [0, 0] }) {
 
 // A bank of valley fog: a band with rolling top and bottom edges, so it
 // never reads as a straight stripe across the mountains.
-function fogPath(seed, valley) {
+export function fogPath(seed, valley) {
   const rand = seeded(seed * 7 + 3);
   const top = [];
   const bottom = [];

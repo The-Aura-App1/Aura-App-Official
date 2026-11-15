@@ -343,6 +343,76 @@
   --wordmark-ink: #e6fbff;
 }
 
+/* Golden Dunes: warm sand and terracotta, with an oasis-teal accent. */
+[data-theme="golden-dunes"] {
+  --aura-950: 40 18 8;
+  --aura-900: 72 34 14;
+  --aura-850: 92 44 18;
+  --aura-800: 120 58 22;
+  --aura-700: 160 76 28;
+  --aura-600: 180 86 30;
+  --aura-500: 194 97 31;
+  --aura-400: 222 140 80;
+  --aura-300: 240 180 130;
+  --aura-200: 248 214 180;
+  --aura-100: 252 234 214;
+  --aura-50:  254 246 236;
+  --bg-primary:    #fbf4ea;
+  --bg-secondary:  #fffaf3;
+  --bg-elevated:   #f5e8d6;
+  --bg-card:       #fffdf8;
+  --border:        #ead6bb;
+  --text-primary:  #2b1a0c;
+  --text-secondary:#9a4f17;
+  --text-muted:    #7a6553;
+  --accent:        #c2611f;
+  --accent-hover:  #a64f12;
+  --accent-subtle: #fbe9d4;
+  /* Terracotta through desert gold to an oasis teal. */
+  --brand-1: #c2501f;
+  --brand-2: #b8731a;
+  --brand-3: #2a8a80;
+  --brand-ink-1: #a3421a;
+  --brand-ink-2: #9a5d10;
+  --brand-ink-3: #1d6e66;
+  --wordmark-ink: #3b2210;
+}
+
+/* Lantern Lake: a wine-dark night with crimson, copper and lantern gold. */
+[data-theme="lantern-lake"] {
+  --aura-950: 18 5 9;
+  --aura-900: 34 10 18;
+  --aura-850: 44 13 22;
+  --aura-800: 62 18 30;
+  --aura-700: 120 30 45;
+  --aura-600: 170 40 50;
+  --aura-500: 214 72 58;
+  --aura-400: 240 120 90;
+  --aura-300: 248 166 130;
+  --aura-200: 252 204 176;
+  --aura-100: 254 228 210;
+  --aura-50:  255 243 234;
+  --bg-primary:    #110609;
+  --bg-secondary:  #19090e;
+  --bg-elevated:   #250f15;
+  --bg-card:       #1b0b10;
+  --border:        #3b1720;
+  --text-primary:  #fdf0e8;
+  --text-secondary:#f7a978;
+  --text-muted:    #b7958e;
+  --accent:        #dd5a36;
+  --accent-hover:  #f07a4e;
+  --accent-subtle: #2c1016;
+  /* Crimson into copper into lantern gold. */
+  --brand-1: #b8243c;
+  --brand-2: #cc5426;
+  --brand-3: #b77514;
+  --brand-ink-1: #ff8f8a;
+  --brand-ink-2: #ffab7a;
+  --brand-ink-3: #ffd27a;
+  --wordmark-ink: #fff0e6;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {

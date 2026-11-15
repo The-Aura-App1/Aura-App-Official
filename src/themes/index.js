@@ -48,6 +48,21 @@ const ABYSS_ART = svg(
   "<path d='M0 92 Q 40 84 80 90 T 160 88 L160 100 L0 100Z' fill='#04101f'/>"
 );
 
+const DUNES_ART = svg(
+  "<circle cx='112' cy='52' r='14' fill='#fff1c8'/>" +
+  "<path d='M10 60 L14 48 L40 47 L45 60Z' fill='#dba196' opacity='0.8'/>" +
+  "<path d='M0 70 Q 30 52 60 64 Q 95 46 130 62 Q 150 56 160 60 L160 100 L0 100Z' fill='#f2b877'/>" +
+  "<path d='M60 64 Q 70 70 72 100 L40 100 Q 52 78 60 64Z M130 62 Q 136 70 138 100 L112 100 Q 124 80 130 62Z' fill='#c98457'/>" +
+  "<path d='M0 86 Q 50 70 100 84 T 160 82 L160 100 L0 100Z' fill='#e99d52'/>"
+);
+const LANTERN_ART = svg(
+  "<path d='M0 70 Q 40 52 80 62 T 160 58 L160 74 L0 74Z' fill='#3d1226'/>" +
+  "<rect y='74' width='160' height='26' fill='#14050b'/>" +
+  "<circle cx='30' cy='70' r='22' fill='#d9362e'/><circle cx='138' cy='66' r='20' fill='#e8662c'/>" +
+  "<rect x='60' y='30' width='5' height='6' rx='2' fill='#ffb25a'/><rect x='92' y='18' width='4' height='5' rx='2' fill='#ffb25a'/><rect x='112' y='40' width='5' height='6' rx='2' fill='#ffc36e'/>" +
+  "<rect x='78' y='80' width='5' height='5' fill='#ffae55'/><rect x='79' y='86' width='3' height='9' fill='#ffb86b' opacity='0.5'/>"
+);
+
 // The built-in themes. `base` picks light or dark styling (dark-based themes
 // also get the `dark` class, so Tailwind's `dark:` styles apply), `scene` the
 // scenery behind the app, and `bar` the browser toolbar color on phones.
@@ -135,6 +150,22 @@ export const THEMES = [
       card: '#071a30', text: '#ecfbff', muted: '#12304c', accent: '#22b8d6',
     },
   },
+  {
+    id: 'golden-dunes', name: 'Golden Dunes', base: 'light', scene: 'dunes', bar: '#f6e3cc',
+    description: 'Sunset over the desert, sand blowing off the crests.',
+    preview: {
+      background: `${DUNES_ART} bottom / 100% 100% no-repeat, linear-gradient(180deg, #ecd0bd 0%, #fbd09a 100%)`,
+      card: '#fffdf8', text: '#2b1a0c', muted: '#ead6bb', accent: '#c2611f',
+    },
+  },
+  {
+    id: 'lantern-lake', name: 'Lantern Lake', base: 'dark', scene: 'lanterns', bar: '#110609',
+    description: 'Paper lanterns rising over a lake in autumn.',
+    preview: {
+      background: `${LANTERN_ART} bottom / 100% 100% no-repeat, linear-gradient(180deg, #090309 0%, #5c1d22 100%)`,
+      card: '#1b0b10', text: '#fdf0e8', muted: '#3b1720', accent: '#dd5a36',
+    },
+  },
 ];
 
 // The scenes the welcome and sign-in pages rotate through, in order. Light
@@ -144,7 +175,7 @@ export const PUBLIC_ROTATION = ['day', 'city-skies', 'snowy-peaks', 'night', 'du
 // Every theme id an account can save, including ones still being built.
 // aura-users checks saved themes against its own copy (backendContract.test.js
 // fails if the two drift apart).
-export const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'northern-lights', 'firefly-grove', 'sky-isles', 'abyss', 'custom'];
+export const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'northern-lights', 'firefly-grove', 'sky-isles', 'abyss', 'golden-dunes', 'lantern-lake', 'custom'];
 
 export function getTheme(id) {
   return THEMES.find(t => t.id === id) ?? null;

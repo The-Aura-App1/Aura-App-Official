@@ -55,7 +55,7 @@ const NOTIFICATION_TYPES = [
 ];
 const COMMENT_VISIBILITY = ['anyone', 'followers'];
 // App themes an account can save. Keep in sync with THEME_IDS in src/themes/index.js.
-const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'northern-lights', 'firefly-grove', 'sky-isles', 'abyss', 'custom'];
+const THEME_IDS = ['day', 'night', 'light', 'dark', 'snowy-peaks', 'duskfall', 'city-skies', 'northern-lights', 'firefly-grove', 'sky-isles', 'abyss', 'golden-dunes', 'lantern-lake', 'custom'];
 
 // The only fields anyone else may see on a profile. Everything else on the
 // record (email, balances, settings, moderation notes, and any field added

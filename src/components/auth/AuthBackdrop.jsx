@@ -3,15 +3,20 @@ import { Link } from 'react-router-dom';
 import { Pause, Play } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { getTheme, PUBLIC_ROTATION } from '../../themes';
-import seeded from '../scenes/seeded';
 import SnowyPeaks from '../scenes/SnowyPeaks';
 import Duskfall from '../scenes/Duskfall';
 import NorthernLights from '../scenes/NorthernLights';
 import FireflyGrove from '../scenes/FireflyGrove';
 import SkyIsles from '../scenes/SkyIsles';
 import Abyss from '../scenes/Abyss';
+import GoldenDunes from '../scenes/GoldenDunes';
+import LanternLake from '../scenes/LanternLake';
 import CitySkies from '../scenes/CitySkies';
 import TwinklingStars from '../scenes/TwinklingStars';
+import { CloudBank, FloatingCloud } from '../scenes/Clouds';
+import ShootingStars from '../scenes/ShootingStars';
+import BirdFlock from '../scenes/Birds';
+import Balloon from '../scenes/Balloon';
 import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
 import '../scenes/scenes.css';
 import BrandWordmark from '../brand/Wordmark';
@@ -32,138 +37,6 @@ function Sparkle({ size }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z" />
     </svg>
-  );
-}
-
-// Overlapping circles along a baseline. The SVG filter below roughens their
-// edges with noise, which turns the blobs into soft, billowing clouds.
-function cloudPuffs(seed, { width, baseline, minR, maxR, step }) {
-  const rand = seeded(seed);
-  const puffs = [];
-  for (let x = -maxR; x < width + maxR; x += step * (0.6 + rand() * 0.8)) {
-    const r = minR + rand() * (maxR - minR);
-    puffs.push({ cx: x, cy: baseline - rand() * r * 0.6, r });
-  }
-  return puffs;
-}
-
-const BANK_WIDTH = 1600;
-const BANK_HEIGHT = 420;
-// Room above the bank for the tallest cloud tops. Without it, wide screens
-// (which scale the drawing up) cut them off in a flat line.
-const BANK_HEADROOM = 200;
-
-// Back to front: hazier, lavender-tinted clouds behind, brightest in front.
-const CLOUD_LAYERS = [
-  { seed: 7,  baseline: 230, minR: 70, maxR: 150, step: 120, top: '#ffffff', bottom: '#d9ccff', opacity: 0.7,  drift: 'cloudDriftA 40s' },
-  { seed: 21, baseline: 290, minR: 60, maxR: 130, step: 105, top: '#ffffff', bottom: '#eadfff', opacity: 0.85, drift: 'cloudDriftB 32s' },
-  { seed: 42, baseline: 350, minR: 55, maxR: 115, step: 95,  top: '#ffffff', bottom: '#f6f0ff', opacity: 1,    drift: 'cloudDriftA 26s reverse' },
-];
-
-function CloudBank() {
-  return (
-    <div className="aura-cloud-bank absolute inset-x-0 bottom-0 h-[42vh] min-h-[220px]">
-      {CLOUD_LAYERS.map((layer, i) => {
-        const puffs = cloudPuffs(layer.seed, { width: BANK_WIDTH, ...layer });
-        return (
-          <svg key={layer.seed} className="aura-cloud-layer absolute -inset-x-16 bottom-0 w-[calc(100%+8rem)]"
-            viewBox={`0 ${-BANK_HEADROOM} ${BANK_WIDTH} ${BANK_HEIGHT + BANK_HEADROOM}`} preserveAspectRatio="xMidYMax slice"
-            style={{
-              height: `${((BANK_HEIGHT + BANK_HEADROOM) / BANK_HEIGHT) * 100}%`,
-              opacity: layer.opacity,
-              animation: `${layer.drift} ease-in-out infinite`,
-            }}>
-            <defs>
-              <linearGradient id={`cloud-fill-${i}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={layer.top} />
-                <stop offset="100%" stopColor={layer.bottom} />
-              </linearGradient>
-              <filter id={`cloud-edge-${i}`} x="-10%" y="-40%" width="120%" height="160%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="4" seed={layer.seed} />
-                <feDisplacementMap in="SourceGraphic" scale="70" />
-                <feGaussianBlur stdDeviation="5" />
-              </filter>
-            </defs>
-            <g filter={`url(#cloud-edge-${i})`} fill={`url(#cloud-fill-${i})`}>
-              {puffs.map((p, j) => <circle key={j} cx={p.cx} cy={p.cy} r={p.r} />)}
-              <rect x={-200} y={layer.baseline - 20} width={BANK_WIDTH + 400} height={BANK_HEIGHT} />
-            </g>
-          </svg>
-        );
-      })}
-    </div>
-  );
-}
-
-// A single small cloud drifting high in the sky.
-function FloatingCloud({ seed, className, style }) {
-  const puffs = cloudPuffs(seed, { width: 260, baseline: 90, minR: 26, maxR: 52, step: 42 });
-  return (
-    <svg className={`absolute overflow-visible ${className}`} style={style} viewBox="0 0 260 150" aria-hidden="true">
-      <defs>
-        <linearGradient id={`float-fill-${seed}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="40%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e4d9ff" />
-        </linearGradient>
-        <filter id={`float-edge-${seed}`} x="-20%" y="-40%" width="140%" height="180%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed={seed} />
-          <feDisplacementMap in="SourceGraphic" scale="22" />
-          <feGaussianBlur stdDeviation="2.5" />
-        </filter>
-      </defs>
-      <g filter={`url(#float-edge-${seed})`} fill={`url(#float-fill-${seed})`}>
-        {puffs.filter(p => p.cx > 30 && p.cx < 230).map((p, j) => <circle key={j} cx={p.cx} cy={p.cy} r={p.r} />)}
-        <ellipse cx="130" cy="95" rx="100" ry="22" />
-      </g>
-    </svg>
-  );
-}
-
-// A shooting star now and then. Each one starts somewhere new in the part of
-// the sky that's on screen, at its own angle, length and direction. Only
-// runs while the night sky is showing (in the day sky this layer is hidden,
-// so it measures zero and skips).
-function ShootingStars() {
-  const ref = useRef(null);
-  const [shot, setShot] = useState(null);
-
-  useEffect(() => {
-    const rand = (a, b) => a + Math.random() * (b - a);
-    let timer;
-    function schedule(wait) {
-      timer = setTimeout(() => {
-        const rect = ref.current?.getBoundingClientRect();
-        if (rect && rect.width > 0 && !document.hidden) {
-          const visibleTop = Math.max(0, -rect.top);
-          const visibleHeight = Math.max(0, Math.min(window.innerHeight, rect.height - visibleTop));
-          setShot({
-            id: Date.now(),
-            top: visibleTop + rand(0.05, 0.6) * visibleHeight,
-            left: rand(0.1, 0.9) * rect.width,
-            length: rand(110, 190),
-            angle: rand(15, 42),
-            dir: Math.random() < 0.5 ? 1 : -1,
-          });
-        }
-        schedule(rand(5000, 14000));
-      }, wait);
-    }
-    schedule(rand(2000, 5000));
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <span ref={ref} className="aura-night-only aura-above-clouds absolute inset-0">
-      {shot && (
-        <span key={shot.id} className="aura-shooting-star"
-          style={{
-            top: shot.top, left: shot.left, width: shot.length,
-            '--angle': `${shot.angle}deg`, '--dir': shot.dir,
-            // Devices that ask for less motion get the same slower pace as the rest of the scenery
-            animationDuration: prefersReducedMotion() ? '2.2s' : '1.3s',
-          }} />
-      )}
-    </span>
   );
 }
 
@@ -244,78 +117,6 @@ function CrescentMoon({ className }) {
   );
 }
 
-// Wing positions for one flap, drawn as a filled silhouette (wing tips, body
-// in the middle). Every frame uses the same commands, so the browser can
-// morph smoothly between them.
-const WINGS_UP   = 'M-12 -7 C-8 -4 -4 -1 0 1 C4 -1 8 -4 12 -7 C8 -2.5 4 0.5 0 3 C-4 0.5 -8 -2.5 -12 -7 Z';
-const WINGS_MID  = 'M-12 0 C-8 -2 -4 -1 0 1 C4 -1 8 -2 12 0 C8 0.5 4 1.5 0 3 C-4 1.5 -8 0.5 -12 0 Z';
-const WINGS_DOWN = 'M-11 5 C-8 1 -4 0 0 1 C4 0 8 1 11 5 C8 2.5 4 2 0 3 C-4 2 -8 2.5 -11 5 Z';
-const FLAP = [WINGS_UP, WINGS_MID, WINGS_DOWN, WINGS_MID, WINGS_UP].join(';');
-
-// A loose flock seen from far away: smaller, hazier birds read as further
-// back. Each one flaps at its own speed and bobs a little on its own.
-const BIRDS = [
-  { x: 0,   y: 22, scale: 1,    flap: 0.62, begin: 0,    opacity: 0.85 },
-  { x: 26,  y: 10, scale: 0.85, flap: 0.7,  begin: 0.2,  opacity: 0.75 },
-  { x: 30,  y: 36, scale: 0.9,  flap: 0.58, begin: 0.35, opacity: 0.8  },
-  { x: 54,  y: 2,  scale: 0.7,  flap: 0.75, begin: 0.1,  opacity: 0.6  },
-  { x: 58,  y: 46, scale: 0.75, flap: 0.66, begin: 0.45, opacity: 0.65 },
-  { x: 84,  y: 18, scale: 0.6,  flap: 0.8,  begin: 0.3,  opacity: 0.5  },
-  { x: 100, y: 34, scale: 0.55, flap: 0.72, begin: 0.15, opacity: 0.45 },
-];
-
-function BirdFlock({ className }) {
-  return (
-    <div className={`aura-day-only aura-flock absolute left-0 ${className}`} aria-hidden="true">
-      <svg viewBox="-14 -10 130 66" className="w-32 sm:w-40 overflow-visible">
-        {BIRDS.map((b, i) => (
-          <g key={i} transform={`translate(${b.x} ${b.y})`}>
-            <g className="aura-bird-bob" style={{ animationDelay: `${-i * 0.7}s`, animationDuration: `${2.6 + (i % 3) * 0.5}s` }}>
-              <path transform={`scale(${b.scale})`} d={WINGS_MID} fill="currentColor" opacity={b.opacity}>
-                <animate attributeName="d" values={FLAP} dur={`${b.flap}s`} begin={`${b.begin}s`}
-                  repeatCount="indefinite" calcMode="spline"
-                  keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1" />
-              </path>
-            </g>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-// A hot-air balloon far off, drifting slowly across the dawn sky now and
-// then: a striped envelope in faded canvas colors, the basket hanging
-// below on four lines, the sun catching its left side.
-const BALLOON_STRIPES = ['#e9d8c4', '#c9705a', '#e9d8c4', '#7d5a8c', '#e9d8c4', '#c9705a'];
-
-function Balloon({ className }) {
-  // The envelope: a round top narrowing to a mouth, split into gores.
-  const envelope = 'M 0 -38 C 22 -38 30 -20 26 -6 C 23 6 12 14 6 20 L -6 20 C -12 14 -23 6 -26 -6 C -30 -20 -22 -38 0 -38 Z';
-  return (
-    <div className={`aura-day-only aura-balloon absolute left-0 ${className}`} aria-hidden="true">
-      <svg viewBox="-32 -42 64 82" className="w-9 sm:w-11 overflow-visible aura-balloon-bob">
-        <defs>
-          <clipPath id="balloon-envelope"><path d={envelope} /></clipPath>
-          <linearGradient id="balloon-light" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#fff6e8" stopOpacity="0.45" />
-            <stop offset="0.45" stopColor="#fff6e8" stopOpacity="0" />
-            <stop offset="1" stopColor="#3a2a4a" stopOpacity="0.3" />
-          </linearGradient>
-        </defs>
-        <g clipPath="url(#balloon-envelope)">
-          {BALLOON_STRIPES.map((c, i) => (
-            <rect key={i} x={-30 + i * 10} y="-40" width="10.5" height="62" fill={c} />
-          ))}
-          <rect x="-30" y="-40" width="60" height="62" fill="url(#balloon-light)" />
-        </g>
-        <path d="M -6 20 L -4.5 29 M 6 20 L 4.5 29 M -2 20 L -2 29 M 2 20 L 2 29" stroke="#5a4660" strokeWidth="0.6" />
-        <path d="M -5 29 L 5 29 L 4 36 L -4 36 Z" fill="#6b4d3c" />
-      </svg>
-    </div>
-  );
-}
-
 // The sky itself: a dawn sky with clouds in light mode, a galaxy in dark mode.
 // `page` is the full version for the public pages, with the sun and light
 // rays; `app` is the quieter version behind the signed-in app, without rays
@@ -337,8 +138,8 @@ export function SkyDecor({ variant = 'page' }) {
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}
-      <BirdFlock className={page ? 'top-[96px]' : 'top-[22%]'} />
-      <Balloon className={page ? 'top-[17%]' : 'top-[30%]'} />
+      <BirdFlock className={`aura-day-only aura-flock ${page ? 'top-[96px]' : 'top-[22%]'}`} />
+      <Balloon className={`aura-day-only aura-balloon ${page ? 'top-[17%]' : 'top-[30%]'}`} />
       {page && <div className="aura-rays absolute inset-0" />}
       {page && <div className="aura-sun absolute left-1/2 w-[46rem] h-[46rem] -ml-[23rem]" />}
       {page ? (
@@ -379,7 +180,7 @@ function useGentleMotion(ref) {
   }, [ref]);
 }
 
-const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies, aurora: NorthernLights, grove: FireflyGrove, isles: SkyIsles, deep: Abyss };
+const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies, aurora: NorthernLights, grove: FireflyGrove, isles: SkyIsles, deep: Abyss, dunes: GoldenDunes, lanterns: LanternLake };
 
 // The scenery for a theme: Day and Night share the sky (styled by the
 // `dark` class), Snowy Peaks and Duskfall have their own.
