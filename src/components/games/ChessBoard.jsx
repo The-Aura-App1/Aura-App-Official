@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PenLine, X } from 'lucide-react';
 import { clockFace } from './gameInfo';
 import './games.css';
+import ChessPiece from './ChessPiece';
 
 // Chess. The board turns so your pieces are at the bottom (white for
 // spectators). Tap a piece and then a square, or drag it there. Your move
@@ -15,7 +16,6 @@ const FILES = 'abcdefgh';
 const sqName = i => FILES[i % 8] + (Math.floor(i / 8) + 1);
 const sqIndex = name => (Number(name[1]) - 1) * 8 + FILES.indexOf(name[0]);
 // Solid glyphs for both colours, coloured with CSS; U+FE0E keeps them as text, not emoji
-const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
 const NAME = { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' };
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9 };
 const colorOf = p => (p === '.' ? null : p === p.toUpperCase() ? 'w' : 'b');
@@ -77,9 +77,7 @@ function Piece({ p, slide, faded }) {
   return (
     <span className={`absolute inset-0 flex items-center justify-center pointer-events-none ${slide ? 'chess-slide' : ''}`}
       style={slide ? { '--dx': `${slide[0] * 100}%`, '--dy': `${slide[1] * 100}%` } : undefined} aria-hidden="true">
-      <span className={`chess-piece ${white ? 'chess-white' : 'chess-black'} ${faded ? 'opacity-30' : ''}`}>
-        {GLYPH[p.toLowerCase()]}{'︎'}
-      </span>
+      <ChessPiece p={p} className={`chess-on-board ${faded ? 'opacity-30' : ''}`} />
     </span>
   );
 }
@@ -89,7 +87,7 @@ function Captured({ pieces, lead }) {
   const sorted = [...pieces].sort((a, b) => (VALUE[b.toLowerCase()] ?? 0) - (VALUE[a.toLowerCase()] ?? 0));
   return (
     <div className="h-6 flex items-center gap-0.5 text-lg leading-none min-w-0 overflow-hidden" aria-label={`Captured: ${sorted.map(p => NAME[p.toLowerCase()]).join(', ') || 'none'}`}>
-      {sorted.map((p, i) => <span key={i} className={`chess-mini ${p === p.toUpperCase() ? 'chess-white' : 'chess-black'}`}>{GLYPH[p.toLowerCase()]}{'︎'}</span>)}
+      {sorted.map((p, i) => <ChessPiece key={i} p={p} className="chess-mini" />)}
       {lead > 0 && <span className="ml-1 text-xs font-semibold text-[var(--text-muted)]">+{lead}</span>}
     </div>
   );
@@ -324,7 +322,7 @@ export default function ChessBoard({ view, seat, players, move, busy, myTurn, cl
         </div>
         {dragging && (
           <span className="absolute pointer-events-none z-[5] chess-drag" style={{ left: drag.x, top: drag.y }} aria-hidden="true">
-            <span className={`chess-piece ${mine === 'w' ? 'chess-white' : 'chess-black'}`}>{GLYPH[board[drag.from].toLowerCase()]}{'︎'}</span>
+            <ChessPiece p={board[drag.from]} className="chess-ghost" />
           </span>
         )}
         {promoting && (
@@ -335,7 +333,7 @@ export default function ChessBoard({ view, seat, players, move, busy, myTurn, cl
                 {['q', 'r', 'b', 'n'].map(k => (
                   <button key={k} type="button" aria-label={NAME[k]} onClick={() => { send(promoting.from, promoting.to, k); setPromoting(null); }}
                     className="w-12 h-12 rounded-lg chess-light flex items-center justify-center text-3xl">
-                    <span className={`chess-piece ${mine === 'w' ? 'chess-white' : 'chess-black'}`}>{GLYPH[k]}{'︎'}</span>
+                    <ChessPiece p={mine === 'w' ? k.toUpperCase() : k} className="w-10 h-10" />
                   </button>
                 ))}
               </div>

@@ -1,13 +1,27 @@
 import React from 'react';
 import './games.css';
 
-const SUIT = { s: '♠', h: '♥', d: '♦', c: '♣' };
+// Suits are drawn as SVG: as text (♥ ♦ ♠ ♣) phones can turn them into emoji,
+// which ignore the card's red or black and look out of place
+const SUIT_SHAPES = {
+  h: <path d="M50 90 C20 66 6 50 6 31 C6 16 17 6 30 6 C40 6 47 12 50 21 C53 12 60 6 70 6 C83 6 94 16 94 31 C94 50 80 66 50 90 Z" />,
+  d: <path d="M50 4 L86 50 L50 96 L14 50 Z" />,
+  s: <path d="M50 4 C30 30 8 44 8 62 C8 76 19 84 31 84 C39 84 45 80 48 74 C47 84 43 90 35 96 H65 C57 90 53 84 52 74 C55 80 61 84 69 84 C81 84 92 76 92 62 C92 44 70 30 50 4 Z" />,
+  c: <><circle cx="50" cy="27" r="19" /><circle cx="27" cy="57" r="19" /><circle cx="73" cy="57" r="19" /><circle cx="50" cy="52" r="12" />
+    <path d="M45 55 C45 76 40 88 33 96 H67 C60 88 55 76 55 55 Z" /></>,
+};
+export function Suit({ s, className = '' }) {
+  return (
+    <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" focusable="false" data-suit={s}
+      className={`inline-block w-[0.9em] h-[0.9em] align-[-0.1em] ${className}`}>{SUIT_SHAPES[s]}</svg>
+  );
+}
 const SUIT_NAME = { s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' };
 const RANK = { T: '10', J: 'J', Q: 'Q', K: 'K', A: 'A' };
 const RANK_NAME = { T: '10', J: 'Jack', Q: 'Queen', K: 'King', A: 'Ace' };
 export const RANK_ORDER = '23456789TJQKA';
 
-export const suitSymbol = s => SUIT[s];
+export const suitSymbol = s => <Suit s={s} />;
 export const suitName = s => SUIT_NAME[s];
 export const rankLabel = r => RANK[r] ?? r;
 export const cardLabel = c => `${RANK_NAME[c[0]] ?? c[0]} of ${SUIT_NAME[c[1]]}`;
@@ -36,11 +50,11 @@ export default function PlayingCard({ card, faceDown = false, size = 'md', onCli
   const color = red(card[1]) ? 'text-red-600' : 'text-slate-900';
   const face = (
     <>
-      <span className="absolute top-[6%] left-[10%] leading-[0.95] font-bold text-center">{rankLabel(card[0])}<br />{SUIT[card[1]]}</span>
+      <span className="absolute top-[6%] left-[10%] leading-[0.95] font-bold text-center">{rankLabel(card[0])}<br /><Suit s={card[1]} /></span>
       {size !== 'xs' && (
-        <span className="absolute bottom-[6%] right-[10%] leading-[0.95] font-bold text-center rotate-180">{rankLabel(card[0])}<br />{SUIT[card[1]]}</span>
+        <span className="absolute bottom-[6%] right-[10%] leading-[0.95] font-bold text-center rotate-180">{rankLabel(card[0])}<br /><Suit s={card[1]} /></span>
       )}
-      <span className={`absolute inset-0 flex items-center justify-center leading-none ${size === 'xs' ? 'text-[1.5em] pt-2' : 'text-[1.7em]'}`}>{SUIT[card[1]]}</span>
+      <span className={`absolute inset-0 flex items-center justify-center leading-none ${size === 'xs' ? 'text-[1.5em] pt-2' : 'text-[1.7em]'}`}><Suit s={card[1]} /></span>
     </>
   );
   const look = `${box} relative border border-slate-300 ${color} transition-[transform,opacity,box-shadow] duration-150
