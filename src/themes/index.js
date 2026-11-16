@@ -172,7 +172,7 @@ export const THEMES = [
 
 // The scenes the welcome and sign-in pages rotate through, in order. Light
 // and dark scenes alternate where they can.
-export const PUBLIC_ROTATION = ['day', 'city-skies', 'snowy-peaks', 'night', 'duskfall'];
+export const PUBLIC_ROTATION = ['day', 'city-skies', 'snowy-peaks', 'night', 'golden-dunes', 'northern-lights', 'sky-isles', 'duskfall', 'abyss', 'firefly-grove', 'lantern-lake'];
 
 // Every theme id an account can save, including ones still being built.
 // aura-users checks saved themes against its own copy (backendContract.test.js

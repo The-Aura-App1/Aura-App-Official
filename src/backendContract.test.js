@@ -139,8 +139,16 @@ test('the app offers exactly the reactions aura-posts accepts', () => {
   const list = server.match(/export const REACTION_EMOJIS = \[([\s\S]*?)\];/)[1];
   expect([...list.matchAll(/'([^']+)'/g)].map(m => m[1])).toEqual(app.REACTION_EMOJIS);
   expect(new Set(app.REACTION_EMOJIS).size).toBe(app.REACTION_EMOJIS.length);
-  // nothing that could spell a word: no letters, digits, keycaps or regional-indicator flags
-  for (const e of app.REACTION_EMOJIS) expect(e).not.toMatch(/[A-Za-z0-9#*]|[\u{1F1E6}-\u{1F1FF}\u{1F170}-\u{1F189}⃣]/u);
+  // any emoji is allowed, except letter-like ones (so nobody can spell words), with the same check on both sides
+  for (const e of app.REACTION_EMOJIS) expect(app.isReactionEmoji(e)).toBe(true);
+  const appSource = fs.readFileSync(path.join(__dirname, 'utils', 'reactions.js'), 'utf8');
+  const check = src => {
+    const from = src.indexOf('const LETTERLIKE');
+    return src.slice(from, src.indexOf('\n}\n', src.indexOf('export function isReactionEmoji')) + 2).replace(/\r\n/g, '\n');
+  };
+  expect(check(server.replace(/\r\n/g, '\n'))).toBe(check(appSource.replace(/\r\n/g, '\n')));
+  for (const ok of ['🔥', '👍🏽', '👨‍👩‍👧', '❤️‍🔥', '🫠', '🏳️‍🌈']) expect(app.isReactionEmoji(ok)).toBe(true);
+  for (const bad of ['A', '🅰️', 'Ⓜ️', '🇺🇸', '1️⃣', '#️⃣', '™️', '🆗', '🔥🔥', 'a🔥', '', '㊗️']) expect(app.isReactionEmoji(bad)).toBe(false);
   expect(Number(server.match(/MAX_PER_USER = (\d+)/)[1])).toBe(app.MAX_PER_USER);
   expect(Number(server.match(/MAX_KINDS = (\d+)/)[1])).toBe(app.MAX_KINDS);
 });

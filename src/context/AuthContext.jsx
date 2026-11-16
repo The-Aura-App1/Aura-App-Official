@@ -4,6 +4,7 @@ import {
   getCurrentUser, fetchUserAttributes, resendSignUpCode,
   fetchAuthSession,
 } from 'aws-amplify/auth';
+import { resetTourOnSignIn } from '../utils/tour';
 
 const AuthContext = createContext(null);
 
@@ -83,6 +84,8 @@ export function AuthProvider({ children }) {
       await signOut();
       result = await signIn({ username: email, password });
     }
+    // A shared account (the judges') starts the tour again on each sign-in
+    try { resetTourOnSignIn((await getCurrentUser()).userId); } catch { /* not signed in yet: nothing to reset */ }
     await loadUser();
     return result;
   }

@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import useMyGroups from '../groups/useMyGroups';
 import { PERKS } from '../../utils/powerUps';
-import { REACTION_EMOJIS, MAX_PER_USER, isPin, pinReaction } from '../../utils/reactions';
+import { REACTION_EMOJIS, EMOJI_GROUPS, MAX_PER_USER, isPin, pinReaction, isReactionEmoji } from '../../utils/reactions';
 
 const MEDIA_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com/';
 
@@ -25,6 +25,8 @@ export default function Reactions({ post }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [typed, setTyped] = useState('');
+  const [group, setGroup] = useState(null);     // an emoji group open in the picker, or null for the quick picks
   const box = useRef(null);
   const premium = !!dbProfile?.isPremium;
   // Group pins only matter once the picker opens
@@ -99,8 +101,29 @@ export default function Reactions({ post }) {
       {open && (
         <div role="dialog" aria-label="Pick a reaction"
           className="basis-full w-full max-w-sm max-h-72 overflow-y-auto rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] shadow-lg p-2 reaction-picker">
+          {/* Any emoji: type or paste it (the phone's emoji keyboard, or Win + . / Ctrl + Cmd + Space) */}
+          <form className="flex gap-1.5 mb-2" onSubmit={e => {
+            e.preventDefault();
+            const pick = typed.trim();
+            if (!isReactionEmoji(pick)) { setError('Pick one emoji (letters, numbers and flags can\'t be used).'); return; }
+            setTyped('');
+            toggle(pick);
+          }}>
+            <input value={typed} onChange={e => setTyped(e.target.value)} maxLength={16} placeholder="Any emoji: type or paste one"
+              aria-label="Any emoji" className="input !py-1.5 text-sm flex-1 min-w-0" />
+            <button type="submit" disabled={!typed.trim()} className="btn-primary px-3 py-1.5 text-xs flex-shrink-0">React</button>
+          </form>
+          <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] mb-1.5" role="tablist" aria-label="Emoji groups">
+            {[[null, 'Quick'], ...EMOJI_GROUPS.map(([name]) => [name, name])].map(([key, label]) => (
+              <button key={label} type="button" role="tab" aria-selected={group === key} onClick={() => setGroup(key)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap border flex-shrink-0
+                  ${group === key ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-8 gap-0.5">
-            {REACTION_EMOJIS.map(e => (
+            {(group ? EMOJI_GROUPS.find(([name]) => name === group)[1] : REACTION_EMOJIS).map(e => (
               <button key={e} type="button" onClick={() => toggle(e)} aria-label={`React ${e}`} aria-pressed={mine.includes(e)}
                 className={`h-9 rounded-lg text-xl leading-none hover:bg-[var(--accent-subtle)] ${mine.includes(e) ? 'bg-aura-500/15' : ''}`}>{e}</button>
             ))}
