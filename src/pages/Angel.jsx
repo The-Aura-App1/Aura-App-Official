@@ -87,8 +87,12 @@ function Reply({ reply, onAction, onAsk, onGo, busy }) {
             <li key={p.postId}>
               <button type="button" onClick={() => onGo(`/post/${encodeURIComponent(p.postId)}`)}
                 className="w-full text-left rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 hover:border-aura-500/40">
-                <span className="block text-[11px] font-semibold text-[var(--text-muted)]">@{p.author} · {p.aura} aura{p.type !== 'text' ? ` · ${p.type}` : ''}</span>
-                <span className="block text-sm text-[var(--text-primary)] line-clamp-2">{p.caption || `(${p.type} post)`}</span>
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]">
+                  {p.where && <span className="px-1.5 py-px rounded-full bg-aura-500/15 text-aura-400 truncate max-w-[45%]">{p.where}</span>}
+                  <span className="truncate">@{p.author} · {p.aura} aura{p.type !== 'text' ? ` · ${p.type === 'image' ? 'photo' : p.type}` : ''}</span>
+                </span>
+                <span className="block text-sm text-[var(--text-primary)] line-clamp-2 mt-0.5">{p.caption || `(${p.type === 'image' ? 'photo' : p.type} post)`}</span>
+                <span className="block text-[11px] font-semibold text-aura-400 mt-1">Take me to it →</span>
               </button>
             </li>
           ))}
@@ -141,6 +145,7 @@ export default function Angel() {
   // What her last reply offered and was about, so "yes" or "more of that" follow on
   const pendingActions = useRef([]);
   const lastSubjects = useRef(null);
+  const lastFind = useRef(null);   // the posts she just found, for "the second one" or "show more"
   const pool = useRef(null);
   const endRef = useRef(null);
   // A report or support message under way (see angel/flows.js)
@@ -178,13 +183,15 @@ export default function Angel() {
         me: dbProfile, currentThemeId: themeId, skyDetails,
         taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
         flow, lookupUser, lookupPost, customTheme: loadCustom(),
-        pendingActions: pendingActions.current, lastSubjects: lastSubjects.current,
-        api: { getNotifications: api.getNotifications, getMyGroups: api.getMyGroups, listGroups: api.listGroups },
+        pendingActions: pendingActions.current, lastSubjects: lastSubjects.current, lastFind: lastFind.current,
+        api: { getNotifications: api.getNotifications, getMyGroups: api.getMyGroups, listGroups: api.listGroups,
+          getLikedPosts: api.getLikedPosts, getGroupPosts: api.getGroupPosts },
       });
       if (reply.theme) lastTheme.current = reply.theme;
       lastKind.current = reply.kind;
       pendingActions.current = (reply.actions ?? []).filter(a => !a.payload?.undo);
       if (reply.subjects) lastSubjects.current = reply.subjects;
+      lastFind.current = reply.find ?? null;
       setFlow(reply.flow ?? null);
       say('angel', reply);
       // things she does straight away (a setting, the daily bonus, a confirmed send)
@@ -257,6 +264,9 @@ export default function Angel() {
           markDone();
           say('angel', { kind: 'command', text: action.payload.bio ? 'Your bio is updated.' : 'Your bio is cleared.', links: [{ to: '/profile', label: 'See your profile' }] });
         } catch (err) { fail(err); }
+      }
+      if (action.id === 'go') {
+        navigate(action.payload.to);
       }
       if (action.id === 'start-bot') {
         const { game, level, groupId } = action.payload;

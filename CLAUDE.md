@@ -127,7 +127,12 @@
   - **Conversation memory:** the page passes `pendingActions` (what her last reply offered) and `lastSubjects` (what it was about). "yes", "do it" and "sure" run the first offer, "no" lets it go, and "more of that" uses the last subject.
   - **New skills** (`assist.js`, checked before commands):
     - **Catch-up:** "what did I miss?" digests unread notifications.
-    - **Find posts:** "show me posts about X" shows matching pool posts as small cards, plus a search link.
+    - **Find posts by description** (`src/angel/describe.js`, 2026-11-16): "the video of a dog on a skateboard", "that sunset photo I liked last week", "a post in my gym group about leg day", "the top cooking posts this week".
+      - **Where she looks:** liked posts (`GET /users/me/likes`, 3 pages), groups the person is an active member of (first page of up to 8 groups, or just the one named), and the popular pool (`GET /posts`). The scope comes from the words; with none named she searches all three and labels each card (Liked, the group's name, Popular). All through the normal API, so the server's visibility rules apply; nothing is saved.
+      - **Honesty:** she says where she looked, says she can only see today's popular posts for everyone's posts, says "the closest I found" when matches are weak, says when a scope failed to load or a named group isn't theirs, and offers the search link when nothing fits.
+      - **Matching:** words first (exact, plurals and -ing/-ed, compound words like "board" in "skateboard", joined words like "sour dough", one-letter typos, topics, author, the group's name), then meaning from the on-device model (group posts have no stored vectors, so up to 60 captions are embedded on the device). Filters from the words: photo/video/text (a nudge when there are words to match), today/yesterday/this week/this month, @author, "over 100 aura", popular/top.
+      - **Follow-ups** (`find` on the reply, passed back as `lastFind`): "the second one" opens it (`go` action), "show more", "only my groups" / "only posts I liked" / "look everywhere", "newer ones", "not that, one with a dog".
+      - **Tests:** `describe.test.js` (20 descriptions, 20/20) and `describeUnseen.test.js` (25 written afterwards: 14/25 top-1 untouched, 25/25 after fixes, so write a fresh set before the next round). Words only in tests; the model adds meaning in the app.
     - **Bots:** "play chess against a bot" offers easy/medium/hard and starts it in their first group (`start-bot`).
     - **Groups:** "which groups should I join?" matches groups to their chosen and learned interests.
   - **Speed:** she no longer waits for the on-device model. Until it has loaded, each lookup gives it 350 ms and then answers by rules.

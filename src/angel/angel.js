@@ -15,6 +15,7 @@ import { commandReply } from './commands';
 import {
   vocabularyOf, relatedTags, ASKS_CATCH_UP, catchUpReply, asksToFindPosts, findPostsReply, wantsBot, playBotReply, ASKS_GROUPS, groupsReply,
 } from './assist';
+import { asksToDescribe, describeReply, isFindFollowUp, findFollowUp } from './describe';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
 // they type is sent anywhere, except a report or a support message, and only
@@ -41,7 +42,7 @@ export function refusal(extra = '') {
   const text = REFUSALS[refusalTurn++ % REFUSALS.length];
   return { kind: 'refuse', text: extra ? `${text} ${extra}` : text };
 }
-const WHAT_I_DO = 'I can catch you up on what you missed, find posts about anything, start a game against a bot, suggest groups, tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team.';
+const WHAT_I_DO = 'I can catch you up on what you missed, find a post you describe (in your likes, your groups or popular posts), start a game against a bot, suggest groups, tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team.';
 
 // ── Reading a message ─────────────────────────────────────────────────
 
@@ -684,6 +685,9 @@ async function reply_(message, ctx) {
       return { kind: 'confirm', text: 'Okay, I won\'t change anything.' };
     }
   }
+  // Follow-ups on posts she just found: "the second one", "show more",
+  // "only my groups", "newer ones", "not that, one with a dog"
+  if (ctx.lastFind && isFindFollowUp(text, ctx.lastFind)) return findFollowUp(text, ctx);
   // "also more #pasta, #baking" (her own suggestion, tapped)
   const alsoTags = /^also more (#[\p{L}\p{N}_]+(?:, #[\p{L}\p{N}_]+)*)$/u.exec(text);
   if (alsoTags) {
@@ -710,7 +714,7 @@ async function reply_(message, ctx) {
   if (WANTS_REPORT.test(text) && !asking) return startReport(raw, text, ctx);
   // Her newer skills, from the person's own data
   if (ASKS_CATCH_UP.test(text)) return catchUpReply(ctx);
-  if (asksToFindPosts(text)) return findPostsReply(text, ctx);
+  if (asksToDescribe(text) || asksToFindPosts(text)) return describeReply(text, ctx);
   if (wantsBot(text)) return playBotReply(text, ctx);
   if (ASKS_GROUPS.test(text) && !/\bhow (do|can)\b/.test(text)) return groupsReply(text, ctx);
   const command = await commandReply(raw, text, ctx);
