@@ -10,9 +10,13 @@ import {
 } from './skills';
 import { THEMES } from '../themes';
 import INTENT_MODEL from './intentModel.json';
+import { continueFlow, startReport, startSupport, WANTS_REPORT, WANTS_SUPPORT, SUPPORT_MAX } from './flows';
+import { commandReply } from './commands';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
-// they type is sent anywhere. She doesn't generate free text: she works out
+// they type is sent anywhere, except a report or a support message, and only
+// after they confirm it (flows.js). She can also change settings and do
+// things in the app when asked (commands.js). She doesn't generate free text: she works out
 // which of her five jobs a message is about, then answers from real data
 // (the feed's public posts, the person's own feed settings) or from a fixed,
 // checked guide (knowledge.js). That keeps her on topic by construction, so
@@ -34,10 +38,13 @@ export function refusal(extra = '') {
   const text = REFUSALS[refusalTurn++ % REFUSALS.length];
   return { kind: 'refuse', text: extra ? `${text} ${extra}` : text };
 }
-const WHAT_I_DO = 'I can help you tune your feed, look up trends, answer questions about Aura, make you a custom theme, or give feedback on a post you\'re writing.';
+const WHAT_I_DO = 'I can tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post you\'re writing, change your settings, report someone, or pass a message to Aura\'s support team.';
 
 // ── Reading a message ─────────────────────────────────────────────────
 
+// a support message keeps its line breaks and may run longer
+// eslint-disable-next-line no-control-regex -- strips invisible and control characters on purpose
+const cleanLong = text => String(text ?? '').normalize('NFKC').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/g, ' ').slice(0, SUPPORT_MAX).trim();
 // eslint-disable-next-line no-control-regex -- strips invisible and control characters on purpose
 export const clean = text => String(text ?? '').normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁤﻿]/g, ' ').slice(0, MAX_MESSAGE).trim();
 const lower = text => fold(text).replace(/[’]/g, "'");
@@ -617,9 +624,25 @@ const OWN_JOBS = new Set(['switch', 'theme-list', 'current-theme', 'theme', 'acc
  * @param {object} ctx      { prefs, getPool(): Promise<post[]>, embed(texts): Promise<string[]|null>, lastTheme }
  */
 export async function respond(message, ctx = {}) {
-  const raw = clean(message);
-  if (!raw) return { kind: 'hint', text: WHAT_I_DO };
+  const reply = await reply_(message, ctx);
+  // a question about reaching support or reporting: the answer, and a way to start
+  if (reply.kind === 'app' && !ctx.flow) {
+    const text = lower(clean(message));
+    const start = WANTS_SUPPORT.test(text) || /\b(contact|support|customer service)\b/.test(text) ? 'Contact Aura support'
+      : WANTS_REPORT.test(text) || /\breport\b/.test(text) ? 'I want to report someone' : null;
+    if (start) return { ...reply, followUps: [...(reply.followUps ?? []), start] };
+  }
+  return reply;
+}
+
+async function reply_(message, ctx) {
+  const writing = ctx.flow?.type === 'support' && ctx.flow.step === 'message';
+  const raw = writing ? cleanLong(message) : clean(message);
+  if (!raw) return { kind: 'hint', text: WHAT_I_DO, flow: ctx.flow ?? null };
   const text = lower(raw);
+
+  // A report or support message under way: this message is the next answer
+  if (ctx.flow) return continueFlow(ctx.flow, raw, text, ctx);
 
   if (/^(hi|hey|hello|yo|hiya|good (morning|afternoon|evening))\b[\s!.]*$/.test(text)) {
     return { kind: 'hello', text: `Hi! I'm Angel. ${WHAT_I_DO}` };
@@ -633,6 +656,13 @@ export async function respond(message, ctx = {}) {
   const plain = undisguise(text);
   const either = re => re.test(text) || re.test(plain);
   if (either(OVERRIDE)) return refusal(`My rules don't change. ${WHAT_I_DO}`);
+  // Reaching Aura's team, reporting someone, and doing things in the app
+  // ("how do I contact support?" gets the answer, with a button to start)
+  const asking = /^(how|where|what|can i|could i|is there|do you)\b/.test(text);
+  if (WANTS_SUPPORT.test(text) && !asking) return startSupport(text, ctx);
+  if (WANTS_REPORT.test(text) && !asking) return startReport(raw, text, ctx);
+  const command = await commandReply(raw, text, ctx);
+  if (command) return command;
   if (asksToWrite(text) || asksToWrite(plain)) {
     return refusal('I don\'t write or rewrite things for people; your posts should sound like you. Paste your draft after a colon and I\'ll give you feedback on it.');
   }

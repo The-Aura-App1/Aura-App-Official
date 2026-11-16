@@ -49,6 +49,8 @@ export const api = {
   createSuggestion:  (text)         => request('POST',   '/feedback/suggestions', { text }),
   voteSuggestion:    (suggestionId, on) => request(on ? 'POST' : 'DELETE', `/feedback/suggestions/${id(suggestionId)}/vote`),
   getFeedbackQueue:  ()             => request('GET',    '/feedback/admin'),
+  // From Angel: { category, message, contactEmail } → { ticket }
+  sendSupport:       (data)         => request('POST',   '/feedback/support', data),
   moderateFeedback:  (kind, itemId, action) => request('POST', `/feedback/admin/${id(kind)}/${id(itemId)}`, { action }),
 
   // ─── Users ────────────────────────────────────────────────

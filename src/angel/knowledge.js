@@ -137,7 +137,7 @@ export const KNOWLEDGE = [
   {
     id: 'support', q: 'How do I contact the Aura team?',
     keys: ['contact support', 'support', 'contact the team', 'contact aura', 'talk to someone', 'customer service', 'help desk', 'email aura'],
-    a: 'There\'s no live support chat yet. To reach the team, use Suggestions & Reviews in the More menu (you can describe a problem there). To flag a post, comment or account, use Report in its ⋯ menu; moderators review those.',
+    a: 'Ask me to contact support and I\'ll pass your message to the Aura team, with an email address they can reply to. For ideas, there\'s also Suggestions & Reviews in the More menu. To flag a post, comment or account, use Report in its ⋯ menu; moderators review those.',
   },
   {
     id: 'delete-post', q: 'How do I delete a post?',
@@ -228,7 +228,7 @@ export const KNOWLEDGE = [
     id: 'angel', q: 'Who are you and what can you do?',
     keys: ['who are you', 'what can you do', 'what are you', 'angel', 'who made you', 'who built you', 'are you an ai', 'are you a bot', 'are you real', 'are you human',
       'do you remember', 'do you save', 'do you store', 'what do you store', 'what do you know about me', 'are you chatgpt'],
-    a: 'I\'m Angel, Aura\'s helper. I\'m not a chatbot that makes things up: I run entirely on your device, follow fixed rules, and answer from Aura\'s own data and guide. What you tell me is kept only until you leave this page and never leaves your device. I can help you tune your feed, look up what\'s trending, answer questions about the app, make you a custom theme, and give feedback on a post you\'re writing.',
+    a: 'I\'m Angel, Aura\'s helper. I\'m not a chatbot that makes things up: I run entirely on your device, follow fixed rules, and answer from Aura\'s own data and guide. What you tell me is kept only until you leave this page and never leaves your device. I can help you tune your feed, look up what\'s trending, answer questions about the app, make you a custom theme, and give feedback on a post you\'re writing. I can also change your settings (like "turn off game notifications" or "make my account private"), follow or block someone, claim your daily bonus, send a report for you, or pass a message to Aura\'s support team. Reports and support messages are the only things that leave your device, and only after you confirm.',
   },
 ];
 

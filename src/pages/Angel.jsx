@@ -6,6 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import useChooseTheme from '../hooks/useChooseTheme';
 import { respond, MAX_MESSAGE } from '../angel/angel';
+import { SUPPORT_MAX } from '../angel/flows';
+import { reasonLabel, announceBlocked } from '../utils/reportReasons';
+import { defaultNotificationPrefs } from '../utils/notificationOptions';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
 import { loadPrefs, savePrefs, clearPrefs, setTopics, addKeyword, hasKeyword, MAX_KEYWORDS } from '../utils/feedPrefs';
 import { saveCustom, customVars } from '../themes/customTheme';
@@ -14,12 +17,16 @@ import { loadTaste, prepareTaste, isLearningOn } from '../utils/tasteProfile';
 import { fontFamily, loadPostFont } from '../utils/postStyle';
 
 // Angel's chat. Everything happens here, on the device: messages are kept in
-// memory only (never saved or sent), the trend data is the same public feed
-// pool the feed already loads, and her suggestions only change things after
-// a tap (feed choices and themes, both stored on this device).
+// memory only (never saved), and the trend data is the same public feed pool
+// the feed already loads. What she does in the app goes through the normal
+// API (settings at once with an Undo; people, your profile and sign-out after
+// a tap). A report or a support message is the only thing that leaves the
+// device, and only after the person confirms it.
 
 const STARTERS = [
   'What is my feed like right now?',
+  'Contact Aura support',
+  'Turn off game notifications',
   'Which NFL teams are getting the most aura?',
   'Make me a black theme that feels spacey',
   'What themes are there?',
@@ -57,6 +64,7 @@ function ThemeSwatch({ spec }) {
 }
 
 function Reply({ reply, onAction, onAsk, onGo, busy }) {
+  const shown = reply.actions?.filter(a => !(reply.undone && a.payload?.undo)) ?? [];
   return (
     <div className="flex flex-col gap-2">
       <p className="whitespace-pre-wrap">{reply.text}</p>
@@ -89,10 +97,11 @@ function Reply({ reply, onAction, onAsk, onGo, busy }) {
           ))}
         </div>
       )}
-      {reply.actions?.length > 0 && !reply.done && (
+      {shown.length > 0 && !reply.done && (
         <div className="flex flex-wrap gap-2 pt-1">
-          {reply.actions.map(a => (
-            <button key={a.id} type="button" disabled={busy} onClick={() => onAction(a)} className="btn-primary px-3 py-1.5 text-xs">{a.label}</button>
+          {shown.map(a => (
+            <button key={a.id + a.label} type="button" disabled={busy} onClick={() => onAction(a)}
+              className={a.payload?.undo ? 'btn-secondary px-3 py-1.5 text-xs text-[var(--text-primary)]' : 'btn-primary px-3 py-1.5 text-xs'}>{a.label}</button>
           ))}
         </div>
       )}
@@ -101,12 +110,12 @@ function Reply({ reply, onAction, onAsk, onGo, busy }) {
 }
 
 export default function Angel() {
-  const { user, dbProfile } = useAuth();
+  const { user, dbProfile, refreshUser, logout } = useAuth();
   const { themeId, refreshCustom, skyDetails, setSkyDetails } = useTheme();
   const navigate = useNavigate();
   const chooseTheme = useChooseTheme();
   const [messages, setMessages] = useState([
-    { from: 'angel', reply: { kind: 'hello', text: 'Hi, I\'m Angel. I can help you tune your feed, look up trends, answer questions about Aura, make you a custom theme, or give feedback on a post you\'re writing. I run on your device, and what you tell me never leaves it.' } },
+    { from: 'angel', reply: { kind: 'hello', text: 'Hi, I\'m Angel. I can tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team. I run on your device: only a report or a support message ever leaves it, and only when you say send.' } },
   ]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -115,20 +124,31 @@ export default function Angel() {
   const lastKind = useRef(null);
   const pool = useRef(null);
   const endRef = useRef(null);
+  // A report or support message under way (see angel/flows.js)
+  const [flow, setFlow] = useState(null);
+  // The on-device model loads in the background; until it's ready she
+  // answers by her rules instead of waiting for it
+  const modelReady = useRef(false);
 
-  useEffect(() => { warmUpModel(); }, []);
+  useEffect(() => { warmUpModel().then(() => { modelReady.current = true; }); }, []);
   useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }); }, [messages]);
 
   const getPool = useCallback(async () => {
     if (!pool.current) pool.current = api.getFeed().then(d => d.posts ?? []).catch(err => { pool.current = null; throw err; });
     return pool.current;
   }, []);
-  const embed = useCallback(texts => embedTexts(texts, 20000).catch(() => null), []);
+  const embed = useCallback(texts => {
+    const work = embedTexts(texts, 8000).catch(() => null);
+    if (modelReady.current) return work;
+    return Promise.race([work, new Promise(resolve => setTimeout(() => resolve(null), 350))]);
+  }, []);
+  const lookupUser = useCallback(username => api.getUser(username).catch(() => null), []);
+  const lookupPost = useCallback(postId => api.getPost(postId).catch(() => null), []);
 
   const say = (from, reply) => setMessages(m => [...m, { from, reply }]);
 
   async function send(text) {
-    const message = text.trim().slice(0, MAX_MESSAGE);
+    const message = text.trim().slice(0, flow?.step === 'message' ? SUPPORT_MAX : MAX_MESSAGE);
     if (!message || busy) return;
     setInput('');
     say('you', { text: message });
@@ -138,10 +158,14 @@ export default function Angel() {
         // their own app state, all already on this device
         me: dbProfile, currentThemeId: themeId, skyDetails,
         taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
+        flow, lookupUser, lookupPost,
       });
       if (reply.theme) lastTheme.current = reply.theme;
       lastKind.current = reply.kind;
+      setFlow(reply.flow ?? null);
       say('angel', reply);
+      // things she does straight away (a setting, the daily bonus, a confirmed send)
+      if (reply.autoAction) await run(reply.autoAction, reply);
     } catch {
       say('angel', { kind: 'error', text: 'Something went wrong on my side. Try asking again.' });
     } finally {
@@ -152,8 +176,91 @@ export default function Angel() {
   // Her suggestions only take effect when tapped
   async function onAction(action) {
     setBusy(true);
-    const markDone = () => setMessages(m => m.map(x => (x.reply.actions?.includes(action) ? { ...x, reply: { ...x.reply, done: true } } : x)));
     try {
+      await run(action);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Does one of her actions; `from` is the reply that did it by itself
+  async function run(action, from = null) {
+    const markDone = () => setMessages(m => m.map(x => (x.reply.actions?.includes(action) ? { ...x, reply: { ...x.reply, done: true } } : x)));
+    // an Undo is spent once used; a failed automatic change takes its Undo away
+    const hideUndo = () => setMessages(m => m.map(x => (x.reply === from || x.reply.actions?.includes(action) ? { ...x, reply: { ...x.reply, undone: true } } : x)));
+    const fail = err => say('angel', { kind: 'error', text: `That didn't work: ${err?.message ?? 'something went wrong'}. Nothing was changed.` });
+    try {
+      if (action.id === 'set-setting') {
+        const { field, value, undo } = action.payload;
+        try {
+          await api.updateProfile({ [field]: value });
+          await refreshUser?.();
+          if (undo) { hideUndo(); say('angel', { kind: 'command', text: 'Undone.' }); }
+        } catch (err) { hideUndo(); fail(err); }
+      }
+      if (action.id === 'set-notifications') {
+        const { keys, value, undo } = action.payload;
+        try {
+          const prefs = defaultNotificationPrefs(dbProfile?.notificationPrefs);
+          for (const k of keys) prefs[k] = value;
+          await api.updateProfile({ notificationPrefs: prefs });
+          await refreshUser?.();
+          if (undo) { hideUndo(); say('angel', { kind: 'command', text: 'Undone.' }); }
+        } catch (err) { hideUndo(); fail(err); }
+      }
+      if (action.id === 'daily-bonus') {
+        try {
+          const result = await api.claimDailyBonus();
+          await refreshUser?.();
+          const amount = result?.amount ?? result?.bonus ?? null;
+          say('angel', { kind: 'command', text: amount ? `Claimed: +${amount} aura. Come back tomorrow for the next one.` : 'Claimed. Come back tomorrow for the next one.' });
+        } catch (err) {
+          say('angel', { kind: 'command', text: err?.message ?? 'I couldn\'t claim it right now.', links: [{ to: '/wallet', label: 'Open your wallet' }] });
+        }
+      }
+      if (action.id === 'person') {
+        const { verb, username, userId } = action.payload;
+        try {
+          await { follow: api.follow, unfollow: api.unfollow, block: api.blockUser, unblock: api.unblockUser }[verb](username);
+          if (verb === 'block' && userId) announceBlocked(userId);
+          markDone();
+          say('angel', { kind: 'command', text: { follow: `You're following @${username} now (or your request is sent, if they're private).`, unfollow: `You've unfollowed @${username}.`, block: `@${username} is blocked. You can unblock them in Settings > Privacy.`, unblock: `@${username} is unblocked.` }[verb] });
+        } catch (err) { fail(err); }
+      }
+      if (action.id === 'set-bio') {
+        try {
+          await api.updateProfile({ bio: action.payload.bio });
+          await refreshUser?.();
+          markDone();
+          say('angel', { kind: 'command', text: action.payload.bio ? 'Your bio is updated.' : 'Your bio is cleared.', links: [{ to: '/profile', label: 'See your profile' }] });
+        } catch (err) { fail(err); }
+      }
+      if (action.id === 'sign-out') {
+        markDone();
+        await logout?.();
+        navigate('/welcome');
+      }
+      if (action.id === 'send-report') {
+        const { kind, id: target, reason, label, userId } = action.payload;
+        try {
+          await (kind === 'post' ? api.reportPost(target, reason) : api.reportUser(target, reason));
+          markDone();
+          setFlow(null);
+          say('angel', { kind: 'command', text: `Reported ${label} for "${reasonLabel(reason)}". Thank you. Moderators will take a look.`
+            + (kind === 'user' ? ' Want to stop seeing them too?' : ''),
+            actions: kind === 'user' ? [{ id: 'person', label: `Block ${label}`, payload: { verb: 'block', username: target, userId } }] : undefined });
+        } catch (err) { fail(err); }
+      }
+      if (action.id === 'send-support') {
+        try {
+          const { ticket } = await api.sendSupport(action.payload);
+          markDone();
+          setFlow(null);
+          say('angel', { kind: 'command', text: `Sent to Aura support. Your ticket is ${ticket}. They'll reply to ${action.payload.contactEmail}, usually within a few days.` });
+        } catch (err) {
+          say('angel', { kind: 'error', text: `I couldn't send it: ${err?.message ?? 'something went wrong'}. Your message is still here; say "send" to try again, or "cancel".` });
+        }
+      }
       if (action.id === 'apply-feed') {
         const { topics, keywords, choice } = action.payload;
         let prefs = loadPrefs(user?.userId);
@@ -192,8 +299,8 @@ export default function Angel() {
         else chooseTheme('custom');
         say('angel', { kind: 'theme', text: 'It\'s on. Keep tweaking it with me, or pick another theme any time in Settings > Appearance, where yours now shows as "' + (action.payload.name || 'My theme') + '".' });
       }
-    } finally {
-      setBusy(false);
+    } catch {
+      say('angel', { kind: 'error', text: 'Something went wrong on my side. Try again.' });
     }
   }
 
@@ -205,7 +312,7 @@ export default function Angel() {
         </div>
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Angel</h1>
-          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><ShieldCheck size={12} aria-hidden="true" /> Runs on your device. What you say never leaves it.</p>
+          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><ShieldCheck size={12} aria-hidden="true" /> Runs on your device. Only reports and support messages you send leave it.</p>
         </div>
       </header>
 
@@ -233,8 +340,15 @@ export default function Angel() {
       )}
 
       <form onSubmit={e => { e.preventDefault(); send(input); }} className="flex gap-2">
-        <input value={input} onChange={e => setInput(e.target.value)} maxLength={MAX_MESSAGE} aria-label="Message Angel"
-          placeholder="Ask Angel about your feed, trends, themes, posts or the app" className="input flex-1" autoComplete="off" />
+        {flow?.step === 'message' ? (
+          <textarea value={input} onChange={e => setInput(e.target.value)} maxLength={SUPPORT_MAX} aria-label="Your message to Aura support" rows={4}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(input); } }}
+            placeholder="What happened? (Ctrl+Enter to send)" className="input flex-1 resize-y" />
+        ) : (
+          <input value={input} onChange={e => setInput(e.target.value)} maxLength={MAX_MESSAGE} aria-label="Message Angel"
+            placeholder={flow ? 'Your answer, or "cancel"' : 'Ask Angel, or tell her what to do'} className="input flex-1" autoComplete="off"
+            inputMode={flow?.step === 'email' ? 'email' : 'text'} />
+        )}
         <button type="submit" disabled={busy || !input.trim()} className="btn-primary px-4" aria-label="Send"><Send size={16} /></button>
       </form>
     </div>

@@ -21,6 +21,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { randomBytes } from 'node:crypto';
 import { cleanText as sharedCleanText } from './text.mjs';
+import { sendSupport } from './support.mjs';
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
 
@@ -365,6 +366,9 @@ export async function handleFeedback({ method, segments, query = {}, userId, isA
       return vote(userId, decode(a), method === 'POST', helpers);
     }
   }
+
+  // Customer support, from Angel's chat (support.mjs)
+  if (area === 'support' && segments.length === 2 && method === 'POST') return sendSupport({ userId, body: body(), rateLimited, response });
 
   if (area === 'admin') {
     if (!isAdmin) return response(403, { error: 'Moderators only.' });

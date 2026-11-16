@@ -63,6 +63,12 @@ const LAYERS = [
 // A low, pinkish range between the mesas and the first full band, flat
 // enough for the caravan to walk along its top
 const FAR_RIDGE = ridgePoints(4, { y: 404, amp: 9, rough: 0.5, passes: 6 });
+// Two pyramids in the distance, the far one smaller. `edge` is where the
+// front corner sits across the base (seen a little from the right, so the sunlit face shows more).
+const PYRAMIDS = [
+  { x: 690, w: 60, h: 56, edge: -0.35 },
+  { x: 530, w: 124, h: 116, edge: -0.25 },
+];
 // Mesas: flat-topped buttes on the horizon, each with a lit and a shaded side
 const MESAS = [
   { body: 'M 40 392 L 66 318 L 78 300 L 222 296 L 238 316 L 262 392 Z', shade: 'M 40 392 L 66 318 L 78 300 L 112 299 L 104 392 Z', top: 296 },
@@ -235,6 +241,25 @@ export default function GoldenDunes({ variant = 'page' }) {
                 </g>
               </g>
             ))}
+          </g>
+          {/* Pyramids far off between the mesas, lit from the right like everything else */}
+          <g opacity="0.92">
+            {PYRAMIDS.map(({ x, w, h, edge }, i) => {
+              const base = 398, top = base - h, ridge = x + w * edge;
+              return (
+                <g key={i}>
+                  <path d={`M ${x - w} ${base} L ${x} ${top} L ${ridge} ${base} Z`} fill="#c27d76" />
+                  <path d={`M ${ridge} ${base} L ${x} ${top} L ${x + w} ${base} Z`} fill="#f3c6a4" />
+                  {/* courses of stone, faint at this distance */}
+                  {[0.25, 0.45, 0.65, 0.82].map(t => {
+                    const y = top + h * t, half = w * t;
+                    return <path key={t} d={`M ${f(x - half)} ${f(y)} L ${f(x + (ridge - x) * t)} ${f(y)} M ${f(x + (ridge - x) * t)} ${f(y)} L ${f(x + half)} ${f(y)}`}
+                      stroke="#b97a74" strokeOpacity="0.28" strokeWidth="0.8" />;
+                  })}
+                  <path d={`M ${x} ${top} L ${x + w} ${base}`} stroke="#f8d9bf" strokeOpacity="0.7" strokeWidth="1.2" />
+                </g>
+              );
+            })}
           </g>
           <path d={areaUnder(HORIZON, H)} fill="#f2c8a6" opacity="0.85" />
           <path d={areaUnder(FAR_RIDGE, H)} fill="url(#dune-far)" opacity="0.9" />

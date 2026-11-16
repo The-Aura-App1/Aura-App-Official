@@ -111,7 +111,11 @@ test('aura-comments finds @mentions by the same rule the app links them', () => 
 
 test('tag notifications can be turned off in Settings and saved by aura-users', () => {
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'mention'");
-  expect(fs.readFileSync(path.join(__dirname, 'pages', 'Settings.jsx'), 'utf8')).toContain("key: 'mention'");
+  // every switch in Settings (and Angel's) is one aura-users saves
+  const { NOTIFICATION_OPTIONS } = require('./utils/notificationOptions');
+  const types = constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES');
+  expect(NOTIFICATION_OPTIONS.map(o => o.key)).toContain('mention');
+  for (const { key } of NOTIFICATION_OPTIONS) expect(types).toContain(`'${key}'`);
 });
 
 test('the app offers exactly the games aura-aura runs, with the same stake caps', () => {
@@ -127,6 +131,16 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   expect(serverMax).toEqual(appMax);
   expect(constant(games, 'STAKE_CAP').replace(/\s/g, '')).toBe(`{regular:${STAKE_CAP.regular},premium:${STAKE_CAP.premium}}`);
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
+});
+
+test('Angel\'s support messages match what aura-users accepts', () => {
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'support.mjs'), 'utf8');
+  const { SUPPORT_CATEGORIES, SUPPORT_MIN, SUPPORT_MAX } = require('./angel/flows');
+  const ids = [...constant(server, 'SUPPORT_CATEGORIES').matchAll(/(\w+):\s*'/g)].map(m => m[1]);
+  expect(ids).toEqual(SUPPORT_CATEGORIES.map(([id]) => id));
+  expect(Number(constant(server, 'SUPPORT_MIN'))).toBe(SUPPORT_MIN);
+  expect(Number(constant(server, 'SUPPORT_MAX'))).toBe(SUPPORT_MAX);
+  expect(fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'feedback.mjs'), 'utf8')).toContain("area === 'support'");
 });
 
 test('the app offers the time limits aura-aura accepts, with the same chess clocks', () => {
