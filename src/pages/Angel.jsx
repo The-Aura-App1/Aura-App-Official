@@ -24,9 +24,12 @@ import { fontFamily, loadPostFont } from '../utils/postStyle';
 // device, and only after the person confirms it.
 
 const STARTERS = [
+  'What did I miss?',
+  'Show me posts about sunsets',
+  'Play chess against a bot',
+  'Which groups should I join?',
   'What is my feed like right now?',
   'Contact Aura support',
-  'Turn off game notifications',
   'Which NFL teams are getting the most aura?',
   'Make me a black theme that feels spacey',
   'What themes are there?',
@@ -78,6 +81,19 @@ function Reply({ reply, onAction, onAsk, onGo, busy }) {
       ))}
       {reply.theme && <ThemeSwatch spec={reply.theme} />}
       {reply.builtIn && <BuiltInSwatch id={reply.builtIn} />}
+      {reply.posts?.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {reply.posts.map(p => (
+            <li key={p.postId}>
+              <button type="button" onClick={() => onGo(`/post/${encodeURIComponent(p.postId)}`)}
+                className="w-full text-left rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 hover:border-aura-500/40">
+                <span className="block text-[11px] font-semibold text-[var(--text-muted)]">@{p.author} · {p.aura} aura{p.type !== 'text' ? ` · ${p.type}` : ''}</span>
+                <span className="block text-sm text-[var(--text-primary)] line-clamp-2">{p.caption || `(${p.type} post)`}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {reply.note && <p className="text-xs opacity-70">{reply.note}</p>}
       {reply.followUps?.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -122,6 +138,9 @@ export default function Angel() {
   const lastTheme = useRef(null);
   // What her last reply was about, so a follow-up ("a different one") continues it
   const lastKind = useRef(null);
+  // What her last reply offered and was about, so "yes" or "more of that" follow on
+  const pendingActions = useRef([]);
+  const lastSubjects = useRef(null);
   const pool = useRef(null);
   const endRef = useRef(null);
   // A report or support message under way (see angel/flows.js)
@@ -159,9 +178,13 @@ export default function Angel() {
         me: dbProfile, currentThemeId: themeId, skyDetails,
         taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
         flow, lookupUser, lookupPost, customTheme: loadCustom(),
+        pendingActions: pendingActions.current, lastSubjects: lastSubjects.current,
+        api: { getNotifications: api.getNotifications, getMyGroups: api.getMyGroups, listGroups: api.listGroups },
       });
       if (reply.theme) lastTheme.current = reply.theme;
       lastKind.current = reply.kind;
+      pendingActions.current = (reply.actions ?? []).filter(a => !a.payload?.undo);
+      if (reply.subjects) lastSubjects.current = reply.subjects;
       setFlow(reply.flow ?? null);
       say('angel', reply);
       // things she does straight away (a setting, the daily bonus, a confirmed send)
@@ -233,6 +256,14 @@ export default function Angel() {
           await refreshUser?.();
           markDone();
           say('angel', { kind: 'command', text: action.payload.bio ? 'Your bio is updated.' : 'Your bio is cleared.', links: [{ to: '/profile', label: 'See your profile' }] });
+        } catch (err) { fail(err); }
+      }
+      if (action.id === 'start-bot') {
+        const { game, level, groupId } = action.payload;
+        try {
+          const result = await api.createGame(groupId, { game, bot: level });
+          markDone();
+          navigate(`/games/${encodeURIComponent(result.match.matchId)}`);
         } catch (err) { fail(err); }
       }
       if (action.id === 'sign-out') {

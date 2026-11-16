@@ -142,7 +142,7 @@ test.each([
   ['more nfl less politics', 'feed'],
   ['I like anime', 'feed'],
   ['please stop recommending crypto', 'feed'],
-  ['show me posts about baking', 'feed'],
+  ['show me posts about baking', 'find-posts'],
   ['how do I follow someone', 'app'],
   ['are you a bot', 'app'],
   ['how do I write a good caption', 'app'],

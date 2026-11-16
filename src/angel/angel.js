@@ -12,6 +12,9 @@ import { THEMES } from '../themes';
 import INTENT_MODEL from './intentModel.json';
 import { continueFlow, startReport, startSupport, WANTS_REPORT, WANTS_SUPPORT, SUPPORT_MAX } from './flows';
 import { commandReply } from './commands';
+import {
+  vocabularyOf, relatedTags, ASKS_CATCH_UP, catchUpReply, asksToFindPosts, findPostsReply, wantsBot, playBotReply, ASKS_GROUPS, groupsReply,
+} from './assist';
 
 // Angel: Aura's helper. Everything here runs on the person's device; nothing
 // they type is sent anywhere, except a report or a support message, and only
@@ -38,7 +41,7 @@ export function refusal(extra = '') {
   const text = REFUSALS[refusalTurn++ % REFUSALS.length];
   return { kind: 'refuse', text: extra ? `${text} ${extra}` : text };
 }
-const WHAT_I_DO = 'I can tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post you\'re writing, change your settings, report someone, or pass a message to Aura\'s support team.';
+const WHAT_I_DO = 'I can catch you up on what you missed, find posts about anything, start a game against a bot, suggest groups, tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team.';
 
 // ── Reading a message ─────────────────────────────────────────────────
 
@@ -61,10 +64,10 @@ const TOPIC_WORDS = {
   writing: ['writing', 'poetry', 'poems', 'stories'],
   gaming: ['gaming', 'games', 'videogames', 'esports', 'gamer'],
   comedy: ['comedy', 'memes', 'meme', 'funny', 'jokes', 'humor'],
-  fitness: ['fitness', 'gym', 'workout', 'workouts', 'running', 'lifting', 'yoga'],
-  cooking: ['cooking', 'recipes', 'recipe', 'baking', 'chef'],
-  food: ['food', 'foodie', 'restaurants', 'eating'],
-  travel: ['travel', 'traveling', 'trips', 'vacation'],
+  fitness: ['fitness', 'gym', 'workout', 'workouts', 'running', 'lifting', 'yoga', 'exercise', 'training', 'cardio'],
+  cooking: ['cooking', 'cook', 'cooks', 'recipes', 'recipe', 'baking', 'bake', 'chef', 'chefs', 'kitchen', 'mealprep', 'homemade'],
+  food: ['food', 'foodie', 'foods', 'restaurants', 'restaurant', 'eating', 'eats', 'dessert', 'desserts', 'snacks', 'brunch', 'coffee'],
+  travel: ['travel', 'traveling', 'travelling', 'trips', 'trip', 'vacation', 'vacations', 'abroad', 'wanderlust'],
   fashion: ['fashion', 'outfits', 'clothes', 'style'],
   beauty: ['beauty', 'makeup', 'skincare'],
   tech: ['tech', 'technology', 'gadgets', 'ai', 'phones'],
@@ -77,7 +80,7 @@ const TOPIC_WORDS = {
   pets: ['pets', 'pet', 'dogs', 'dog', 'cats', 'cat', 'puppies', 'animals'],
   motivation: ['motivation', 'inspiration', 'mindset', 'selfcare'],
   sustainability: ['sustainability', 'climate', 'environment', 'eco'],
-  outdoors: ['outdoors', 'hiking', 'camping', 'nature', 'climbing'],
+  outdoors: ['outdoors', 'outdoor', 'hiking', 'hike', 'camping', 'nature', 'climbing', 'mountains', 'trails'],
   cars: ['cars', 'car', 'automotive', 'racing'],
   diy: ['diy', 'crafts', 'woodworking', 'building'],
 };
@@ -89,10 +92,17 @@ const STOP = new Set(('a an the and or but of to for in on at by with about from
   + 'why when where there their them they he she we us our more of tired hate hide avoid need needs missing interested into enjoy lately anymore '
   + 'kind type types sort sorts generating most least top trending trend trends popular unpopular attention aura engagement right now today week '
   + 'tune tuning recommend recommended timeline give gives giving find out space creator creators team teams player players '
-  + 'getting gets doing does well best worst hottest hot').split(/\s+/));
+  + 'getting gets doing does well best worst hottest hot '
+  + 'start starting started become becoming became help helping populate fill filling cool nice awesome great good fun neat interesting '
+  + 'recently currently started starting lately nowadays maybe kinda sorta something everything anything stuff like such similar related '
+  + 'can could you please thanks thank make making add adding put putting bring want wanting wanted would love loving hoping hope try trying '
+  + 'little bit lot ton tons new old other others way ways things own feel feeling think thinking know mean').split(/\s+/));
 
 // The topic ids a message names, and the other meaningful words in it
-export function subjectsOf(text) {
+// vocab: words that really appear in today's posts (assist.js vocabularyOf).
+// With it, a word only becomes a keyword if posts actually use it (or it's
+// quoted or a #hashtag), so filler like "populate" or "cool" never does.
+export function subjectsOf(text, vocab = null) {
   // a quoted phrase is one keyword, so its words aren't counted again
   const unquoted = String(text).replace(/["“']([^"”']{2,40})["”']/g, ' ');
   const words = lower(unquoted).split(/[^\p{L}\p{N}#']+/u).filter(Boolean);
@@ -102,8 +112,13 @@ export function subjectsOf(text) {
     const w = raw.replace(/^#/, '');
     const topic = Object.keys(TOPIC_WORDS).find(id => TOPIC_WORDS[id].includes(w));
     if (topic) topics.add(topic);
-    // a specific word (nfl, chiefs) is also worth keeping as a keyword
-    if (!STOP.has(w) && w.length >= 2 && !TOPICS.some(t => fold(t.label) === w)) keywords.push(w);
+    // a specific word (nfl, baking) is also worth keeping as a keyword, but
+    // not one that just names the topic (that's what the topic is for)
+    if (vocab && topic && (w === topic || w === `${topic}s` || `${w}s` === topic)) continue;
+    // with the pool's words known, keep only words posts really use, or
+    // words from the curated topic lists (filler like "populate" is neither)
+    const grounded = !vocab || raw.startsWith('#') || vocab.has(w) || !!topic;
+    if (grounded && !STOP.has(w) && w.length >= 2 && !TOPICS.some(t => fold(t.label) === w)) keywords.push(w);
   }
   const quoted = [...String(text).matchAll(/["“']([^"”']{2,40})["”']/g)].map(m => m[1].trim());
   // feed keywords are at most 40 characters (feedPrefs drops longer ones)
@@ -372,7 +387,7 @@ const label = id => TOPICS.find(t => t.id === id)?.label ?? id;
 // short keywords are usually acronyms (NFL, NBA, UFC)
 const shown = k => (k.length <= 4 && /^[a-z0-9]+$/.test(k) ? k.toUpperCase() : k);
 
-function feedReply(text, ctx) {
+async function feedReply(text, ctx) {
   if (has(text, /\b(reset|start over|clear)\b/) && has(text, /\b(feed|preferences|settings|choices)\b/)) {
     return {
       kind: 'feed', text: 'I can clear your topic and keyword choices so your feed starts fresh. What it has learned from your gives and likes stays (Settings > Privacy can reset that).',
@@ -388,7 +403,13 @@ function feedReply(text, ctx) {
     };
   }
   const less = has(text, /\b(less|fewer|stop|don'?t want|no more|tired of|hate|hide|avoid|too much|too many|sick of|keep seeing)\b/);
-  const { topics, keywords } = subjectsOf(text);
+  let pool = [];
+  try { pool = (await ctx.getPool?.()) ?? []; } catch { pool = []; }
+  let { topics, keywords } = subjectsOf(text, pool.length ? vocabularyOf(pool) : new Set());
+  // "more of that": what we were just talking about
+  if (!topics.length && !keywords.length && /\b(that|this|it|those|them|these)\b/.test(text) && ctx.lastSubjects) {
+    ({ topics, keywords } = ctx.lastSubjects);
+  }
   if (!topics.length && !keywords.length) {
     return {
       kind: 'feed',
@@ -396,11 +417,19 @@ function feedReply(text, ctx) {
     };
   }
   const choice = less ? 'less' : 'more';
-  const parts = [...topics.map(t => `the ${label(t)} topic`), ...keywords.map(k => `"${shown(k)}"`)];
+  const parts = [...topics.map(t => `the ${label(t)} topic`), ...keywords.map(k => `#${k}`)];
+  // what that looks like right now, and hashtags people use with it
+  const inPool = pool.filter(p => (p.tags ?? []).some(t => topics.includes(t)) || keywords.some(k => (p.hashtags ?? []).map(lower).includes(k))).length;
+  const related = choice === 'more' && topics.length ? relatedTags(pool, topics, new Set(keywords)) : [];
+  const now = topics.length || keywords.length
+    ? (inPool ? ` ${inPool} of today's popular post${inPool === 1 ? '' : 's'} already fit.` : ' Nothing popular fits it today, so you\'ll see it as posts come in.')
+    : '';
   return {
     kind: 'feed',
-    text: `Here's what I'd change: show ${choice === 'more' ? 'more' : 'less'} of ${parts.join(', ')}. Keywords match by meaning too, so related posts count. Want me to apply it?`,
+    text: `${choice === 'more' ? 'Got it.' : 'Okay.'} I'd show ${choice} of ${parts.join(' and ')}.${now} Say yes and I'll apply it.`,
     actions: [{ id: 'apply-feed', label: 'Apply', payload: { topics, keywords, choice } }],
+    followUps: related.length ? [`Also more #${related.slice(0, 3).join(', #')}`] : [],
+    subjects: { topics, keywords },
   };
 }
 
@@ -646,6 +675,22 @@ async function reply_(message, ctx) {
   // A report or support message under way: this message is the next answer
   if (ctx.flow) return continueFlow(ctx.flow, raw, text, ctx);
 
+  // "yes" / "do it" right after she offered something does it; "no" lets it go
+  if (ctx.pendingActions?.length) {
+    if (/^(yes|yeah|yep|yup|ya|sure|ok(ay)?|k|do it|go ahead|apply( it| that)?|sounds good|please( do)?|let'?s (do it|go)|perfect|great|confirm|that works)\b[\s!.]*$/.test(text)) {
+      return { kind: 'confirm', text: 'On it.', autoAction: ctx.pendingActions[0] };
+    }
+    if (/^(no|nope|nah|never ?mind|nvm|cancel|don'?t|not now|maybe later)\b[\s!.]*$/.test(text)) {
+      return { kind: 'confirm', text: 'Okay, I won\'t change anything.' };
+    }
+  }
+  // "also more #pasta, #baking" (her own suggestion, tapped)
+  const alsoTags = /^also more (#[\p{L}\p{N}_]+(?:, #[\p{L}\p{N}_]+)*)$/u.exec(text);
+  if (alsoTags) {
+    const keywords = alsoTags[1].split(', ').map(t => t.slice(1));
+    return { kind: 'feed', text: `Adding ${alsoTags[1]} too. Say yes and I'll apply it.`, actions: [{ id: 'apply-feed', label: 'Apply', payload: { topics: [], keywords, choice: 'more' } }], subjects: { topics: [], keywords } };
+  }
+
   if (/^(hi|hey|hello|yo|hiya|good (morning|afternoon|evening))\b[\s!.]*$/.test(text)) {
     return { kind: 'hello', text: `Hi! I'm Angel. ${WHAT_I_DO}` };
   }
@@ -663,6 +708,11 @@ async function reply_(message, ctx) {
   const asking = /^(how|where|what|can i|could i|is there|do you)\b/.test(text);
   if (WANTS_SUPPORT.test(text) && !asking) return startSupport(text, ctx);
   if (WANTS_REPORT.test(text) && !asking) return startReport(raw, text, ctx);
+  // Her newer skills, from the person's own data
+  if (ASKS_CATCH_UP.test(text)) return catchUpReply(ctx);
+  if (asksToFindPosts(text)) return findPostsReply(text, ctx);
+  if (wantsBot(text)) return playBotReply(text, ctx);
+  if (ASKS_GROUPS.test(text) && !/\bhow (do|can)\b/.test(text)) return groupsReply(text, ctx);
   const command = await commandReply(raw, text, ctx);
   if (command) return command;
   if (asksToWrite(text) || asksToWrite(plain)) {

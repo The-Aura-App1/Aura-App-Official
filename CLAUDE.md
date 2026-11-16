@@ -122,6 +122,14 @@
     - **Settings:** it needs the env vars `SUPPORT_TO` and `SUPPORT_FROM` (a verified SES identity) on aura-users and `ses:SendEmail` on its role. Without them it answers 503 and keeps the copy.
     - **Tests:** `backend/tests/support.test.mjs` (part of `npm run test:games`).
   - **What leaves the device:** only reports and support messages, and only when confirmed.
+- Smarter Angel (2026-11-16, after testers found her literal and context-blind):
+  - **Grounded feed keywords:** with today's pool loaded, a word becomes a keyword only if posts use it (`vocabularyOf` in `src/angel/assist.js`), it's a #hashtag or quoted, or it's in the curated topic word lists. A topic's own name ("cooking") isn't repeated as a keyword. Feed replies say how many popular posts already fit and offer related hashtags from those posts ("Also more #pasta").
+  - **Conversation memory:** the page passes `pendingActions` (what her last reply offered) and `lastSubjects` (what it was about). "yes", "do it" and "sure" run the first offer, "no" lets it go, and "more of that" uses the last subject.
+  - **New skills** (`assist.js`, checked before commands):
+    - **Catch-up:** "what did I miss?" digests unread notifications.
+    - **Find posts:** "show me posts about X" shows matching pool posts as small cards, plus a search link.
+    - **Bots:** "play chess against a bot" offers easy/medium/hard and starts it in their first group (`start-bot`).
+    - **Groups:** "which groups should I join?" matches groups to their chosen and learned interests.
   - **Speed:** she no longer waits for the on-device model. Until it has loaded, each lookup gives it 350 ms and then answers by rules.
 
 ## Follows
