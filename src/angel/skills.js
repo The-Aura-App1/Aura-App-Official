@@ -183,7 +183,7 @@ export function balanceReply(ctx, text = "") {
     lead = t.bonus.claimed ? 'Yes, you\'ve claimed today\'s bonus. The next one comes at midnight UTC.' : `Not yet: ${n(t.bonus.amount)} spendable aura is waiting for you in your wallet.`;
   } else if (/\bad\b/.test(text) && t) {
     const mins = t.nextAdAt ? Math.ceil((Date.parse(t.nextAdAt) - Date.now()) / 60000) : 0;
-    lead = mins > 0 ? `In ${mins} minute${mins === 1 ? '' : 's'}. You can watch one ad an hour for 25 spendable aura.` : 'Right now: an ad is ready in your wallet for 25 spendable aura.';
+    lead = mins > 0 ? `In ${mins} minute${mins === 1 ? '' : 's'}. You can watch one ad every 4 hours for 25 spendable aura.` : 'Right now: an ad is ready in your wallet for 25 spendable aura.';
   } else if (/\b(give|spend)\b/.test(text) && t?.freeGive) {
     lead = `You can give ${n(t.freeGive.limit - t.freeGive.used)} more free aura today, then up to ${n(Math.min(t.walletGive.limit - t.walletGive.used, (me.auraSpendable ?? 0) + (me.auraEarned ?? 0)))} from your wallet.`;
   } else if (/\btake\b/.test(text) && t?.take) {

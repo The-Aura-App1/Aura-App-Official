@@ -1,9 +1,10 @@
 # Security headers that Amplify Hosting adds to every page and file.
 #
-# The Content Security Policy is REPORT-ONLY for now: the browser logs anything
-# that breaks the rules (in the console) but still loads it. Once a few days of
-# normal use show no reports, rename the header to Content-Security-Policy to
-# enforce it.
+# The Content Security Policy is ENFORCED (since 2026-11-16, after the public
+# pages showed no reports live and the signed-in pages none under enforcement in
+# a local production build). Anything it blocks is logged in the browser
+# console; to loosen it temporarily, rename the header back to
+# Content-Security-Policy-Report-Only.
 #
 # What the policy allows, and why:
 #   script-src 'wasm-unsafe-eval'  the on-device keyword model (ONNX runtime, WebAssembly)
@@ -11,7 +12,8 @@
 #   img-src/media-src S3 + blob:   post media, and previews of files picked for upload
 #   connect-src                    the Aura API, Cognito sign-in, and S3 uploads
 #   worker-src 'self' blob:        the keyword model's web worker
-#   Google domains (script/img/connect/frame)  Google Ad Manager in Limited Ads mode (src/ads/)
+#   Google domains (script/img/connect/frame)  Google Ad Manager in Limited Ads mode (src/ads/),
+#                                  including its ad-fraud checks (*.adtrafficquality.google)
 customHeaders:
   - pattern: '**/*'
     headers:
@@ -27,16 +29,16 @@ customHeaders:
         value: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
       - key: Cross-Origin-Opener-Policy
         value: same-origin
-      - key: Content-Security-Policy-Report-Only
+      - key: Content-Security-Policy
         value: >-
           default-src 'self';
-          script-src 'self' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://securepubads.g.doubleclick.net https://tpc.googlesyndication.com https://*.googlesyndication.com;
+          script-src 'self' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://securepubads.g.doubleclick.net https://tpc.googlesyndication.com https://*.googlesyndication.com https://*.adtrafficquality.google;
           style-src 'self' 'unsafe-inline';
-          img-src 'self' data: blob: https://*.googlesyndication.com https://*.doubleclick.net https://*.gstatic.com https://*.google.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          img-src 'self' data: blob: https://*.googlesyndication.com https://*.doubleclick.net https://*.gstatic.com https://*.google.com https://*.adtrafficquality.google https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           media-src 'self' blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           font-src 'self' data:;
-          connect-src 'self' https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
-          frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.safeframe.googlesyndication.com https://*.google.com;
+          connect-src 'self' https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.safeframe.googlesyndication.com https://*.google.com https://*.adtrafficquality.google;
           worker-src 'self' blob:;
           object-src 'none';
           base-uri 'self';

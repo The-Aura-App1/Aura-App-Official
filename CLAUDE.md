@@ -42,7 +42,7 @@
 - Public profiles use an allowlist (`PUBLIC_FIELDS` in aura-users). A new user field stays private unless it's added there.
 - Request bodies that aren't JSON objects get a 400, and path segments are URL-decoded safely (bad escapes give 404), in every Lambda.
 - aura-groups refuses every non-GET request from a site-banned account.
-- Ad rewards are on (2026-11-15, the user's call; `ADS_ENABLED` in aura-aura and src/pages/AuraWallet.jsx, kept equal by a test). Google has no server-side proof of rewarded views on the web (AdMob SSV is phone-SDK only), so POST /ads/watch works in two steps: `{ start: true }` opens a one-time session (`ADSESSION#<userId>` in aura-daily-budgets), and `{ sessionId }` pays 25 spendable only if the session is 15 s to 15 min old, plus the hourly cooldown. Use AdMob SSV in the phone apps.
+- Ad rewards are on (2026-11-15, the user's call; `ADS_ENABLED` in aura-aura and src/pages/AuraWallet.jsx, kept equal by a test). Google has no server-side proof of rewarded views on the web (AdMob SSV is phone-SDK only), so POST /ads/watch works in two steps: `{ start: true }` opens a one-time session (`ADSESSION#<userId>` in aura-daily-budgets), and `{ sessionId }` pays 25 spendable only if the session is 15 s to 15 min old, plus a 4-hour cooldown per account (1 hour until 2026-11-16, when the user picked once every 4 hours so a script can earn at most 150 a day). Use AdMob SSV in the phone apps.
 - Security headers live in `customHttp.yml` (Amplify). The CSP is report-only for now; no inline scripts (the theme boot script is `public/theme-boot.js`).
 - Several handlers use ScanCommand. Replace them with GSIs before launch.
 - Never enforce limits only on the frontend. Lambdas must enforce all aura limits.

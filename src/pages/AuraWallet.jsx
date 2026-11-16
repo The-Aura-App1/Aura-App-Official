@@ -214,7 +214,7 @@ export default function AuraWallet() {
                 <div>
                   <p className="text-sm text-[var(--text-primary)]">Watch an ad</p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    {ADS_ENABLED ? '25 spendable aura, once an hour' : '25 spendable aura, once an hour, when ads launch'}
+                    {ADS_ENABLED ? '25 spendable aura, once every 4 hours' : '25 spendable aura, once every 4 hours, when ads launch'}
                   </p>
                 </div>
               </div>

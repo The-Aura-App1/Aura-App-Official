@@ -29,7 +29,7 @@ const ADS_ENABLED            = true;  // see watchAd; keep in sync with ADS_ENAB
 const AD_MIN_WATCH_MS        = 15 * 1000;        // a session must be this old before it pays
 const AD_SESSION_MS          = 15 * 60 * 1000;   // and is good for this long
 const AD_REWARD              = 25;
-const AD_COOLDOWN_MS         = 60 * 60 * 1000;
+const AD_COOLDOWN_MS         = 4 * 60 * 60 * 1000;   // one rewarded ad every 4 hours (decided 2026-11-16)
 
 const TARGETS = {
   posts:    { table: POSTS_TABLE,    key: 'postId',    type: 'post'    },

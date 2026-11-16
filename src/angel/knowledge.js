@@ -77,7 +77,7 @@ export const KNOWLEDGE = [
   {
     id: 'ads', q: 'Why do I see ads?',
     keys: ['ads', 'ad', 'advert', 'adverts', 'sponsored', 'watch an ad'],
-    a: 'At most one ad per 10 posts, labeled Sponsored. Ads come from Google in its cookie-free Limited Ads mode and only know the topic of the post above them, never anything about you. Premium is ad-free. You can also watch an ad in your wallet for 25 spendable aura once an hour.',
+    a: 'At most one ad per 10 posts, labeled Sponsored. Ads come from Google in its cookie-free Limited Ads mode and only know the topic of the post above them, never anything about you. Premium is ad-free. You can also watch an ad in your wallet for 25 spendable aura once every 4 hours.',
   },
   {
     id: 'cashout', q: 'Can I cash out my aura?',
