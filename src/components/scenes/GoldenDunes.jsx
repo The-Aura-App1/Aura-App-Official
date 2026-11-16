@@ -117,75 +117,82 @@ const TUMBLE = (() => {
   return d;
 })();
 
-// A camel walking right, about 66 units long, ground at y 0. Legs are
-// nested groups so each swings from its own hip while the outer group
-// keeps its place in the line.
-const CAMEL_BODY = 'M -24 -27 C -25 -33 -19 -36 -13 -36 C -8 -47 5 -49 10 -38 C 13 -34 16 -32 19 -31 C 22 -30 24 -34 25 -40 '
-  + 'C 26 -46 29 -51 34 -51 C 38 -51 42 -49 42 -46 C 42 -44 39 -43.5 36 -44.5 C 32 -45 31 -42 30 -38 C 28 -31 25 -24 18 -22 L -17 -22 C -22 -22 -24 -24 -24 -27 Z';
-function Leg({ x, back, phase }) {
+// A dromedary walking right, ground at y 0: long legs, one hump, and the
+// neck dipping forward before it rises to the head. Each carries a little
+// canopied carriage on its hump. Legs are nested groups so each swings from
+// its own hip while the outer group keeps its place in the line.
+const CAMEL_BODY = 'M -20 -36 C -24 -40 -25 -48 -21 -52 C -17 -56 -12 -66 -3 -66 C 6 -66 10 -57 14 -52 '
+  + 'C 18 -49 20 -48 23 -47 C 27 -46 28 -52 29 -58 C 30 -63 33 -66 37 -65.5 C 40 -65 43 -63 44 -60.5 '
+  + 'C 44.5 -58.5 43 -57.5 41 -58 C 38 -58.5 36 -59 34 -58 C 32 -56 32 -50 30 -46 C 28 -41 23 -38 17 -37 '
+  + 'C 14 -36 12 -34 9 -34 L -14 -34 C -17 -34 -19 -35 -20 -36 Z';
+// a slim leg with a knobbly knee and a broad foot; the hind one has a heavy thigh
+const FORE_LEG = 'M -2.6 0 L -2 15 C -2.9 17 -2.9 19 -2 21 L -1.6 33 L -3.2 36 L 3.6 36 L 1.8 33 L 2.2 21 C 3.1 19 3.1 17 2.2 15 L 2.8 0 Z';
+const HIND_LEG = 'M -4.5 0 C -4.5 8 -1.5 12 -2.2 16 C -3 19 -3.3 21 -2.6 23 L -1.8 33 L -3.4 36 L 3.4 36 L 1.6 33 L 1.9 23 C 2.6 20 3.1 17 3.6 13 C 5 8 4.5 3 4.5 0 Z';
+function Leg({ x, hind, phase }) {
   return (
-    <g transform={`translate(${x} -24)`}>
+    <g transform={`translate(${x} -36)`}>
       <g className="aura-camel-leg" style={{ animationDelay: `${phase}s` }}>
-        <path d={back ? 'M -2 0 C -1 6 1 9 0 12 L -1 23 L 2 23 L 2.5 12 C 4 8 3 3 3 0 Z' : 'M -2 0 L -1.5 12 L -1.5 23 L 1.5 23 L 1.8 12 L 2.4 0 Z'} />
+        <path d={hind ? HIND_LEG : FORE_LEG} />
       </g>
     </g>
   );
 }
-function Camel({ x, rider, pack, delay }) {
+const CANOPY = [
+  { roof: '#9c3524', curtain: '#c9603a', trim: '#e8b25c' },
+  { roof: '#2f6f73', curtain: '#4f9a92', trim: '#f0c674' },
+];
+function Camel({ x, colors, delay }) {
+  const c = CANOPY[colors];
   return (
     <g transform={`translate(${x} 0)`}>
       {/* its long shadow, stretched away from the sun */}
-      <ellipse cx="-34" cy="0.5" rx="44" ry="2.6" fill="#8a4a2c" opacity="0.28" />
+      <ellipse cx="-30" cy="0.5" rx="42" ry="2.6" fill="#8a4a2c" opacity="0.28" />
       <g className="aura-camel-walk" style={{ animationDelay: `${delay}s` }}>
-        <g fill="#4a2618">
-          <Leg x={-18} back phase={delay} />
-          <Leg x={13} phase={delay - 0.55} />
-        </g>
-        <path d={CAMEL_BODY} fill="#6b3a24" />
-        {/* rim light from the low sun along its back and neck */}
-        <path d="M -13 -36 C -8 -47 5 -49 10 -38 C 13 -34 16 -32 19 -31 C 22 -30 24 -34 25 -40 C 26 -46 29 -51 34 -51" stroke="#e9a46a" strokeOpacity="0.55" strokeWidth="1.1" fill="none" />
-        <path d="M -24 -28 C -27 -25 -28 -20 -26.5 -16" stroke="#5a2f1d" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-        <circle cx="37" cy="-48" r="0.9" fill="#2a140c" />
-        <g fill="#6b3a24">
-          <Leg x={-13} back phase={delay - 0.55} />
-          <Leg x={18} phase={delay} />
-        </g>
-        {/* a saddle blanket with a woven stripe and tassels */}
-        <path d="M -9 -42 C -4 -46 6 -46 9 -40 L 11 -30 C 4 -27 -6 -27 -12 -30 Z" fill="#9c3524" />
-        <path d="M -11 -33 C -4 -30 5 -30 11 -33" stroke="#e8b25c" strokeWidth="1.2" fill="none" />
-        <path d="M -10 -29.5 l 0 3 M -4 -28 l 0 3 M 2 -28 l 0 3 M 8 -29.5 l 0 3" stroke="#e8b25c" strokeWidth="0.8" />
-        {rider && (
-          <g>
-            {/* a robed rider in a cloth head wrap, holding the rein */}
-            <path d="M -5 -41 C -6.5 -49 -4.5 -56 0.5 -58.5 C 5 -57 7.5 -51 7 -41 Z" fill="#3c2c3a" />
-            <path d="M 1.5 -44 L 5.5 -33" stroke="#3c2c3a" strokeWidth="3" strokeLinecap="round" />
-            <path d="M 4.5 -53 Q 9 -50 13 -49.5" stroke="#3c2c3a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-            <path d="M 13 -49.5 Q 24 -47 35 -46" stroke="#2a140c" strokeWidth="0.6" fill="none" />
-            <circle cx="1.6" cy="-61.6" r="3.3" fill="#5a3526" />
-            <path d="M -2 -62 C -2.6 -66.6 5.8 -67.4 5.3 -62.4 C 4.4 -63.6 -0.8 -63.8 -2 -62 Z" fill="#efe2c8" />
-            <path d="M -1.8 -62.4 C -3.4 -60 -3.4 -57.6 -2.4 -55.8" stroke="#efe2c8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+        <g transform="scale(0.85)">
+          <g fill="#4a2618">
+            <Leg x={-15} hind phase={delay} />
+            <Leg x={8} phase={delay - 0.55} />
           </g>
-        )}
-        {pack && (
-          <g>
-            <ellipse cx="-6" cy="-41" rx="8" ry="6" fill="#c9905a" />
-            <ellipse cx="5" cy="-43" rx="6" ry="5" fill="#b07a48" />
-            <path d="M -13 -41 C -6 -46 6 -48 11 -43" stroke="#5a2f1d" strokeWidth="1" fill="none" />
-            <path d="M -9 -45 L -6 -36 M 3 -47 L 6 -39" stroke="#7a4a2a" strokeWidth="0.8" />
+          <path d={CAMEL_BODY} fill="#6b3a24" />
+          {/* rim light from the low sun along its back, neck and head */}
+          <path d="M -21 -52 C -17 -56 -12 -66 -3 -66 C 6 -66 10 -57 14 -52 M 29 -58 C 30 -63 33 -66 37 -65.5 C 40 -65 43 -63 44 -60.5"
+            stroke="#e9a46a" strokeOpacity="0.55" strokeWidth="1.1" fill="none" />
+          {/* tail, ear and eye */}
+          <path d="M -21 -50 C -24.5 -46 -24.5 -41 -23 -37" stroke="#5a2f1d" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+          <path d="M 33.5 -65 L 32.2 -68.5 L 35.2 -66 Z" fill="#5a2f1d" />
+          <circle cx="38.6" cy="-62.4" r="0.8" fill="#2a140c" />
+          <g fill="#6b3a24">
+            <Leg x={-11} hind phase={delay - 0.55} />
+            <Leg x={12} phase={delay} />
           </g>
-        )}
+          {/* the carriage: a fringed cloth over the hump, a little canopy on posts, curtains drawn */}
+          <path d="M -15 -62 C -10 -69 4 -69 9 -62 L 11 -50 C 3 -47 -9 -47 -17 -50 Z" fill={c.roof} />
+          <path d="M -17 -51 C -9 -48 3 -48 11 -51" stroke={c.trim} strokeWidth="1.2" fill="none" />
+          <path d="M -15 -49.5 l 0 3 M -9 -48 l 0 3 M -3 -47.7 l 0 3 M 3 -48 l 0 3 M 9 -49.5 l 0 3" stroke={c.trim} strokeWidth="0.8" />
+          <g transform="translate(-3.5 -66) scale(0.82) translate(3.5 66)">
+          <rect x="-15" y="-68" width="23" height="3" rx="1" fill="#4a2618" />
+          <path d="M -13.5 -68 L -13.5 -80 M 6.5 -68 L 6.5 -80" stroke="#4a2618" strokeWidth="1.2" />
+          <path d="M -13 -79 C -13 -75 -11 -71 -12 -68 L -4 -68 C -6 -72 -6 -76 -6 -79 Z" fill={c.curtain} />
+          <path d="M 6 -79 C 6 -75 4 -71 5 -68 L -1 -68 C 0 -72 0 -76 0 -79 Z" fill={c.curtain} opacity="0.9" />
+          <path d="M -16 -79 C -12 -84 -8 -89 -3.5 -90 C 1 -89 5 -84 9 -79 Z" fill={c.roof} />
+          <path d="M -16 -79 Q -12.5 -76.5 -9 -79 Q -5.5 -76.5 -2 -79 Q 1.5 -76.5 5 -79 Q 7 -77.5 9 -79" stroke={c.trim} strokeWidth="1.1" fill="none" />
+          <path d="M -16 -79 C -12 -84 -8 -89 -3.5 -90" stroke="#f6c58a" strokeOpacity="0.6" strokeWidth="0.9" fill="none" />
+          <circle cx="-3.5" cy="-91.5" r="1.6" fill={c.trim} />
+          </g>
+        </g>
       </g>
     </g>
   );
 }
-// Lead, rider, then pack camels roped head to tail
+// Four camels roped head to tail, their carriages in two colours
 const CARAVAN = [
-  { x: 210, rider: true, delay: 0 },
-  { x: 130, pack: true, delay: -0.35 },
-  { x: 50, rider: true, delay: -0.7 },
-  { x: -30, pack: true, delay: -0.2 },
+  { x: 210, colors: 0, delay: 0 },
+  { x: 130, colors: 1, delay: -0.35 },
+  { x: 50, colors: 0, delay: -0.7 },
+  { x: -30, colors: 1, delay: -0.2 },
 ];
-const ROPES = CARAVAN.slice(1).map(c => `M ${c.x + 41} -45 C ${c.x + 46} -36 ${c.x + 52} -31 ${c.x + 56} -28`).join(' ');
+// from each camel's muzzle to the tail of the one ahead
+const ROPES = CARAVAN.slice(1).map(c => `M ${c.x + 36} -50 C ${c.x + 44} -42 ${c.x + 54} -33 ${c.x + 60} -32`).join(' ');
 
 export default function GoldenDunes({ variant = 'page' }) {
   const page = variant === 'page';
