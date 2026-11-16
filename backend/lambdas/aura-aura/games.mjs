@@ -1,26 +1,35 @@
-// Group games: two members play each other for an aura pot. No house, no
-// rake. Each player's stake is taken when they sit down (challenge or accept)
-// and held on the match; the winner gets both stakes as spendable aura (game
-// winnings are never cashable), a draw or a cancelled challenge gives each
-// stake back exactly as it was paid. aura-aura stays the only writer of
-// balances.
+// Group games: members play each other for an aura pot. No house, no rake.
+// Each player's stake is taken when they sit down (challenge or join) and
+// held on the match; the winner gets every stake as spendable aura (game
+// winnings are never cashable), players who tie for the win share it, and a
+// draw or a cancelled table gives each stake back exactly as it was paid.
+// aura-aura stays the only writer of balances.
+//
+// Most games are two players. Dice Duel, Go Fish and Poker can be set up for
+// bigger tables (MAX_PLAYERS in gameRules.mjs): the table stays open while
+// people join, starts by itself when it fills, or the challenger starts it
+// once at least two are in. Players can leave an open table (stake back).
+// Once it's going, resigning or running out of time takes just that player
+// out (their stake stays in the pot) and the rest play on.
 //
 // Table aura-games: partition key matchId; GSI `groupId-createdAt-index`
 // (partition groupId, sort createdAt) lists a group's games.
 //
-// Routes (API Gateway: ANY /games/{proxy+} → aura-aura, cognito-auth):
+// Routes (API Gateway: GET and POST /games/{proxy+} → aura-aura, cognito-auth):
 //   GET  /games/group/{groupId}        the group's open, live and recent games
-//   POST /games/group/{groupId}        challenge: { game, stake, options?, opponent? }
+//   POST /games/group/{groupId}        challenge: { game, stake, seats?, options?, opponent? }
 //   GET  /games/{matchId}              the match, as the viewer may see it
-//   POST /games/{matchId}/join         accept a challenge
+//   POST /games/{matchId}/join         take a seat (starts the game when the table fills)
+//   POST /games/{matchId}/start        the challenger starts a bigger table early (2+ seated)
+//   POST /games/{matchId}/leave        leave an open table before it starts (stake back)
 //   POST /games/{matchId}/move         { move }
 //   POST /games/{matchId}/resign
-//   POST /games/{matchId}/claim        win when the other player's turn timer ran out
+//   POST /games/{matchId}/claim        the player on turn ran out of time
 //   POST /games/{matchId}/cancel       the challenger withdraws an open challenge
 //   POST /games/{matchId}/decline      the invited player turns it down
 import { randomInt } from 'crypto';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { GAMES, GameError, viewFor } from './gameRules.mjs';
+import { GAMES, GameError, MAX_PLAYERS, viewFor } from './gameRules.mjs';
 import { eitherBlocked } from './privacy.mjs';
 import { addGroupXp } from './groupStats.mjs';
 
@@ -31,16 +40,17 @@ const GROUPS_TABLE        = 'aura-groups';
 const MEMBERS_TABLE       = 'aura-group-members';
 const NOTIFICATIONS_TABLE = 'aura-notifications';
 
-// Stakes: the most one match can be for, and the most a player can put into
-// games per UTC day, by account type. 0 is a friendly game.
+// Stakes: the most one match can be for (per player), and the most a player
+// can put into games per UTC day, by account type. 0 is a friendly game.
 export const STAKE_CAP = { regular: 500, premium: 2000 };
 const DAILY_GAMES_CREATED = 30;
 const MIN_STAKE_ACCOUNT_DAYS = 7;                 // as for gifts counting as earned and catching Aura Rain
-const TURN_MS             = 2 * 60 * 1000;        // then the other player may claim the win
+const TURN_MS             = 2 * 60 * 1000;        // then another player may claim it
 const KEEP_FINISHED_DAYS  = 60;                   // finished games expire from the table (TTL)
 const LIST_LIMIT          = 60;
 
 const rand = n => randomInt(n);
+const seatsOf = match => match.seats ?? 2;
 
 function publicPlayer(user) {
   return {
@@ -52,10 +62,12 @@ function publicPlayer(user) {
 function summary(match) {
   return {
     matchId: match.matchId, groupId: match.groupId, game: match.game, gameName: GAMES[match.game]?.name,
-    stake: match.stake, status: match.status, options: match.options,
-    players: match.players.map(({ paid, ...p }) => p),
+    stake: match.stake, seats: seatsOf(match), status: match.status, options: match.options,
+    players: match.players.map(({ paid, joinedAt, ...p }) => p),
+    outUserIds: match.players.filter((_, i) => match.state?.out?.[i]).map(p => p.userId),
     invited: match.invited ?? null,
     turnUserId: match.turnUserId ?? null, winnerUserId: match.winnerUserId ?? null,
+    winnerUserIds: match.winnerUserIds ?? (match.winnerUserId ? [match.winnerUserId] : []),
     endReason: match.endReason ?? null,
     deadline: match.deadline ?? null, createdAt: match.createdAt, finishedAt: match.finishedAt ?? null,
   };
@@ -111,19 +123,31 @@ export async function handleGames(ctx, user, method, segments, body) {
     };
   }
 
-  // Pays out a finished game: the pot to the winner, or each stake back on a draw
-  function settle(match, winnerSeat, book, records) {
+  // Gives one player's stake back exactly as they paid it
+  function refund(match, player, book, records) {
+    book.add(player.userId, { auraSpendable: player.paid.s, auraEarned: player.paid.e, auraBalance: match.stake });
+    records.push(ctx.transactionRecord({ type: 'game_refund', userId: player.userId, matchId: match.matchId, amount: match.stake, toSpendable: player.paid.s, toEarned: player.paid.e }));
+  }
+
+  // Pays out a finished game: the pot to the winner, shared by players who
+  // tied for the win, or every stake back on a draw
+  function settle(match, state, book, records) {
     if (!match.stake) return;
-    if (winnerSeat === null) {
-      for (const p of match.players) {
-        book.add(p.userId, { auraSpendable: p.paid.s, auraEarned: p.paid.e, auraBalance: match.stake });
-        records.push(ctx.transactionRecord({ type: 'game_refund', userId: p.userId, matchId: match.matchId, amount: match.stake, toSpendable: p.paid.s, toEarned: p.paid.e }));
-      }
-    } else {
-      const pot = match.stake * match.players.length;
-      const winner = match.players[winnerSeat].userId;
-      book.add(winner, { auraSpendable: pot, auraBalance: pot });
-      records.push(ctx.transactionRecord({ type: 'game_win', userId: winner, matchId: match.matchId, amount: pot, toSpendable: pot, toEarned: 0 }));
+    if (!state.split && state.winner === null) {
+      for (const p of match.players) refund(match, p, book, records);
+      return;
+    }
+    const pot = match.stake * match.players.length;
+    const winners = state.split ?? [state.winner];
+    const share = Math.floor(pot / winners.length);
+    let odd = pot - share * winners.length;
+    for (const seat of winners) {
+      const extra = odd > 0 ? 1 : 0;
+      odd -= extra;
+      const amount = share + extra;
+      const winner = match.players[seat].userId;
+      book.add(winner, { auraSpendable: amount, auraBalance: amount });
+      records.push(ctx.transactionRecord({ type: 'game_win', userId: winner, matchId: match.matchId, amount, toSpendable: amount, toEarned: 0 }));
     }
   }
 
@@ -138,6 +162,16 @@ export async function handleGames(ctx, user, method, segments, body) {
       ConditionExpression: fields.map(([f]) => `(attribute_not_exists(#${f}) OR #${f} <= :${f}Max)`).join(' AND '),
       ExpressionAttributeNames: Object.fromEntries(fields.map(([f]) => [`#${f}`, f])),
       ExpressionAttributeValues: Object.fromEntries(fields.flatMap(([f, c]) => [[`:${f}`, c.amount], [`:${f}Max`, c.cap - c.amount]])),
+    } }];
+  }
+
+  // A stake given back doesn't count against the day it was paid on
+  function unspendDay(match, player) {
+    if (!match.stake) return [];
+    const day = (player.joinedAt ?? match.createdAt).slice(0, 10);
+    return [{ Update: {
+      TableName: 'aura-daily-budgets', Key: { budgetKey: `${player.userId}#${day}` },
+      UpdateExpression: 'ADD gameStakeUsed :minus', ExpressionAttributeValues: { ':minus': -match.stake },
     } }];
   }
 
@@ -185,17 +219,21 @@ export async function handleGames(ctx, user, method, segments, body) {
     return error ?? next;
   }
 
-  // Fields for a match whose state just changed
-  function progress(match, state) {
-    const fields = { state, turnUserId: state.over ? null : match.players[state.turn]?.userId ?? null, deadline: state.over ? null : Date.now() + TURN_MS };
-    if (state.over) Object.assign(fields, finishedFields(match, state.winner, 'game'));
-    return fields;
+  // Fields for a match whose state just changed. The turn timer restarts,
+  // except when someone else left a bigger table (keepClock) and the same
+  // player is still on turn.
+  function progress(match, state, reason = 'game', keepClock = false) {
+    if (state.over) return { state, ...finishedFields(match, state, reason) };
+    const keep = keepClock && match.state?.turn === state.turn && match.deadline;
+    return { state, turnUserId: match.players[state.turn]?.userId ?? null, deadline: keep ? match.deadline : Date.now() + TURN_MS };
   }
 
-  function finishedFields(match, winnerSeat, reason) {
+  function finishedFields(match, state, reason) {
+    const winners = state.split ?? (state.winner === null || state.winner === undefined ? [] : [state.winner]);
     return {
       status: 'finished', endReason: reason, turnUserId: null, deadline: null,
-      winnerUserId: winnerSeat === null ? null : match.players[winnerSeat].userId,
+      winnerUserId: winners.length === 1 ? match.players[winners[0]].userId : null,
+      winnerUserIds: winners.map(i => match.players[i].userId),
       finishedAt: new Date().toISOString(),
       expiresAt: Math.floor(Date.now() / 1000) + KEEP_FINISHED_DAYS * 86400,
     };
@@ -212,6 +250,23 @@ export async function handleGames(ctx, user, method, segments, body) {
       view,
       now: Date.now(),
     });
+  }
+
+  // Deals the game for everyone seated and saves it, with any money moves
+  // that go with the last player sitting down
+  async function begin(match, players, book, records, extraItems = [], messages = []) {
+    const seated = { ...match, players };
+    const state = GAMES[match.game].init(rand, match.options, players.length);
+    if (state.over) settle(seated, state, book, records);
+    const saved = await save(match, { players, status: 'active', invited: match.invited, startedAt: new Date().toISOString(), ...progress(seated, state) },
+      [...extraItems, ...book.items(), ...records], messages);
+    if (saved.statusCode) return saved;
+    // Everyone else hears it has started; a game played counts toward the group's level
+    await Promise.all(players.filter(p => p.userId !== user.userId).map(p => notify(p.userId, 'game_accepted', {
+      matchId: match.matchId, groupId: match.groupId, game: match.game, stake: match.stake, players: players.length,
+    })));
+    await Promise.all(players.map(p => addGroupXp(dynamo, match.groupId, p.userId, 'game')));
+    return matchResponse(saved);
   }
 
   // ── GET/POST /games/group/{groupId} ──
@@ -235,6 +290,11 @@ export async function handleGames(ctx, user, method, segments, body) {
       if (!game) return response(400, { error: 'Pick a game.' });
       const stake = body.stake ?? 0;
       if (!Number.isInteger(stake) || stake < 0) return response(400, { error: 'The stake must be a whole number of aura (0 for a friendly game).' });
+      const maxSeats = MAX_PLAYERS[game] ?? 2;
+      const seats = body.seats ?? 2;
+      if (!Number.isInteger(seats) || seats < 2 || seats > maxSeats) {
+        return response(400, { error: maxSeats > 2 ? `${GAMES[game].name} is for 2 to ${maxSeats} players.` : `${GAMES[game].name} is for 2 players.` });
+      }
       let options;
       try { options = GAMES[game].options(body.options); } catch (err) {
         if (err instanceof GameError) return response(400, { error: err.message });
@@ -244,6 +304,7 @@ export async function handleGames(ctx, user, method, segments, body) {
       let invited = null;
       if (body.opponent !== undefined && body.opponent !== null && body.opponent !== '') {
         if (typeof body.opponent !== 'string') return response(400, { error: 'Invalid opponent.' });
+        if (seats > 2) return response(400, { error: 'Invites are for two-player games. A bigger table is open to everyone in the group.' });
         const name = body.opponent.trim().replace(/^@/, '').toLowerCase();
         const reservation = /^[a-z0-9_]{3,30}$/.test(name)
           ? (await dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId: `USERNAME#${name}` } }))).Item : null;
@@ -259,8 +320,8 @@ export async function handleGames(ctx, user, method, segments, body) {
       const now = new Date().toISOString();
       const match = {
         matchId: `${Date.now()}-${randomInt(36 ** 6).toString(36)}`,
-        groupId, game, stake, options, status: 'open', invited,
-        players: [{ ...publicPlayer(user), paid: checks.paid }],
+        groupId, game, stake, seats, options, status: 'open', invited,
+        players: [{ ...publicPlayer(user), paid: checks.paid, joinedAt: now }],
         state: null, version: 0, createdAt: now, updatedAt: now,
       };
       const book = ledger();
@@ -303,31 +364,52 @@ export async function handleGames(ctx, user, method, segments, body) {
   if (limited) return limited;
 
   if (action === 'join') {
-    if (match.status !== 'open') return response(409, { error: 'This challenge has already been taken or withdrawn.' });
-    if (seat !== -1) return response(400, { error: 'You can\'t accept your own challenge.' });
+    if (match.status !== 'open') return response(409, { error: 'This game has already started or been withdrawn.' });
+    if (seat === 0) return response(400, { error: 'You can\'t accept your own challenge.' });
+    if (seat !== -1) return response(400, { error: 'You\'re already at this table.' });
+    if (match.players.length >= seatsOf(match)) return response(409, { error: 'This table is full.' });
     if (match.invited && match.invited.userId !== user.userId) return response(403, { error: `This challenge is for @${match.invited.username}.` });
     if (!(await membership(match.groupId, user.userId))) return response(403, { error: 'Only members of this group can play its games.' });
-    if (await eitherBlocked(dynamo, user.userId, match.players[0].userId)) return response(403, { error: "You can't accept this challenge." });
+    for (const p of match.players) {
+      if (await eitherBlocked(dynamo, user.userId, p.userId)) return response(403, { error: "You can't join this game." });
+    }
     const checks = stakeChecks(user, match.stake);
     if (checks.error) return checks.error;
 
-    const players = [...match.players, { ...publicPlayer(user), paid: checks.paid }];
-    const seated = { ...match, players };
-    const state = GAMES[match.game].init(rand, match.options);
+    const players = [...match.players, { ...publicPlayer(user), paid: checks.paid, joinedAt: new Date().toISOString() }];
     const book = ledger();
     const records = [];
     if (match.stake) {
       book.pay(user.userId, checks.paid);
       records.push(ctx.transactionRecord({ type: 'game_stake', userId: user.userId, matchId: match.matchId, amount: -match.stake, fromSpendable: checks.paid.s, fromEarned: checks.paid.e }));
     }
-    if (state.over) settle(seated, state.winner, book, records);
-    const saved = await save(match, { players, status: 'active', invited: match.invited, startedAt: new Date().toISOString(), ...progress(seated, state) },
-      [...dayUpdate(user.userId, { gameStakeUsed: { amount: match.stake, cap: checks.cap } }), ...book.items(), ...records],
-      match.stake ? [`That would pass your daily limit of ${checks.cap} aura in game stakes.`, 'Not enough aura.'] : ['Not enough aura.']);
+    const day = dayUpdate(user.userId, { gameStakeUsed: { amount: match.stake, cap: checks.cap } });
+    const messages = match.stake ? [`That would pass your daily limit of ${checks.cap} aura in game stakes.`, 'Not enough aura.'] : ['Not enough aura.'];
+    // The last seat filled: deal
+    if (players.length === seatsOf(match)) return begin(match, players, book, records, day, messages);
+    // Otherwise take the seat and keep the table open
+    const saved = await save(match, { players }, [...day, ...book.items(), ...records], messages);
     if (saved.statusCode) return saved;
-    await notify(match.players[0].userId, 'game_accepted', { matchId: match.matchId, groupId: match.groupId, game: match.game, stake: match.stake });
-    // A game played counts toward the group's level, for both players
-    await Promise.all(players.map(p => addGroupXp(dynamo, match.groupId, p.userId, 'game')));
+    return matchResponse(saved);
+  }
+
+  if (action === 'start') {
+    if (match.status !== 'open') return response(409, { error: 'This game has already started or been withdrawn.' });
+    if (seat !== 0) return response(403, { error: 'Only the player who set up the table can start it.' });
+    if (match.players.length < 2) return response(409, { error: 'Wait for at least one more player to join.' });
+    return begin(match, match.players, ledger(), []);
+  }
+
+  if (action === 'leave') {
+    if (match.status !== 'open') return response(409, { error: 'The game has started. Resign instead.' });
+    if (seat === 0) return response(403, { error: 'You set up this table. Withdraw it instead.' });
+    if (seat === -1) return response(403, { error: 'You aren\'t at this table.' });
+    const book = ledger();
+    const records = [];
+    const player = match.players[seat];
+    if (match.stake) { refund(match, player, book, records); records.push(...unspendDay(match, player)); }
+    const saved = await save(match, { players: match.players.filter((_, i) => i !== seat) }, [...book.items(), ...records]);
+    if (saved.statusCode) return saved;
     return matchResponse(saved);
   }
 
@@ -335,17 +417,11 @@ export async function handleGames(ctx, user, method, segments, body) {
     if (match.status !== 'open') return response(409, { error: 'This challenge has already started or ended.' });
     if (action === 'cancel' && seat !== 0) return response(403, { error: 'Only the challenger can withdraw it.' });
     if (action === 'decline' && match.invited?.userId !== user.userId) return response(403, { error: 'This challenge isn\'t for you.' });
+    // Everyone seated gets their stake back, and it stops counting against their day
     const book = ledger();
     const records = [];
-    const challenger = match.players[0];
     if (match.stake) {
-      book.add(challenger.userId, { auraSpendable: challenger.paid.s, auraEarned: challenger.paid.e, auraBalance: match.stake });
-      records.push(ctx.transactionRecord({ type: 'game_refund', userId: challenger.userId, matchId: match.matchId, amount: match.stake, toSpendable: challenger.paid.s, toEarned: challenger.paid.e }));
-      // A withdrawn challenge doesn't count against today's game limit
-      records.push({ Update: {
-        TableName: 'aura-daily-budgets', Key: { budgetKey: `${challenger.userId}#${match.createdAt.slice(0, 10)}` },
-        UpdateExpression: 'ADD gameStakeUsed :minus', ExpressionAttributeValues: { ':minus': -match.stake },
-      } });
+      for (const p of match.players) { refund(match, p, book, records); records.push(...unspendDay(match, p)); }
     }
     const saved = await save(match, {
       status: action === 'cancel' ? 'cancelled' : 'declined', finishedAt: new Date().toISOString(),
@@ -357,6 +433,7 @@ export async function handleGames(ctx, user, method, segments, body) {
 
   if (seat === -1) return response(403, { error: 'You aren\'t playing in this game.' });
   if (match.status !== 'active') return response(409, { error: 'This game is over.' });
+  if (match.state?.out?.[seat]) return response(409, { error: 'You\'re out of this game.' });
 
   if (action === 'move') {
     if (match.state.turn !== seat) return response(409, { error: 'It\'s not your turn.' });
@@ -367,7 +444,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     }
     const book = ledger();
     const records = [];
-    if (state.over) settle(match, state.winner, book, records);
+    if (state.over) settle(match, state, book, records);
     const saved = await save(match, progress(match, state), [...book.items(), ...records]);
     if (saved.statusCode) return saved;
     return matchResponse(saved);
@@ -378,12 +455,23 @@ export async function handleGames(ctx, user, method, segments, body) {
       if (match.state.turn === seat) return response(409, { error: 'It\'s your turn.' });
       if (!match.deadline || Date.now() < match.deadline) return response(409, { error: 'Their turn timer hasn\'t run out yet.' });
     }
-    const winner = action === 'resign' ? 1 - seat : seat;
-    const state = { ...match.state, over: true, turn: null, winner, draw: false };
+    const reason = action === 'resign' ? 'resign' : 'timeout';
+    let state;
+    let keepClock = false;
+    if (match.players.length === 2) {
+      // Two players: the other one wins
+      const winner = action === 'resign' ? 1 - seat : seat;
+      state = { ...match.state, over: true, turn: null, winner, draw: false };
+    } else {
+      // A bigger table: just that player is out, and the rest play on
+      const leaving = action === 'resign' ? seat : match.state.turn;
+      state = GAMES[match.game].remove(match.state, leaving, rand);
+      keepClock = leaving !== match.state.turn;
+    }
     const book = ledger();
     const records = [];
-    settle(match, winner, book, records);
-    const saved = await save(match, { state, ...finishedFields(match, winner, action === 'resign' ? 'resign' : 'timeout') }, [...book.items(), ...records]);
+    if (state.over) settle(match, state, book, records);
+    const saved = await save(match, progress(match, state, reason, keepClock), [...book.items(), ...records]);
     if (saved.statusCode) return saved;
     return matchResponse(saved);
   }

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PlayingCard, { CardBacks, rankLabel, RANK_ORDER } from './PlayingCard';
+import { logText } from './gameInfo';
 import './games.css';
 
 // Ripples and fish in the pond, placed once (they're scenery, not state)
@@ -47,7 +48,11 @@ const lastFishing = log => {
 
 // Go Fish in a pond: the draw pile floats in the middle with fish swimming
 // under it, your hand sits on the shore below, theirs face down above.
-export default function GoFishPond({ view, seat, players, move, busy, myTurn }) {
+export default function GoFishPond(props) {
+  return (props.view.n ?? 2) > 2 ? <GoFishTable {...props} /> : <GoFishPair {...props} />;
+}
+
+function GoFishPair({ view, seat, players, move, busy, myTurn }) {
   const opp = seat === null ? 1 : 1 - seat;
   const me = seat ?? 0;
   const name = s => (s === seat ? 'You' : players[s]?.displayName ?? 'Opponent');
@@ -119,10 +124,115 @@ export default function GoFishPond({ view, seat, players, move, busy, myTurn }) 
       {lastLog && (
         <p className="text-sm text-[var(--text-secondary)] text-center" aria-live="polite">
           {lastLog.s !== null && lastLog.s !== undefined && <span className="font-semibold text-[var(--text-primary)]">{name(lastLog.s)} </span>}
-          {lastLog.t}
+          {logText(lastLog, name)}
         </p>
       )}
       {myTurn && <p className="text-xs text-[var(--text-muted)]">Tap a set of your cards to ask {name(opp)} for that rank.</p>}
+    </div>
+  );
+}
+
+// Three to five players: everyone else around the top of the pond. On your
+// turn, pick who to ask (the first player after you with cards to start
+// with), then tap a set of your cards.
+function GoFishTable({ view, seat, players, move, busy, myTurn }) {
+  const n = view.n;
+  const name = s => (s === seat ? 'You' : players[s]?.displayName ?? 'Player');
+  const me = seat ?? 0;
+  const others = Array.from({ length: n - 1 }, (_, k) => (me + 1 + k) % n);
+  const askableFrom = others.filter(s => !view.out[s]);
+  const firstWithCards = askableFrom.find(s => view.handCounts[s] > 0) ?? askableFrom[0];
+  const [picked, setPicked] = useState(null);
+  const target = askableFrom.includes(picked) ? picked : firstWithCards;
+  const groups = {};
+  for (const c of [...view.hand].sort((a, b) => RANK_ORDER.indexOf(a[0]) - RANK_ORDER.indexOf(b[0]))) (groups[c[0]] ??= []).push(c);
+  const askable = new Set(view.askable);
+  const splash = lastFishing(view.log);
+  const lastLog = view.log?.[view.log.length - 1];
+  const pile = Math.min(view.deckCount, 6);
+  const logName = s => (s === seat ? 'you' : players[s]?.displayName ?? 'someone');
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="pond game-stage w-full max-w-lg px-3 pt-3 pb-4 flex flex-col items-center gap-3">
+        <div className="pond-caustics" aria-hidden="true" />
+        {RIPPLES.map(([x, y, d], i) => (
+          <span key={i} className="pond-ripple" aria-hidden="true" style={{ left: `${x}%`, top: `${y}%`, width: 180, height: 70, animationDelay: `${d}s` }} />
+        ))}
+        {FISH.map((f, i) => (
+          <span key={i} className="pond-fish left-0 w-full" aria-hidden="true" style={{ top: f.top, '--swim': f.swim, '--delay': f.delay, '--dir': f.dir }}>
+            <Fish size={f.size} />
+          </span>
+        ))}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full" role={myTurn ? 'radiogroup' : undefined} aria-label={myTurn ? 'Who to ask' : 'Other players'}>
+          {others.map(s => {
+            const out = view.out[s];
+            const chosen = myTurn && target === s;
+            const Tag = myTurn && !out ? 'button' : 'div';
+            return (
+              <Tag key={s} {...(Tag === 'button' && { type: 'button', role: 'radio', 'aria-checked': chosen, onClick: () => setPicked(s), disabled: busy })}
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-2 py-2 border text-white transition-colors
+                  ${chosen ? 'border-white/80 bg-white/15' : 'border-white/15 bg-black/10'} ${out ? 'opacity-40' : ''}
+                  ${view.turn === s && !view.over ? 'game-seat-on' : ''}`}>
+                <span className="flex items-center gap-1 text-xs font-semibold max-w-full">
+                  {view.turn === s && !view.over && <span className="game-turn-dot" aria-hidden="true" />}
+                  <span className="truncate">{name(s)}</span>
+                </span>
+                {out
+                  ? <span className="text-[11px] text-white/70">Out</span>
+                  : <CardBacks count={view.handCounts[s]} size="xs" label={`${name(s)} holds ${view.handCounts[s]} cards`} />}
+                <span className="text-[11px] text-white/75">
+                  {view.handCounts[s]} card{view.handCounts[s] === 1 ? '' : 's'} · {view.books[s].length} book{view.books[s].length === 1 ? '' : 's'}
+                </span>
+              </Tag>
+            );
+          })}
+        </div>
+
+        <div className="relative flex flex-col items-center gap-1 py-2">
+          <div className="relative w-12 h-[68px] pond-bob" role="img" aria-label={`${view.deckCount} cards left in the pond`}>
+            {pile === 0
+              ? <span className="absolute inset-0 rounded-lg border border-dashed border-white/30" />
+              : Array.from({ length: pile }, (_, i) => (
+                <PlayingCard key={i} faceDown size="md" className="absolute inset-0"
+                  style={{ transform: `rotate(${(i * 37) % 24 - 12}deg) translate(${(i * 13) % 7 - 3}px, ${-i}px)` }} />
+              ))}
+            {splash && <span key={view.log.length} className="pond-ripple pond-splash absolute left-1/2 top-1/2 w-24 h-24 border-2" aria-hidden="true" />}
+          </div>
+          <span className="game-stage-label">{view.deckCount} in the pond</span>
+        </div>
+
+        {splash && !view.over && <span key={`t${view.log.length}`} className="game-toast text-white" style={{ top: '46%' }} aria-hidden="true">{splash}</span>}
+
+        <Books ranks={view.books[me]} label={name(me)} />
+        <div className={`game-seat text-white ${view.turn === me && !view.over ? 'game-seat-on' : ''}`}>
+          {view.turn === me && !view.over && <span className="game-turn-dot" aria-hidden="true" />}
+          <span className="font-semibold">{name(me)}</span>
+          <span className="text-white/70">{view.handCounts[me]} card{view.handCounts[me] === 1 ? '' : 's'}</span>
+        </div>
+        {seat !== null && (
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-2 pt-1">
+            {Object.entries(groups).map(([rank, cards]) => (
+              <button key={rank} type="button" disabled={!myTurn || busy || !askable.has(rank) || target === undefined}
+                onClick={() => move({ type: 'ask', rank, from: target })}
+                aria-label={`Ask ${name(target)} for ${rankLabel(rank)}s (you have ${cards.length})`}
+                className="flex rounded-lg enabled:hover:-translate-y-1.5 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+                {cards.map((c, i) => <PlayingCard key={c} card={c} enter="deal" className={i ? '-ml-8' : ''} />)}
+              </button>
+            ))}
+          </div>
+        )}
+        {seat === null && <CardBacks count={view.handCounts[me]} size="sm" />}
+      </div>
+
+      {lastLog && (
+        <p className="text-sm text-[var(--text-secondary)] text-center" aria-live="polite">
+          {lastLog.s !== null && lastLog.s !== undefined && <span className="font-semibold text-[var(--text-primary)]">{name(lastLog.s)} </span>}
+          {logText(lastLog, logName)}
+        </p>
+      )}
+      {myTurn && target !== undefined && <p className="text-xs text-[var(--text-muted)]">Asking {name(target)}. Tap another player to change, then tap a set of your cards.</p>}
     </div>
   );
 }

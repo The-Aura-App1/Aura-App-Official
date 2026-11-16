@@ -1,31 +1,58 @@
 // Rules for the group games. Pure functions only: no database, no clock.
 // The server owns every shuffle, roll and flip (rand comes from crypto in
 // games.mjs), checks every move here, and only ever sends a player
-// view(state, seat), which hides the deck and the other player's cards.
+// view(state, seat), which hides the deck and everyone else's cards.
 //
-// Every game is two players, seats 0 (the challenger) and 1. Each state has:
+// Seats are 0 (the challenger) to n - 1. Connect 4, Pool and Flip a Coin are
+// always two players; Dice Duel, Go Fish and Poker take up to MAX_PLAYERS.
+// Each state has:
 //   turn    seat to move, or null once the game is over
 //   over    true when finished; winner is a seat, or null with draw: true
-//   log     the last few public events, { s: seat | null, t: text }
+//   split   when some (not all) players tie at the end: the seats sharing the pot
+//   out     (bigger-table games) seats that left, timed out or went bust
+//   log     the last few public events, { s: seat | null, t: text, o?: seat }
+//           where "{o}" in the text stands for seat o's name
 
 import { makePool } from './pool.mjs';
 
 export class GameError extends Error {}
+
+// Most players a game takes (all others are two-player). Keep equal to
+// maxPlayers in src/components/games/gameInfo.js (a test checks).
+export const MAX_PLAYERS = { dice: 6, gofish: 5, poker: 6 };
 
 const fail = message => { throw new GameError(message); };
 const other = seat => 1 - seat;
 const clone = value => JSON.parse(JSON.stringify(value));
 const LOG_SIZE = 12;
 
-function log(state, seat, text) {
-  state.log = [...(state.log ?? []), { s: seat, t: text }].slice(-LOG_SIZE);
+function log(state, seat, text, o) {
+  state.log = [...(state.log ?? []), { s: seat, t: text, ...(o !== undefined && { o }) }].slice(-LOG_SIZE);
 }
 
-function finish(state, winner) {
+function finish(state, winner, split = null) {
   state.over   = true;
   state.turn   = null;
   state.winner = winner;
   state.draw   = winner === null;
+  if (split) state.split = split;
+}
+
+// ─── Seats ────────────────────────────────────────────────────
+const seatCount = s => s.n ?? 2;
+const isIn = (s, i) => !s.out?.[i];
+const allSeats = s => Array.from({ length: seatCount(s) }, (_, i) => i);
+const activeSeats = s => allSeats(s).filter(i => isIn(s, i));
+const isSeat = (s, seat) => Number.isInteger(seat) && seat >= 0 && seat < seatCount(s);
+
+// The next seat after `from`, going round the table, that passes ok()
+function nextSeat(s, from, ok = i => isIn(s, i)) {
+  const n = seatCount(s);
+  for (let k = 1; k <= n; k++) {
+    const i = (from + k) % n;
+    if (ok(i)) return i;
+  }
+  return null;
 }
 
 // ─── Cards ────────────────────────────────────────────────────
@@ -38,14 +65,18 @@ const rankName = r => RANK_NAMES[r] ?? r;
 const plural = r => (r === '6' ? 'sixes' : `${rankName(r)}s`);
 const cardName = c => `${rankName(c[0])} of ${SUIT_NAMES[c[1]]}`;
 
+function shuffle(cards, rand) {
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  return cards;
+}
+
 function shuffledDeck(rand) {
   const deck = [];
   for (const r of RANKS) for (const s of SUITS) deck.push(r + s);
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = rand(i + 1);
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+  return shuffle(deck, rand);
 }
 
 
@@ -71,37 +102,73 @@ const coinflip = {
 };
 
 // ─── Dice Duel ────────────────────────────────────────────────
-// Best of three rounds. Each round both players roll two dice; the higher
-// total takes the round, and a tie replays it.
+// First to win two rounds. Each round everyone rolls two dice; the highest
+// total takes the round. A tie for the top replays it between the tied
+// players only (with two players, that's both).
+function diceUp(s) {   // games saved before bigger tables: two players
+  return s.n ? s : { ...s, n: 2, out: [false, false], rolling: [0, 1] };
+}
+
+// Settles the round once everyone still in it has rolled; `from` is who acted last
+function diceNext(s, from) {
+  const contenders = s.rolling.filter(i => isIn(s, i));
+  const waiting = i => contenders.includes(i) && !s.rolls[i];
+  if (contenders.length > 1) {
+    const next = waiting(from) ? from : nextSeat(s, from, waiting);
+    if (next !== null) { s.turn = next; return s; }
+  }
+  const total = i => (s.rolls[i] ? s.rolls[i][0] + s.rolls[i][1] : 0);
+  const top = Math.max(...contenders.map(total));
+  const leaders = contenders.filter(i => total(i) === top);
+  s.rounds.push({ rolls: s.rolls, winner: leaders.length === 1 ? leaders[0] : null, ...(leaders.length > 1 && { tied: leaders }) });
+  s.rolls = Array(s.n).fill(null);
+  if (leaders.length > 1) {
+    s.rolling = leaders;
+    log(s, null, leaders.length === contenders.length ? `Tie at ${top}. Roll again.` : `Tie at ${top}. The tied players roll again.`);
+    s.turn = leaders.includes(from) ? from : nextSeat(s, from, i => leaders.includes(i));
+    return s;
+  }
+  const w = leaders[0];
+  s.wins[w] += 1;
+  const second = contenders.filter(i => i !== w).map(total);
+  if (contenders.length === 1) log(s, w, 'took the round.');
+  else if (contenders.length === 2) log(s, w, `took the round, ${top} to ${second[0]}.`);
+  else log(s, w, `took the round with ${top}.`);
+  if (s.wins[w] === 2) { finish(s, w); return s; }
+  s.rolling = activeSeats(s);
+  s.turn = isIn(s, from) ? from : nextSeat(s, from);   // whoever rolled last starts the next round
+  return s;
+}
+
 const dice = {
   name: 'Dice Duel',
   options: () => ({}),
-  init(rand) {
-    return { wins: [0, 0], rolls: [null, null], rounds: [], turn: rand(2), log: [] };
+  init(rand, _options, n = 2) {
+    return { n, wins: Array(n).fill(0), rolls: Array(n).fill(null), rolling: Array.from({ length: n }, (_, i) => i), rounds: [], out: Array(n).fill(false), turn: rand(n), log: [] };
   },
   apply(state, seat, move, rand) {
     if (move?.type !== 'roll') fail('Roll the dice.');
-    const s = clone(state);
+    const s = diceUp(clone(state));
+    if (!s.rolling.includes(seat) || s.rolls[seat]) fail('Wait for your turn to roll.');
     const roll = [1 + rand(6), 1 + rand(6)];
     s.rolls[seat] = roll;
     log(s, seat, `rolled ${roll[0]} and ${roll[1]}.`);
-    if (!s.rolls[other(seat)]) { s.turn = other(seat); return s; }
-
-    const totals = s.rolls.map(r => r[0] + r[1]);
-    const roundWinner = totals[0] === totals[1] ? null : (totals[0] > totals[1] ? 0 : 1);
-    s.rounds.push({ rolls: s.rolls, winner: roundWinner });
-    s.rolls = [null, null];
-    if (roundWinner === null) {
-      log(s, null, `Tie at ${totals[0]}. Roll again.`);
-    } else {
-      s.wins[roundWinner] += 1;
-      log(s, roundWinner, `took the round, ${totals[roundWinner]} to ${totals[other(roundWinner)]}.`);
-    }
-    if (roundWinner !== null && s.wins[roundWinner] === 2) finish(s, roundWinner);
-    else s.turn = seat;   // whoever rolled second starts the next round
+    return diceNext(s, seat);
+  },
+  remove(state, seat) {
+    const s = diceUp(clone(state));
+    if (s.over || !isIn(s, seat)) return s;
+    s.out[seat] = true;
+    s.rolls[seat] = null;
+    log(s, seat, 'left the game.');
+    const left = activeSeats(s);
+    if (left.length === 1) { finish(s, left[0]); return s; }
+    // the round may now be complete, or down to one player
+    const contenders = s.rolling.filter(i => isIn(s, i));
+    if (s.turn === seat || contenders.every(i => s.rolls[i]) || contenders.length === 1) return diceNext(s, s.turn === seat ? seat : s.turn);
     return s;
   },
-  view: state => clone(state),
+  view: state => clone(diceUp(state)),
 };
 
 // ─── Connect 4 ────────────────────────────────────────────────
@@ -153,10 +220,16 @@ const connect4 = {
 const pool = makePool({ fail, other, clone, log, finish });
 
 // ─── Go Fish ──────────────────────────────────────────────────
-// Seven cards each. On your turn ask for a rank you hold: if the other
-// player has any they hand them all over and you go again; if not, go fish.
-// Draw the rank you asked for and you go again too. Four of a kind makes a
-// book. The most books once all 13 are made wins.
+// Seven cards each (five with four or more players). On your turn ask
+// another player for a rank you hold: if they have any they hand them all
+// over and you go again; if not, go fish, and the turn passes on. Draw the
+// rank you asked for and you go again too. Four of a kind makes a book. The
+// most books once all 13 are made wins; a tie shares the pot.
+function fishUp(s) {   // games saved before bigger tables: two players
+  return s.n ? s : { ...s, n: 2, out: [false, false] };
+}
+const booksMade = s => s.books.reduce((t, b) => t + b.length, 0);
+
 function layBooks(state, seat) {
   const hand = state.hands[seat];
   for (const r of RANKS) {
@@ -170,12 +243,23 @@ function layBooks(state, seat) {
   return state;
 }
 
+function fishEnd(state) {
+  const active = activeSeats(state);
+  const top = Math.max(...active.map(i => state.books[i].length));
+  const leaders = active.filter(i => state.books[i].length === top);
+  if (leaders.length === 1) finish(state, leaders[0]);
+  else if (leaders.length === state.n) { log(state, null, 'It\'s a tie.'); finish(state, null); }   // everyone tied: stakes back
+  else { log(state, null, `It's a tie between ${leaders.length} players. They share the pot.`); finish(state, null, leaders); }
+  return state;
+}
+
 // Makes sure whoever is on turn can ask: an empty hand draws one card, or
-// passes the turn when the deck is gone. Ends the game when nothing is left.
+// passes the turn when the pond is empty. Ends the game when nothing is left.
 function fishReady(state) {
-  for (let guard = 0; guard < 4; guard++) {
-    if (state.books[0].length + state.books[1].length === 13) break;
+  for (let guard = 0; guard < 60 + state.n * 3; guard++) {
+    if (booksMade(state) === 13) break;
     const seat = state.turn;
+    if (!isIn(state, seat)) { state.turn = nextSeat(state, seat); continue; }
     if (state.hands[seat].length) return state;
     if (state.deck.length) {
       state.hands[seat].push(state.deck.shift());
@@ -183,66 +267,94 @@ function fishReady(state) {
       layBooks(state, seat);
       if (state.hands[seat].length) return state;
     } else {
-      state.turn = other(seat);
+      if (activeSeats(state).every(i => !state.hands[i].length)) break;
+      state.turn = nextSeat(state, seat);
     }
   }
-  const [a, b] = state.books.map(x => x.length);
-  finish(state, a === b ? null : (a > b ? 0 : 1));
-  return state;
+  return fishEnd(state);
 }
 
 const gofish = {
   name: 'Go Fish',
   options: () => ({}),
-  init(rand) {
+  init(rand, _options, n = 2) {
     const deck = shuffledDeck(rand);
-    const state = { deck, hands: [deck.splice(0, 7), deck.splice(0, 7)], books: [[], []], turn: rand(2), log: [] };
-    layBooks(state, 0);
-    layBooks(state, 1);
+    const size = n <= 3 ? 7 : 5;
+    const state = {
+      n, deck, hands: Array.from({ length: n }, () => deck.splice(0, size)), books: Array.from({ length: n }, () => []),
+      out: Array(n).fill(false), turn: rand(n), log: [],
+    };
+    for (let i = 0; i < n; i++) layBooks(state, i);
     return fishReady(state);
   },
   apply(state, seat, move) {
     const rank = move?.rank;
     if (move?.type !== 'ask' || typeof rank !== 'string' || !RANKS.includes(rank) || rank.length !== 1) fail('Ask for a rank.');
-    const s = clone(state);
+    const s = fishUp(clone(state));
+    const targets = activeSeats(s).filter(i => i !== seat);
+    let from = move.from;
+    if (from === undefined || from === null) {
+      if (targets.length !== 1) fail('Pick who to ask.');
+      from = targets[0];
+    }
+    if (!targets.includes(from)) fail('Ask a player who is still in the game.');
     const mine = s.hands[seat];
     if (!mine.some(c => c[0] === rank)) fail('You can only ask for a rank you hold.');
-    const theirs = s.hands[other(seat)];
+    const two = s.n === 2;
+    const asked = two ? `asked for ${plural(rank)}` : `asked {o} for ${plural(rank)}`;
+    const theirs = s.hands[from];
     const given = theirs.filter(c => c[0] === rank);
     if (given.length) {
-      s.hands[other(seat)] = theirs.filter(c => c[0] !== rank);
+      s.hands[from] = theirs.filter(c => c[0] !== rank);
       mine.push(...given);
-      log(s, seat, `asked for ${plural(rank)} and got ${given.length}.`);
+      log(s, seat, `${asked} and got ${given.length}.`, from);
     } else if (s.deck.length) {
       const drawn = s.deck.shift();
       mine.push(drawn);
-      if (drawn[0] === rank) log(s, seat, `asked for ${plural(rank)}, went fishing and drew one! They go again.`);
-      else { log(s, seat, `asked for ${plural(rank)}. Go fish!`); s.turn = other(seat); }
+      if (drawn[0] === rank) log(s, seat, `${asked}, went fishing and drew one! They go again.`, from);
+      else { log(s, seat, `${asked}. Go fish!`, from); s.turn = nextSeat(s, seat); }
     } else {
-      log(s, seat, `asked for ${plural(rank)}. Go fish, but the pond is empty.`);
-      s.turn = other(seat);
+      log(s, seat, `${asked}. Go fish, but the pond is empty.`, from);
+      s.turn = nextSeat(s, seat);
     }
     layBooks(s, seat);
     return fishReady(s);
   },
+  // A player leaves: their cards go back into the pond, shuffled in
+  remove(state, seat, rand) {
+    const s = fishUp(clone(state));
+    if (s.over || !isIn(s, seat)) return s;
+    s.out[seat] = true;
+    s.deck.push(...s.hands[seat]);
+    s.hands[seat] = [];
+    shuffle(s.deck, rand);
+    log(s, seat, 'left the game. Their cards went back into the pond.');
+    const left = activeSeats(s);
+    if (left.length === 1) { finish(s, left[0]); return s; }
+    if (s.turn === seat) s.turn = nextSeat(s, seat);
+    return fishReady(s);
+  },
   view(state, seat) {
-    const mine = seat === 0 || seat === 1;
+    const s = fishUp(state);
+    const mine = isSeat(s, seat) && isIn(s, seat);
     return {
-      hand:       mine ? state.hands[seat] : [],
-      handCounts: state.hands.map(h => h.length),
-      books:      state.books,
-      deckCount:  state.deck.length,
-      askable:    mine && state.turn === seat ? [...new Set(state.hands[seat].map(c => c[0]))] : [],
-      turn: state.turn, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw, log: state.log,
+      n:          s.n,
+      hand:       mine ? s.hands[seat] : [],
+      handCounts: s.hands.map(h => h.length),
+      books:      s.books,
+      out:        s.out,
+      deckCount:  s.deck.length,
+      askable:    mine && s.turn === seat ? [...new Set(s.hands[seat].map(c => c[0]))] : [],
+      turn: s.turn, over: !!s.over, winner: s.winner ?? null, draw: !!s.draw, log: s.log,
     };
   },
 };
 
-// ─── Poker (heads-up Texas Hold'em) ───────────────────────────
-// A freezeout: both players start with the same chips, which are just for
-// this match; the aura stakes are fixed. No-limit betting, blinds double
-// every few hands so a match stays short, and whoever ends up with every
-// chip wins the pot of aura.
+// ─── Poker (Texas Hold'em, 2 to 6 players) ────────────────────
+// A freezeout: everyone starts with the same chips, which are just for this
+// match; the aura stakes are fixed. No-limit betting with side pots, blinds
+// double every few hands so a match stays short, and whoever ends up with
+// every chip wins the pot of aura.
 export const POKER_START_CHIPS = 1000;
 const POKER_BLIND = 10;          // small blind at the start; the big blind is double
 const POKER_LEVEL_HANDS = 6;     // blinds double every 6 hands
@@ -318,102 +430,191 @@ export function describeHand(cards) {
   }
 }
 
+// A heads-up game saved before bigger tables. Within a hand both players
+// always put the same into the pot on finished streets, so each one's share
+// of it is half.
+function pokerUp(s) {
+  if (s.v === 2) return s;
+  const committed = s.hole && !s.over ? [s.pot / 2 + s.bets[0], s.pot / 2 + s.bets[1]] : [0, 0];
+  return { ...s, v: 2, n: 2, out: [false, false], folded: [false, false], committed, gone: 0 };
+}
+
+const inHand = (s, i) => isIn(s, i) && !s.folded[i];
+const canAct = (s, i) => inHand(s, i) && s.chips[i] > 0;
+const handSeats = s => allSeats(s).filter(i => inHand(s, i));
+const topBet = s => Math.max(0, ...s.bets);
+const sum = list => list.reduce((t, v) => t + v, 0);
+
+function pokerPay(s, seat, amount) {
+  s.chips[seat] -= amount;
+  s.bets[seat] += amount;
+  s.committed[seat] += amount;
+}
+
+// Who acts next after `from`: someone who can still bet and hasn't acted
+// since the last raise or hasn't matched the bet
+function pokerToAct(s, from) {
+  const top = topBet(s);
+  return nextSeat(s, from, i => canAct(s, i) && (!s.acted[i] || s.bets[i] < top));
+}
+
 function pokerStartHand(s, rand) {
   s.hand += 1;
-  if (s.hand > 1) s.button = other(s.button);
+  if (s.hand > 1) s.button = nextSeat(s, s.button);
+  const live = activeSeats(s);
   const level = Math.floor((s.hand - 1) / POKER_LEVEL_HANDS);
   const sb = POKER_BLIND * 2 ** level;
   s.blinds = [sb, sb * 2];
   s.deck = shuffledDeck(rand);
-  s.hole = [s.deck.splice(0, 2), s.deck.splice(0, 2)];
+  s.hole = allSeats(s).map(i => (isIn(s, i) ? s.deck.splice(0, 2) : null));
   s.board = [];
   s.street = 'preflop';
   s.pot = 0;
-  s.bets = [0, 0];
-  // Heads-up: the button posts the small blind and acts first before the flop
-  const bb = other(s.button);
-  s.bets[s.button] = Math.min(sb, s.chips[s.button]);
-  s.chips[s.button] -= s.bets[s.button];
-  s.bets[bb] = Math.min(sb * 2, s.chips[bb]);
-  s.chips[bb] -= s.bets[bb];
-  s.acted = [false, false];
+  s.bets = Array(s.n).fill(0);
+  s.committed = Array(s.n).fill(0);
+  s.folded = allSeats(s).map(i => !isIn(s, i));
+  s.acted = Array(s.n).fill(false);
+  // Heads-up the button posts the small blind and acts first before the
+  // flop; with more players the two seats after the button post the blinds
+  const sbSeat = live.length === 2 ? s.button : nextSeat(s, s.button);
+  const bbSeat = nextSeat(s, sbSeat);
+  pokerPay(s, sbSeat, Math.min(sb, s.chips[sbSeat]));
+  pokerPay(s, bbSeat, Math.min(sb * 2, s.chips[bbSeat]));
   s.minRaise = sb * 2;
-  s.turn = s.button;
+  s.turn = nextSeat(s, bbSeat, i => canAct(s, i));
   log(s, null, `Hand ${s.hand}. Blinds ${sb}/${sb * 2}.`);
   return pokerAdvance(s, rand);
 }
 
-// Whether this round of betting is done. Settles an all-in that the other
-// player covered by giving back the part nobody could match.
+// Whether this round of betting is done
 function pokerSettled(s) {
-  const allIn = s.chips.map(c => c === 0);
-  if (allIn[0] || allIn[1]) {
-    for (const i of [0, 1]) {
-      const j = other(i);
-      if (allIn[i] && s.bets[j] > s.bets[i]) { s.chips[j] += s.bets[j] - s.bets[i]; s.bets[j] = s.bets[i]; }
-    }
-    for (const j of [0, 1]) if (!allIn[j] && s.bets[j] < s.bets[other(j)]) return false;
-    return true;
-  }
-  return s.acted[0] && s.acted[1] && s.bets[0] === s.bets[1];
+  const hand = handSeats(s);
+  if (hand.length <= 1) return true;
+  const top = topBet(s);
+  const actors = hand.filter(i => s.chips[i] > 0);
+  if (actors.length === 0) return true;
+  if (actors.length === 1) return s.bets[actors[0]] >= top;   // nobody left to bet against
+  return actors.every(i => s.acted[i] && s.bets[i] === top);
 }
 
-function pokerAward(s, winners, rand, summary) {
-  const pot = s.pot + s.bets[0] + s.bets[1];
-  s.pot = 0;
-  s.bets = [0, 0];
-  if (winners.length === 2) {
-    const half = Math.floor(pot / 2);
-    s.chips[s.button] += half;
-    s.chips[other(s.button)] += pot - half;   // the odd chip goes to the big blind
-  } else {
-    s.chips[winners[0]] += pot;
+// After a hand: anyone out of chips is out of the game; the last one left wins
+function pokerNextHand(s, rand) {
+  for (const i of allSeats(s)) {
+    if (isIn(s, i) && s.chips[i] === 0) {
+      s.out[i] = true;
+      if (s.n > 2) log(s, i, 'is out of chips.');
+    }
   }
-  s.last = { hand: s.hand, pot, winners, board: s.board, ...summary };
-  if (s.chips[0] === 0 || s.chips[1] === 0) {
-    finish(s, s.chips[0] === 0 ? 1 : 0);
-    log(s, s.winner, 'won every chip!');
+  const live = activeSeats(s);
+  if (live.length <= 1) {
+    finish(s, live[0] ?? null);
+    if (live.length) log(s, live[0], 'won every chip!');
     return s;
   }
   return pokerStartHand(s, rand);
 }
 
+// Everyone else folded (or left): the last player in the hand takes it all
+function pokerFoldWin(s, winner, rand, folded) {
+  const pot = s.pot + sum(s.bets);
+  s.chips[winner] += pot;
+  s.pot = 0;
+  s.bets = Array(s.n).fill(0);
+  s.last = { hand: s.hand, pot, winners: [winner], won: allSeats(s).map(i => (i === winner ? pot : 0)), board: s.board, showdown: false, folded };
+  if (s.n > 2) log(s, winner, `won ${pot}.`);
+  return pokerNextHand(s, rand);
+}
+
+// Splits what's in the middle into a main pot and side pots by how much each
+// player put in, and gives each pot to the best hand among those who
+// covered it. Odd chips go to the winners first after the button.
 function pokerShowdown(s, rand) {
   while (s.board.length < 5) s.board.push(s.deck.shift());
-  const hands = s.hole.map(h => bestHand([...h, ...s.board]));
-  const cmp = compareScores(hands[0].score, hands[1].score);
-  const winners = cmp === 0 ? [0, 1] : [cmp > 0 ? 0 : 1];
-  if (winners.length === 2) log(s, null, `Split pot with ${hands[0].name.toLowerCase()}.`);
-  else log(s, winners[0], `won ${s.pot + s.bets[0] + s.bets[1]} with ${hands[winners[0]].name.toLowerCase()}.`);
-  return pokerAward(s, winners, rand, { showdown: true, hole: s.hole, handNames: hands.map(h => h.name), described: s.hole.map(h => describeHand([...h, ...s.board])) });
+  s.pot += sum(s.bets);
+  s.bets = Array(s.n).fill(0);
+  const hand = handSeats(s);
+  const best = {};
+  for (const i of hand) best[i] = bestHand([...s.hole[i], ...s.board]);
+
+  const pots = [];
+  let prev = 0;
+  for (const level of [...new Set(s.committed.filter(c => c > 0))].sort((a, b) => a - b)) {
+    const amount = sum(s.committed.map(c => Math.max(0, Math.min(c, level) - prev)));
+    const eligible = hand.filter(i => s.committed[i] >= level);
+    prev = level;
+    const last = pots[pots.length - 1];
+    if (last && last.eligible.join() === eligible.join()) last.amount += amount;
+    else pots.push({ amount, eligible });
+  }
+
+  const won = Array(s.n).fill(0);
+  const afterButton = i => (i - s.button - 1 + s.n) % s.n;
+  for (const { amount, eligible } of pots) {
+    const contenders = eligible.length ? eligible : hand;
+    let winners = [];
+    for (const i of contenders) {
+      const c = winners.length ? compareScores(best[i].score, best[winners[0]].score) : 1;
+      if (c > 0) winners = [i];
+      else if (c === 0) winners.push(i);
+    }
+    winners.sort((a, b) => afterButton(a) - afterButton(b));
+    const share = Math.floor(amount / winners.length);
+    let odd = amount - share * winners.length;
+    for (const i of winners) {
+      const extra = odd > 0 ? 1 : 0;
+      odd -= extra;
+      s.chips[i] += share + extra;
+      won[i] += share + extra;
+    }
+  }
+
+  const total = s.pot;
+  s.pot = 0;
+  const winners = hand.filter(i => won[i] > 0);
+  if (s.n === 2 && winners.length === 2) log(s, null, `Split pot with ${best[winners[0]].name.toLowerCase()}.`);
+  else for (const i of winners) log(s, i, `won ${won[i]} with ${best[i].name.toLowerCase()}.`);
+  s.last = {
+    hand: s.hand, pot: total, winners, won, board: s.board, showdown: true,
+    hole: allSeats(s).map(i => (hand.includes(i) ? s.hole[i] : null)),
+    handNames: allSeats(s).map(i => best[i]?.name ?? null),
+    described: allSeats(s).map(i => (hand.includes(i) ? describeHand([...s.hole[i], ...s.board]) : null)),
+  };
+  return pokerNextHand(s, rand);
 }
 
 // Moves the hand on once a betting round is settled
 function pokerAdvance(s, rand) {
-  if (!pokerSettled(s)) return s;
-  s.pot += s.bets[0] + s.bets[1];
-  s.bets = [0, 0];
-  if (s.street === 'river' || s.chips[0] === 0 || s.chips[1] === 0) return pokerShowdown(s, rand);
+  const hand = handSeats(s);
+  if (hand.length === 1) return pokerFoldWin(s, hand[0], rand, null);
+  if (!pokerSettled(s)) {
+    if (s.turn === null || !canAct(s, s.turn)) s.turn = pokerToAct(s, s.turn ?? s.button);
+    return s;
+  }
+  s.pot += sum(s.bets);
+  s.bets = Array(s.n).fill(0);
+  const actors = hand.filter(i => s.chips[i] > 0);
+  if (s.street === 'river' || actors.length <= 1) return pokerShowdown(s, rand);
   const next = { preflop: ['flop', 3], flop: ['turn', 1], turn: ['river', 1] }[s.street];
   s.street = next[0];
   s.board.push(...s.deck.splice(0, next[1]));
-  s.acted = [false, false];
+  s.acted = Array(s.n).fill(false);
   s.minRaise = s.blinds[1];
-  s.turn = other(s.button);   // the big blind acts first after the flop
+  s.turn = nextSeat(s, s.button, i => canAct(s, i));   // the first player after the button acts first after the flop
   return s;
 }
 
 function pokerOptions(s, seat) {
-  const opp = other(seat);
-  const toCall = Math.max(0, s.bets[opp] - s.bets[seat]);
+  const top = topBet(s);
+  const toCall = Math.max(0, top - s.bets[seat]);
   const maxTo = s.bets[seat] + s.chips[seat];
-  const canRaise = s.chips[seat] > toCall && s.chips[opp] > 0;
+  const othersCanBet = handSeats(s).some(i => i !== seat && s.chips[i] > 0);
+  const canRaise = s.chips[seat] > toCall && othersCanBet;
   return {
     toCall: Math.min(toCall, s.chips[seat]),
     canCheck: toCall === 0,
     canFold:  toCall > 0,
     canRaise,
-    minRaiseTo: canRaise ? Math.min(s.bets[opp] + s.minRaise, maxTo) : null,
+    minRaiseTo: canRaise ? Math.min(top + s.minRaise, maxTo) : null,
     maxRaiseTo: canRaise ? maxTo : null,
   };
 }
@@ -421,19 +622,23 @@ function pokerOptions(s, seat) {
 const poker = {
   name: 'Poker',
   options: () => ({}),
-  init(rand) {
-    const s = { chips: [POKER_START_CHIPS, POKER_START_CHIPS], hand: 0, button: rand(2), last: null, log: [] };
+  init(rand, _options, n = 2) {
+    const s = { v: 2, n, chips: Array(n).fill(POKER_START_CHIPS), out: Array(n).fill(false), gone: 0, hand: 0, button: rand(n), last: null, log: [] };
     return pokerStartHand(s, rand);
   },
   apply(state, seat, move, rand) {
-    const s = clone(state);
-    const opp = other(seat);
+    const s = pokerUp(clone(state));
+    if (!canAct(s, seat)) fail('You can\'t act right now.');
     const o = pokerOptions(s, seat);
     switch (move?.type) {
-      case 'fold':
+      case 'fold': {
         if (!o.canFold) fail('Nothing to fold to. Check instead.');
+        s.folded[seat] = true;
         log(s, seat, 'folded.');
-        return pokerAward(s, [opp], rand, { showdown: false, folded: seat });
+        const hand = handSeats(s);
+        if (hand.length === 1) return pokerFoldWin(s, hand[0], rand, seat);
+        break;
+      }
       case 'check':
         if (!o.canCheck) fail(`It's ${o.toCall} to call.`);
         s.acted[seat] = true;
@@ -441,8 +646,7 @@ const poker = {
         break;
       case 'call': {
         if (o.canCheck) fail('Nothing to call. Check instead.');
-        s.chips[seat] -= o.toCall;
-        s.bets[seat] += o.toCall;
+        pokerPay(s, seat, o.toCall);
         s.acted[seat] = true;
         log(s, seat, s.chips[seat] === 0 ? `called all in (${o.toCall}).` : `called ${o.toCall}.`);
         break;
@@ -453,41 +657,66 @@ const poker = {
         if (!Number.isInteger(to) || to < o.minRaiseTo || to > o.maxRaiseTo) {
           fail(`Raise to between ${o.minRaiseTo} and ${o.maxRaiseTo}.`);
         }
-        const increase = to - s.bets[opp];
-        if (increase >= s.minRaise) s.minRaise = increase;
-        s.chips[seat] -= to - s.bets[seat];
-        s.bets[seat] = to;
-        s.acted = [false, false];
+        const top = topBet(s);
+        if (to - top >= s.minRaise) s.minRaise = to - top;
+        pokerPay(s, seat, to - s.bets[seat]);
+        s.acted = Array(s.n).fill(false);   // everyone else gets to answer the raise
         s.acted[seat] = true;
-        const verb = s.bets[opp] === 0 ? 'bet' : 'raised to';
-        log(s, seat, s.chips[seat] === 0 ? `went all in (${to}).` : `${verb} ${to}.`);
+        log(s, seat, s.chips[seat] === 0 ? `went all in (${to}).` : `${top === 0 ? 'bet' : 'raised to'} ${to}.`);
         break;
       }
       default:
         fail('Fold, check, call or raise.');
     }
-    s.turn = opp;
+    s.turn = pokerToAct(s, seat);
+    return pokerAdvance(s, rand);
+  },
+  // A player leaves: they fold for good, and their chips leave the table
+  remove(state, seat, rand) {
+    const s = pokerUp(clone(state));
+    if (s.over || !isIn(s, seat)) return s;
+    const wasTurn = s.turn === seat;
+    s.out[seat] = true;
+    s.folded[seat] = true;
+    s.gone += s.chips[seat];
+    s.chips[seat] = 0;
+    log(s, seat, 'left the table.');
+    const live = activeSeats(s);
+    if (live.length === 1) {
+      const w = live[0];
+      s.chips[w] += s.pot + sum(s.bets);
+      s.pot = 0;
+      s.bets = Array(s.n).fill(0);
+      finish(s, w);
+      log(s, w, 'is the last player at the table!');
+      return s;
+    }
+    const hand = handSeats(s);
+    if (hand.length === 1) return pokerFoldWin(s, hand[0], rand, seat);
+    if (wasTurn) s.turn = pokerToAct(s, seat);
     return pokerAdvance(s, rand);
   },
   view(state, seat) {
-    const mine = seat === 0 || seat === 1;
+    const s = pokerUp(state);
+    const mine = isSeat(s, seat) && isIn(s, seat) && !s.over && !!s.hole?.[seat];
     return {
-      chips: state.chips, bets: state.bets, pot: state.pot, board: state.board,
-      street: state.street, button: state.button, blinds: state.blinds, hand: state.hand,
-      hole: mine && !state.over ? state.hole[seat] : [],
-      made: mine && !state.over ? describeHand([...state.hole[seat], ...state.board]) : null,
-      last: state.last,
-      options: mine && state.turn === seat ? pokerOptions(state, seat) : null,
-      turn: state.turn, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw, log: state.log,
+      n: s.n, chips: s.chips, bets: s.bets, pot: s.pot, board: s.board, out: s.out, folded: s.folded,
+      street: s.street, button: s.button, blinds: s.blinds, hand: s.hand,
+      dealt: s.over ? allSeats(s).map(() => false) : allSeats(s).map(i => !!s.hole?.[i] && inHand(s, i)),
+      hole: mine ? s.hole[seat] : [],
+      made: mine ? describeHand([...s.hole[seat], ...s.board]) : null,
+      last: s.last,
+      options: mine && s.turn === seat ? pokerOptions(s, seat) : null,
+      turn: s.turn, over: !!s.over, winner: s.winner ?? null, draw: !!s.draw, log: s.log,
     };
   },
 };
 
 export const GAMES = { connect4, pool, gofish, poker, dice, coinflip };
 
-// What a player (seat 0/1) or a spectator (null) may see
+// What a player (their seat) or a spectator (null) may see
 export function viewFor(game, state, seat) {
   const view = GAMES[game].view(state, seat);
   // Games with nothing hidden expose their whole state; keep the common fields consistent
-  return { ...view, turn: state.turn ?? null, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw };
+  return { ...view, turn: state.turn ?? null, over: !!state.over, winner: state.winner ?? null, draw: !!state.draw, split: state.split ?? null };
 }

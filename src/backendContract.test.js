@@ -121,6 +121,10 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   const serverIds = constant(rules, 'GAMES').replace(/[{}\s]/g, '').split(',');
   const { GAME_LIST, STAKE_CAP } = require('./components/games/gameInfo');
   expect([...serverIds].sort()).toEqual(GAME_LIST.map(g => g.id).sort());
+  // the same games take more than two players, up to the same number
+  const appMax = Object.fromEntries(GAME_LIST.filter(g => g.maxPlayers).map(g => [g.id, g.maxPlayers]));
+  const serverMax = Object.fromEntries([...constant(rules, 'MAX_PLAYERS').matchAll(/(\w+):\s*(\d+)/g)].map(([, id, n]) => [id, Number(n)]));
+  expect(serverMax).toEqual(appMax);
   expect(constant(games, 'STAKE_CAP').replace(/\s/g, '')).toBe(`{regular:${STAKE_CAP.regular},premium:${STAKE_CAP.premium}}`);
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
 });

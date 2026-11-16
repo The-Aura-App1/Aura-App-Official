@@ -45,7 +45,9 @@ function notificationText(type, data) {
     case 'game_challenge':
       return `@${data?.fromUsername ?? 'Someone'} challenged you to ${GAME_BY_ID[data?.game]?.name ?? 'a game'}${data?.stake ? ` for ${data.stake} aura` : ''}`;
     case 'game_accepted':
-      return `@${data?.fromUsername ?? 'Someone'} accepted your ${GAME_BY_ID[data?.game]?.name ?? 'game'} challenge`;
+      return data?.players > 2
+        ? `Your ${GAME_BY_ID[data?.game]?.name ?? 'game'} table for ${data.players} has started`
+        : `@${data?.fromUsername ?? 'Someone'} accepted your ${GAME_BY_ID[data?.game]?.name ?? 'game'} challenge`;
     case 'follow':
       return `@${data?.fromUsername ?? 'Someone'} started following you`;
     case 'follow_request':

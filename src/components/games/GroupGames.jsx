@@ -4,7 +4,7 @@ import { Swords, Sparkles, X } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
-import { GAME_LIST, GAME_BY_ID, STAKE_CAP, statusText, gameTile } from './gameInfo';
+import { GAME_LIST, GAME_BY_ID, STAKE_CAP, statusText, gameTile, seatsOf } from './gameInfo';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
 const REFRESH_MS = 10000;
@@ -24,8 +24,11 @@ function ChallengeForm({ groupId, onClose }) {
   const [stake, setStake]       = useState(0);
   const [call, setCall]         = useState('heads');
   const [opponent, setOpponent] = useState('');
+  const [seats, setSeats]       = useState(2);
   const [busy, setBusy]         = useState(false);
   const [error, setError]       = useState('');
+  const maxSeats = GAME_BY_ID[game]?.maxPlayers ?? 2;
+  const table = Math.min(seats, maxSeats);   // switching to a two-player game drops back to 2
 
   async function submit(e) {
     e.preventDefault();
@@ -34,7 +37,7 @@ function ChallengeForm({ groupId, onClose }) {
     setBusy(true);
     try {
       const result = await api.createGame(groupId, {
-        game, stake, opponent: opponent.trim() || undefined,
+        game, stake, seats: table, opponent: table === 2 ? opponent.trim() || undefined : undefined,
         options: game === 'coinflip' ? { call } : undefined,
       });
       navigate(`/games/${encodeURIComponent(result.match.matchId)}`);
@@ -85,6 +88,26 @@ function ChallengeForm({ groupId, onClose }) {
         </fieldset>
       )}
 
+      {maxSeats > 2 && (
+        <fieldset>
+          <legend className="text-xs font-semibold text-[var(--text-muted)] mb-2">Players</legend>
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: maxSeats - 1 }, (_, i) => i + 2).map(n => (
+              <button key={n} type="button" aria-pressed={table === n} onClick={() => setSeats(n)}
+                className={`w-10 py-1.5 rounded-lg text-sm font-semibold border
+                  ${table === n ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+                {n}
+              </button>
+            ))}
+          </div>
+          {table > 2 && (
+            <p className="text-xs text-[var(--text-muted)] mt-2">
+              Open to everyone in the group. It starts when all {table} seats fill, or you can start it once at least one other player joins.
+            </p>
+          )}
+        </fieldset>
+      )}
+
       <div>
         <label htmlFor="game-stake" className="text-xs font-semibold text-[var(--text-muted)]">Stake (aura each)</label>
         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -100,22 +123,26 @@ function ChallengeForm({ groupId, onClose }) {
             className="input w-24 py-1.5" />
         </div>
         <p className="text-xs text-[var(--text-muted)] mt-2">
-          {stake
-            ? `You both put in ${stake}. The winner takes all ${stake * 2} as spendable aura; a draw gives it back.`
-            : 'Just for fun. No aura changes hands.'}
+          {!stake
+            ? 'Just for fun. No aura changes hands.'
+            : table === 2
+              ? `You both put in ${stake}. The winner takes all ${stake * 2} as spendable aura; a draw gives it back.`
+              : `Everyone puts in ${stake}. The winner takes it all (${stake * table} with a full table) as spendable aura; players who tie share it.`}
           {' '}Up to {cap} a game{dbProfile ? `; you have ${have}` : ''}.
         </p>
       </div>
 
-      <div>
-        <label htmlFor="game-opponent" className="text-xs font-semibold text-[var(--text-muted)]">Opponent (optional)</label>
-        <input id="game-opponent" value={opponent} onChange={e => setOpponent(e.target.value)} maxLength={31}
-          placeholder="@username, or leave empty for anyone in the group" className="input mt-2" autoComplete="off" />
-      </div>
+      {table === 2 && (
+        <div>
+          <label htmlFor="game-opponent" className="text-xs font-semibold text-[var(--text-muted)]">Opponent (optional)</label>
+          <input id="game-opponent" value={opponent} onChange={e => setOpponent(e.target.value)} maxLength={31}
+            placeholder="@username, or leave empty for anyone in the group" className="input mt-2" autoComplete="off" />
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
       <button type="submit" disabled={busy} className="btn-primary self-start">
-        <Swords size={16} aria-hidden="true" /> {busy ? 'Sending…' : 'Send challenge'}
+        <Swords size={16} aria-hidden="true" /> {busy ? 'Sending…' : table === 2 ? 'Send challenge' : `Open a table for ${table}`}
       </button>
     </form>
   );
@@ -125,7 +152,8 @@ function GameRow({ match, viewerId, onAccept, busy }) {
   const info = GAME_BY_ID[match.game];
   const Icon = info?.Icon ?? Swords;
   const mine = match.players.some(p => p.userId === viewerId);
-  const canAccept = match.status === 'open' && !mine && (!match.invited || match.invited.userId === viewerId);
+  const seats = seatsOf(match);
+  const canAccept = match.status === 'open' && !mine && match.players.length < seats && (!match.invited || match.invited.userId === viewerId);
   const status = statusText(match, viewerId);
   const highlight = status === 'Your turn' || status === 'Challenged you';
   return (
@@ -138,15 +166,26 @@ function GameRow({ match, viewerId, onAccept, busy }) {
           className="text-sm font-semibold text-[var(--text-primary)] after:absolute after:inset-0 after:content-['']">
           {info?.name ?? match.game}
         </Link>
-        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-[var(--text-muted)] min-w-0">
-          {match.players.map((p, i) => (
-            <React.Fragment key={p.userId}>
-              {i > 0 && <span>vs</span>}
-              <Avatar name={p.displayName} picKey={p.picKey} size="w-4 h-4" />
-              <span className="truncate">{p.userId === viewerId ? 'You' : p.displayName}</span>
-            </React.Fragment>
-          ))}
-        </div>
+        {seats > 2 ? (
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-[var(--text-muted)] min-w-0">
+            <span className="flex -space-x-1.5 flex-shrink-0">
+              {match.players.slice(0, 6).map(p => <Avatar key={p.userId} name={p.displayName} picKey={p.picKey} size="w-4 h-4" />)}
+            </span>
+            <span className="truncate">
+              {match.players.map(p => (p.userId === viewerId ? 'You' : p.displayName)).join(', ')}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-[var(--text-muted)] min-w-0">
+            {match.players.map((p, i) => (
+              <React.Fragment key={p.userId}>
+                {i > 0 && <span>vs</span>}
+                <Avatar name={p.displayName} picKey={p.picKey} size="w-4 h-4" />
+                <span className="truncate">{p.userId === viewerId ? 'You' : p.displayName}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
         <StakeBadge stake={match.stake} />
@@ -154,7 +193,7 @@ function GameRow({ match, viewerId, onAccept, busy }) {
       </div>
       {canAccept && (
         <button type="button" disabled={busy} onClick={() => onAccept(match)} className="btn-primary relative z-10 px-3 py-1.5 text-xs">
-          Accept
+          {seats > 2 ? 'Join' : 'Accept'}
         </button>
       )}
     </li>
@@ -205,7 +244,7 @@ export default function GroupGames({ groupId }) {
   const mine = m => m.players.some(p => p.userId === viewerId);
   const sections = [
     ['Your games', list.filter(m => (m.status === 'open' || m.status === 'active') && mine(m))],
-    ['Open challenges', list.filter(m => m.status === 'open' && !mine(m) && (!m.invited || m.invited.userId === viewerId))],
+    ['Open challenges', list.filter(m => m.status === 'open' && !mine(m) && m.players.length < seatsOf(m) && (!m.invited || m.invited.userId === viewerId))],
     ['Being played', list.filter(m => m.status === 'active' && !mine(m))],
     ['Recent results', list.filter(m => m.status === 'finished').slice(0, 10)],
   ];
@@ -225,6 +264,7 @@ export default function GroupGames({ groupId }) {
       {games && !list.length && (
         <p className="text-sm text-[var(--text-muted)] text-center py-8">
           No games yet. Challenge a member to Connect 4, 8-Ball Pool, Poker, Go Fish, Dice Duel or a coin flip.
+          Poker, Go Fish and Dice Duel can seat more players.
         </p>
       )}
 

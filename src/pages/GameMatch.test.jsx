@@ -98,8 +98,56 @@ test('the Games tab sends a challenge with the chosen game, stake and opponent',
   fireEvent.change(screen.getByLabelText(/Opponent/), { target: { value: '@ann' } });
   expect(screen.getByText(/You both put in 100\. The winner takes all 200/)).toBeInTheDocument();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: /send challenge/i })); });
-  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'poker', stake: 100, opponent: '@ann', options: undefined });
+  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'poker', stake: 100, seats: 2, opponent: '@ann', options: undefined });
   expect(screen.getByText(/Waiting for someone in the group to accept/)).toBeInTheDocument();
+});
+
+test('a bigger table: pick the number of players, and no single opponent', async () => {
+  api.getGroupGames.mockResolvedValue({ games: [] });
+  api.createGame.mockResolvedValue({ match: { matchId: 'big1' } });
+  api.getGame.mockResolvedValue({ match: { ...base, matchId: 'big1', game: 'dice', seats: 4, status: 'open', players: [players[0]] }, seat: 0, view: null, now: Date.now() });
+  await open('/groups/g1');
+  fireEvent.click(screen.getByRole('button', { name: /challenge someone/i }));
+  fireEvent.click(screen.getByLabelText(/Connect 4/));
+  expect(screen.queryByRole('button', { name: '4' })).not.toBeInTheDocument();   // two-player only
+  fireEvent.click(screen.getByLabelText(/Dice Duel/));
+  fireEvent.click(screen.getByRole('button', { name: '4' }));
+  fireEvent.click(screen.getByRole('button', { name: '50' }));
+  expect(screen.queryByLabelText(/Opponent/)).not.toBeInTheDocument();
+  expect(screen.getByText(/Everyone puts in 50\. The winner takes it all \(200 with a full table\)/)).toBeInTheDocument();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Open a table for 4' })); });
+  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'dice', stake: 50, seats: 4, opponent: undefined, options: undefined });
+  // the table page: one seat taken, so it can't start yet
+  expect(screen.getByText(/1 of 4 seated/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Start with 1' })).toBeDisabled();
+  expect(screen.getAllByText('Open seat')).toHaveLength(3);
+});
+
+test('the player who opened a table can start it once someone joins; others can leave', async () => {
+  const three = [...players, { userId: 'bo', username: 'bo', displayName: 'Bo' }];
+  api.getGame.mockResolvedValue({ match: { ...base, game: 'gofish', seats: 4, status: 'open', players: three }, seat: 0, view: null, now: Date.now() });
+  await open();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start with 3' })); });
+  expect(api.gameAction).toHaveBeenCalledWith('m1', 'start');
+  api.getGame.mockResolvedValue({ match: { ...base, game: 'gofish', seats: 4, status: 'open', players: [three[1], players[0]] }, seat: 1, view: null, now: Date.now() });
+  await open();
+  expect(screen.getByText(/You're in\. Waiting for Ann to start/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Leave table' })).toBeInTheDocument();
+});
+
+test('a three-way Go Fish: you pick who to ask, and players who left are out', async () => {
+  const three = [...players, { userId: 'bo', username: 'bo', displayName: 'Bo' }];
+  api.getGame.mockResolvedValue({
+    match: { ...base, game: 'gofish', seats: 3, status: 'active', players: three, turnUserId: 'me', deadline: Date.now() + 90000, outUserIds: ['bo'] }, seat: 0, now: Date.now(),
+    view: { n: 3, hand: ['5s', '5d', 'Kh'], handCounts: [3, 4, 0], books: [[], ['Q'], []], out: [false, false, true], deckCount: 30,
+      askable: ['5', 'K'], log: [{ s: 1, t: 'asked {o} for jacks. Go fish!', o: 0 }], turn: 0, over: false, winner: null, draw: false },
+  });
+  await open();
+  expect(screen.getByText(/Ann/, { selector: 'p span' }).parentElement).toHaveTextContent('Ann asked you for jacks. Go fish!');
+  expect(screen.getByRole('radio', { name: /Ann/ })).toHaveAttribute('aria-checked', 'true');
+  expect(screen.queryByRole('radio', { name: /Bo/ })).not.toBeInTheDocument();   // out
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ask Ann for 5s/ })); });
+  expect(api.gameMove).toHaveBeenCalledWith('m1', { type: 'ask', rank: '5', from: 1 });
 });
 
 test('pool: you set the power and shoot; the next poll says which shot it already has', async () => {

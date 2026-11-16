@@ -7,7 +7,7 @@ import Avatar from '../components/common/Avatar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { BOARDS } from '../components/games/Boards';
 import { StakeBadge } from '../components/games/GroupGames';
-import { GAME_BY_ID, clock, gameTile } from '../components/games/gameInfo';
+import { GAME_BY_ID, clock, gameTile, seatsOf, logText } from '../components/games/gameInfo';
 import '../components/games/games.css';
 
 // How often to check for the other player's move. Faster while waiting on
@@ -28,10 +28,17 @@ function useNow(active) {
 }
 
 function resultText(match, seat, players) {
-  if (match.status === 'cancelled') return 'The challenge was withdrawn. The stake went back.';
+  const many = players.length > 2;
+  if (match.status === 'cancelled') return many ? 'The table was withdrawn. Every stake went back.' : 'The challenge was withdrawn. The stake went back.';
   if (match.status === 'declined') return 'The challenge was declined. The stake went back.';
-  const pot = match.stake * 2;
-  if (!match.winnerUserId) return match.stake ? `It's a draw. Both stakes went back.` : 'It\'s a draw.';
+  const pot = match.stake * players.length;
+  const split = match.winnerUserIds?.length > 1 ? match.winnerUserIds : null;
+  if (split) {
+    const share = Math.floor(pot / split.length);
+    const names = split.map(id => (players[seat]?.userId === id ? 'you' : players.find(p => p.userId === id)?.displayName)).join(' and ');
+    return `A tie: ${names} share the pot.${pot && seat !== null && split.includes(players[seat]?.userId) ? ` +${share} aura` : ''}`;
+  }
+  if (!match.winnerUserId) return match.stake ? `It's a draw. ${many ? 'Every stake' : 'Both stakes'} went back.` : 'It\'s a draw.';
   const winnerSeat = players.findIndex(p => p.userId === match.winnerUserId);
   const how = match.endReason === 'resign' ? ' by resignation' : match.endReason === 'timeout' ? ' on time' : '';
   if (seat === winnerSeat) return `You won${how}!${pot ? ` +${pot} aura` : ''}`;
@@ -127,11 +134,16 @@ export default function GameMatch() {
   const Board = BOARDS[match.game];
   const players = match.players;
   const view = data.view;
+  const seats = seatsOf(match);
+  const many = seats > 2;
+  const imOut = seat !== null && !!match.outUserIds?.includes(user?.userId);
   const left = match.deadline ? match.deadline - (now + offset.current) : null;
-  const canClaim = match.status === 'active' && seat !== null && !myTurn && left !== null && left <= 0;
+  const canClaim = match.status === 'active' && seat !== null && !imOut && !myTurn && left !== null && left <= 0;
   const invitedMe = match.status === 'open' && match.invited?.userId === user?.userId;
-  const canAccept = match.status === 'open' && seat === null && (!match.invited || invitedMe);
-  const won = match.status === 'finished' && seat !== null && match.winnerUserId === user?.userId;
+  const canAccept = match.status === 'open' && seat === null && players.length < seats && (!match.invited || invitedMe);
+  const won = match.status === 'finished' && seat !== null && (match.winnerUserIds ?? [match.winnerUserId]).includes(user?.userId);
+  const turnName = players.find(p => p.userId === match.turnUserId)?.displayName ?? 'Someone';
+  const playerName = s => (s === seat ? 'You' : players[s]?.displayName ?? 'Someone');
 
   return (
     <div className="flex flex-col gap-4 pb-8 max-w-xl mx-auto w-full">
@@ -150,6 +162,35 @@ export default function GameMatch() {
           <StakeBadge stake={match.stake} />
         </div>
 
+        {many ? (
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2" aria-label="Players">
+            {Array.from({ length: seats }, (_, s) => {
+              const p = players[s];
+              const onTurn = match.status === 'active' && p && match.turnUserId === p.userId;
+              const out = p && match.outUserIds?.includes(p.userId);
+              const winner = p && match.status === 'finished' && (match.winnerUserIds ?? []).includes(p.userId);
+              return (
+                <li key={s} className={`flex items-center gap-2 min-w-0 px-2.5 py-2 rounded-xl border
+                  ${onTurn ? 'border-aura-500/60 bg-aura-500/10' : 'border-[var(--border)]'} ${out ? 'opacity-50' : ''}`}>
+                  {p ? (
+                    <>
+                      <Avatar name={p.displayName} picKey={p.picKey} size="w-8 h-8" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate flex items-center gap-1">
+                          {winner && <Trophy size={13} className="text-amber-400 flex-shrink-0" aria-label="Winner" />}
+                          {seat === s ? 'You' : p.displayName}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate">{out ? 'Out' : `@${p.username}`}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-[var(--text-muted)] px-1">{match.status === 'open' ? 'Open seat' : 'Empty'}</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {[0, 1].map(s => {
             const p = players[s];
@@ -174,11 +215,12 @@ export default function GameMatch() {
             return s === 0 ? [cell, <span key="vs" className="text-xs font-bold text-[var(--text-muted)]">VS</span>] : cell;
           })}
         </div>
+        )}
 
         {match.status === 'active' && (
           <p className={`flex items-center justify-center gap-1.5 text-sm font-semibold ${myTurn ? 'text-aura-400' : 'text-[var(--text-secondary)]'}`} aria-live="polite">
             <Timer size={15} aria-hidden="true" />
-            {seat === null ? `${players.find(p => p.userId === match.turnUserId)?.displayName}'s turn` : myTurn ? 'Your turn' : 'Their turn'}
+            {myTurn ? 'Your turn' : seat === null || many ? `${turnName}'s turn` : 'Their turn'}
             {left !== null && <span className="tabular-nums font-normal text-[var(--text-muted)]">· {left > 0 ? clock(left) : 'time\'s up'}</span>}
           </p>
         )}
@@ -190,7 +232,41 @@ export default function GameMatch() {
         )}
       </section>
 
-      {match.status === 'open' && (
+      {match.status === 'open' && many && (
+        <section className="card flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-[var(--text-secondary)]">
+            {players.length} of {seats} seated.{' '}
+            {seat === 0
+              ? `It starts by itself when the table fills, or start it now${players.length < 2 ? ' once someone joins' : ''}.`
+              : seat !== null
+                ? `You're in. Waiting for ${players[0].displayName} to start, or for the table to fill.`
+                : `${players[0].displayName} opened a ${info?.name} table.`}
+            {match.stake ? ` Everyone puts in ${match.stake} aura; the winner takes it all.` : ' Just for fun.'}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {seat === 0 && (
+              <>
+                <button type="button" disabled={busy || players.length < 2} onClick={() => run(() => api.gameAction(match.matchId, 'start'))} className="btn-primary">
+                  Start with {players.length}
+                </button>
+                <button type="button" disabled={busy} onClick={() => run(() => api.gameAction(match.matchId, 'cancel'))}
+                  className="btn-secondary px-4 py-2 text-[var(--text-primary)]">Withdraw table</button>
+              </>
+            )}
+            {seat !== null && seat > 0 && (
+              <button type="button" disabled={busy} onClick={() => run(() => api.gameAction(match.matchId, 'leave'))}
+                className="btn-secondary px-4 py-2 text-[var(--text-primary)]">Leave table</button>
+            )}
+            {canAccept && (
+              <button type="button" disabled={busy} onClick={() => run(() => api.gameAction(match.matchId, 'join'))} className="btn-primary">
+                Join{match.stake ? ` for ${match.stake} aura` : ''}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {match.status === 'open' && !many && (
         <section className="card flex flex-col items-center gap-3 text-center">
           {seat === 0 ? (
             <>
@@ -231,16 +307,23 @@ export default function GameMatch() {
 
       {moveError && <p className="text-sm text-red-400 text-center" role="alert">{moveError}</p>}
 
-      {match.status === 'active' && seat !== null && (
+      {match.status === 'active' && imOut && (
+        <p className="text-sm text-[var(--text-muted)] text-center">You're out of this game. You can keep watching.</p>
+      )}
+
+      {match.status === 'active' && seat !== null && !imOut && (
         <div className="flex flex-wrap items-center justify-center gap-2">
           {canClaim && (
             <button type="button" disabled={busy} onClick={() => run(() => api.gameAction(match.matchId, 'claim'))} className="btn-primary">
-              <Trophy size={16} aria-hidden="true" /> Their time ran out. Claim the win
+              <Trophy size={16} aria-hidden="true" />
+              {many && players.length - (match.outUserIds?.length ?? 0) > 2 ? `${turnName}'s time ran out. Take them out` : 'Their time ran out. Claim the win'}
             </button>
           )}
           {confirmResign ? (
             <>
-              <span className="text-sm text-[var(--text-secondary)]">Resign and give them the win?</span>
+              <span className="text-sm text-[var(--text-secondary)]">
+                {many ? 'Leave the game? Your stake stays in the pot.' : 'Resign and give them the win?'}
+              </span>
               <button type="button" disabled={busy} onClick={() => run(() => api.gameAction(match.matchId, 'resign'))}
                 className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-500/15 text-red-400 border border-red-500/30">Resign</button>
               <button type="button" onClick={() => setConfirmResign(false)} className="text-sm text-[var(--text-muted)]">Keep playing</button>
@@ -259,9 +342,9 @@ export default function GameMatch() {
             {view.log.map((entry, i) => (
               <li key={i}>
                 {entry.s !== null && entry.s !== undefined && (
-                  <span className="font-semibold text-[var(--text-primary)]">{seat === entry.s ? 'You' : players[entry.s]?.displayName} </span>
+                  <span className="font-semibold text-[var(--text-primary)]">{playerName(entry.s)} </span>
                 )}
-                {entry.t}
+                {logText(entry, s => (s === seat ? 'you' : players[s]?.displayName ?? 'someone'))}
               </li>
             ))}
           </ol>
