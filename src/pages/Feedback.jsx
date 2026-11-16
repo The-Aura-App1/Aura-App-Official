@@ -282,7 +282,10 @@ function RatingSummary({ data, stars, onStars }) {
   );
 }
 
-const loadReviews = params => api.getPublicReviews(params);
+// The public list is cached for a minute (good for the welcome page); here, a
+// fresh copy every time, so a review that was just approved shows straight away
+// (the server ignores the extra `fresh` value; it only makes the address new)
+const loadReviews = params => api.getPublicReviews({ ...params, fresh: Date.now() });
 
 function Reviews() {
   const [mine, setMine]       = useState(undefined);   // undefined while loading, null when none
