@@ -117,7 +117,7 @@ test('the Games tab sends a challenge with the chosen game, stake and opponent',
   fireEvent.change(screen.getByLabelText(/Opponent/), { target: { value: '@ann' } });
   expect(screen.getByText(/You both put in 100\. The winner takes all 200/)).toBeInTheDocument();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: /send challenge/i })); });
-  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'poker', stake: 100, seats: 2, opponent: '@ann', options: undefined });
+  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'poker', stake: 100, seats: 2, opponent: '@ann', options: undefined, time: 'm120' });
   expect(screen.getByText(/Waiting for someone in the group to accept/)).toBeInTheDocument();
 });
 
@@ -135,7 +135,7 @@ test('a bigger table: pick the number of players, and no single opponent', async
   expect(screen.queryByLabelText(/Opponent/)).not.toBeInTheDocument();
   expect(screen.getByText(/Everyone puts in 50\. The winner takes it all \(200 with a full table\)/)).toBeInTheDocument();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Open a table for 4' })); });
-  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'dice', stake: 50, seats: 4, opponent: undefined, options: undefined });
+  expect(api.createGame).toHaveBeenCalledWith('g1', { game: 'dice', stake: 50, seats: 4, opponent: undefined, options: undefined, time: 'm120' });
   // the table page: one seat taken, so it can't start yet
   expect(screen.getByText(/1 of 4 seated/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Start with 1' })).toBeDisabled();
@@ -178,7 +178,7 @@ test('pool: you set the power and shoot; the next poll says which shot it alread
   api.gameMove.mockResolvedValue({ match: { ...base, game: 'pool', status: 'active', turnUserId: 'ann', deadline: Date.now() + 120000 }, seat: 0,
     view: pool({ turn: 1, shots: 4, shot: { no: 4, by: 0, start: balls, frames: [], potted: [], foul: null } }), now: Date.now() });
   await open();
-  expect(api.getGame).toHaveBeenLastCalledWith('m1', null);
+  expect(api.getGame).toHaveBeenLastCalledWith('m1', null, null);
   expect(screen.getByText(/Open table: pot any ball but the 8/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Power'), { target: { value: '80' } });
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Shoot' })); });
@@ -197,6 +197,44 @@ test('chess: tap a piece, then a square, to move', async () => {
   fireEvent.click(screen.getByRole('gridcell', { name: 'e2, white pawn' }));
   expect(screen.getByRole('gridcell', { name: 'e2, white pawn' })).toHaveAttribute('aria-selected', 'true');
   await act(async () => { fireEvent.click(screen.getByRole('gridcell', { name: 'e4' })); });
+  expect(api.gameMove).toHaveBeenCalledWith('m1', { from: 'e2', to: 'e4' });
+});
+
+test('chess: pick a clock when challenging', async () => {
+  api.getGroupGames.mockResolvedValue({ games: [] });
+  api.createGame.mockResolvedValue({ match: { matchId: 'ch1' } });
+  api.getGame.mockResolvedValue({ match: { ...base, matchId: 'ch1', game: 'chess', status: 'open', players: [players[0]], time: 'c3+2' }, seat: 0, view: null, now: Date.now() });
+  await open('/groups/g1');
+  fireEvent.click(screen.getByRole('button', { name: /challenge someone/i }));
+  fireEvent.click(screen.getByLabelText(/Chess/));
+  expect(screen.getByText('Time control')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /3 \| 2/ }));
+  expect(screen.getByText(/Each player has 3 minutes for the whole game, plus 2 seconds back after each move/)).toBeInTheDocument();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: /send challenge/i })); });
+  expect(api.createGame).toHaveBeenCalledWith('g1', expect.objectContaining({ game: 'chess', time: 'c3+2' }));
+  expect(screen.getByText('Blitz 3 | 2')).toBeInTheDocument();
+});
+
+test('chess: clocks tick for the player on turn, and a premove plays when your turn comes', async () => {
+  const start = 'RNBQKBNRPPPPPPPP' + '.'.repeat(32) + 'pppppppprnbqkbnr';
+  const clockMatch = extra => ({ ...base, game: 'chess', status: 'active', time: 'c1+0', clockRunning: true, turnStartedAt: Date.now(), clocks: [42000, 61000], deadline: Date.now() + 61500, ...extra });
+  const view = extra => ({ board: start, side: 'b', white: 0, last: null, check: false, captured: { w: [], b: [] }, moves: 2, legal: [], log: [], turn: 1, over: false, winner: null, draw: false, ...extra });
+  api.getGame.mockResolvedValue({ version: 5, match: clockMatch({ turnUserId: 'ann' }), seat: 0, view: view(), now: Date.now() });
+  api.gameMove.mockClear();
+  api.gameMove.mockResolvedValue({ version: 7, match: clockMatch({ turnUserId: 'ann' }), seat: 0, view: view({ moves: 4 }), now: Date.now() });
+  await open();
+  expect(screen.getByRole('timer', { name: /Your clock: 0:42/ })).toBeInTheDocument();
+  expect(screen.getByRole('timer', { name: /Ann's clock: 1:0[01]/ })).toBeInTheDocument();
+  expect(screen.queryByText(/first move/)).not.toBeInTheDocument();
+  // their move: queue e2-e4
+  fireEvent.click(screen.getByRole('gridcell', { name: 'e2, white pawn' }));
+  fireEvent.click(screen.getByRole('gridcell', { name: 'e4' }));
+  expect(screen.getByRole('button', { name: /Premove e2–e4/ })).toBeInTheDocument();
+  expect(api.gameMove).not.toHaveBeenCalled();
+  // the next poll: they've moved, and it's legal, so it goes at once
+  api.getGame.mockResolvedValue({ version: 6, match: clockMatch({ turnUserId: 'me' }), seat: 0, view: view({ side: 'w', turn: 0, moves: 3, legal: ['e2e4', 'd2d4'] }), now: Date.now() });
+  await act(async () => { await new Promise(r => setTimeout(r, 900)); });
+  expect(api.getGame).toHaveBeenCalledWith('m1', null, 5);
   expect(api.gameMove).toHaveBeenCalledWith('m1', { from: 'e2', to: 'e4' });
 });
 

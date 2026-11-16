@@ -129,6 +129,17 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
 });
 
+test('the app offers the time limits aura-aura accepts, with the same chess clocks', () => {
+  const rules = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'gameRules.mjs'), 'utf8');
+  const { TIME_CHOICES, CLOCK_GAMES, CLOCK_LAG_MS, defaultTime } = require('./components/games/gameInfo');
+  const server = [...constant(rules, 'TIME_CHOICES').matchAll(/'([\w+]+)':\s*\{\s*kind: '(\w+)', (?:ms: (\d+)|base: (\d+), inc: (\d+))/g)]
+    .map(([, id, kind, ms, base, inc]) => (kind === 'clock' ? { id, kind, base: Number(base), inc: Number(inc) } : { id, kind }));
+  expect(server).toEqual(TIME_CHOICES.map(({ id, kind, base, inc }) => (kind === 'clock' ? { id, kind, base, inc } : { id, kind })));
+  expect(constant(rules, 'CLOCK_GAMES')).toBe(JSON.stringify(CLOCK_GAMES).replace(/"/g, "'"));
+  expect(Number(constant(rules, 'CLOCK_LAG_MS'))).toBe(CLOCK_LAG_MS);
+  expect(rules).toContain(`defaultTime = game => (CLOCK_GAMES.includes(game) ? '${defaultTime('chess')}' : '${defaultTime('pool')}')`);
+});
+
 test('the pool table in the app is the size of the one aura-aura plays on', () => {
   const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'pool.mjs'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, 'components', 'games', 'PoolTable.jsx'), 'utf8');

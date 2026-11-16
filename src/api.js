@@ -136,7 +136,11 @@ export const api = {
   startRain:      (groupId, pot)         => request('POST', `/power-ups/${id(groupId)}/rain`, { pot }),
   catchRain:      groupId                => request('POST', `/power-ups/${id(groupId)}/rain/catch`, {}),
   getAuraHistory: (userId, range)        => request('GET',  `/aura/history/${id(userId)}${query({ range })}`),
-  getGame:        (matchId, have)        => request('GET',  `/games/${id(matchId)}${have != null ? `?have=${encodeURIComponent(have)}` : ''}`),
+  // have: the pool shot whose recording we already hold; v: the version we already show
+  getGame:        (matchId, have, v)     => {
+    const q = [have != null && `have=${encodeURIComponent(have)}`, v != null && `v=${encodeURIComponent(v)}`].filter(Boolean).join('&');
+    return request('GET', `/games/${id(matchId)}${q ? `?${q}` : ''}`);
+  },
   gameAction:     (matchId, action)      => request('POST', `/games/${id(matchId)}/${id(action)}`, {}),
   gameMove:       (matchId, move)        => request('POST', `/games/${id(matchId)}/move`, { move }),
 

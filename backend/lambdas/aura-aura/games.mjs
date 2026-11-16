@@ -29,7 +29,7 @@
 //   POST /games/{matchId}/decline      the invited player turns it down
 import { randomInt } from 'crypto';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { GAMES, GameError, MAX_PLAYERS, viewFor } from './gameRules.mjs';
+import { GAMES, GameError, MAX_PLAYERS, TIME_CHOICES, CLOCK_GAMES, CLOCK_LAG_MS, defaultTime, viewFor } from './gameRules.mjs';
 import { eitherBlocked } from './privacy.mjs';
 import { addGroupXp } from './groupStats.mjs';
 
@@ -45,12 +45,16 @@ const NOTIFICATIONS_TABLE = 'aura-notifications';
 export const STAKE_CAP = { regular: 500, premium: 2000 };
 const DAILY_GAMES_CREATED = 30;
 const MIN_STAKE_ACCOUNT_DAYS = 7;                 // as for gifts counting as earned and catching Aura Rain
-const TURN_MS             = 2 * 60 * 1000;        // then another player may claim it
+const TURN_MS             = 2 * 60 * 1000;        // games from before time choices: then another player may claim it
+const FIRST_MOVE_MS       = 2 * 60 * 1000;        // chess clocks: each side's first move, before their clock runs
 const KEEP_FINISHED_DAYS  = 60;                   // finished games expire from the table (TTL)
 const LIST_LIMIT          = 60;
 
 const rand = n => randomInt(n);
 const seatsOf = match => match.seats ?? 2;
+const timingOf = match => TIME_CHOICES[match.time] ?? { kind: 'move', ms: TURN_MS };
+// A chess clock runs from each side's second turn on
+const clockRunning = state => (state?.moves ?? 0) >= 2;
 
 function publicPlayer(user) {
   return {
@@ -70,6 +74,8 @@ function summary(match) {
     winnerUserIds: match.winnerUserIds ?? (match.winnerUserId ? [match.winnerUserId] : []),
     endReason: match.endReason ?? null,
     deadline: match.deadline ?? null, createdAt: match.createdAt, finishedAt: match.finishedAt ?? null,
+    time: match.time ?? null, clocks: match.clocks ?? null, turnStartedAt: match.turnStartedAt ?? null,
+    clockRunning: timingOf(match).kind === 'clock' && clockRunning(match.state),
   };
 }
 
@@ -222,10 +228,29 @@ export async function handleGames(ctx, user, method, segments, body) {
   // Fields for a match whose state just changed. The turn timer restarts,
   // except when someone else left a bigger table (keepClock) and the same
   // player is still on turn.
-  function progress(match, state, reason = 'game', keepClock = false) {
-    if (state.over) return { state, ...finishedFields(match, state, reason) };
+  function progress(match, state, reason = 'game', keepClock = false, clocks = match.clocks) {
+    const timing = timingOf(match);
+    const withClocks = timing.kind === 'clock' && clocks ? { clocks } : {};
+    if (state.over) return { state, ...finishedFields(match, state, reason), ...withClocks };
+    const now = Date.now();
+    const turnUserId = match.players[state.turn]?.userId ?? null;
+    if (timing.kind === 'clock') {
+      const deadline = clockRunning(state) ? now + clocks[state.turn] + CLOCK_LAG_MS : now + FIRST_MOVE_MS;
+      return { state, turnUserId, deadline, turnStartedAt: now, ...withClocks };
+    }
     const keep = keepClock && match.state?.turn === state.turn && match.deadline;
-    return { state, turnUserId: match.players[state.turn]?.userId ?? null, deadline: keep ? match.deadline : Date.now() + TURN_MS };
+    return { state, turnUserId, deadline: keep ? match.deadline : now + timing.ms, turnStartedAt: keep ? match.turnStartedAt ?? null : now };
+  }
+
+  // A two-player game lost on time: the other player wins, unless (in chess)
+  // they have too little left to ever checkmate, which makes it a draw
+  function lostOnTime(match, loser) {
+    const winner = 1 - loser;
+    const rules = GAMES[match.game];
+    const draw = !!rules.canWin && !rules.canWin(match.state, winner);
+    const state = { ...match.state, over: true, turn: null, winner: draw ? null : winner, draw };
+    state.log = [...(state.log ?? []), { s: loser, t: draw ? 'ran out of time, but there was too little left to checkmate. A draw.' : 'ran out of time.' }].slice(-12);
+    return state;
   }
 
   function finishedFields(match, state, reason) {
@@ -245,6 +270,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     // Pool: a poll that already has the latest shot's recording (?have=<shot no>) skips it
     if (view?.shot && have !== null && String(view.shot.no) === have) view = { ...view, shot: { ...view.shot, start: null, frames: null } };
     return response(status, {
+      version: match.version,
       match: summary(match),
       seat: seat === -1 ? null : seat,
       view,
@@ -258,7 +284,9 @@ export async function handleGames(ctx, user, method, segments, body) {
     const seated = { ...match, players };
     const state = GAMES[match.game].init(rand, match.options, players.length);
     if (state.over) settle(seated, state, book, records);
-    const saved = await save(match, { players, status: 'active', invited: match.invited, startedAt: new Date().toISOString(), ...progress(seated, state) },
+    const timing = timingOf(match);
+    const clocks = timing.kind === 'clock' ? players.map(() => timing.base) : undefined;
+    const saved = await save(match, { players, status: 'active', invited: match.invited, startedAt: new Date().toISOString(), ...progress(seated, state, 'game', false, clocks) },
       [...extraItems, ...book.items(), ...records], messages);
     if (saved.statusCode) return saved;
     // Everyone else hears it has started; a game played counts toward the group's level
@@ -295,6 +323,10 @@ export async function handleGames(ctx, user, method, segments, body) {
       if (!Number.isInteger(seats) || seats < 2 || seats > maxSeats) {
         return response(400, { error: maxSeats > 2 ? `${GAMES[game].name} is for 2 to ${maxSeats} players.` : `${GAMES[game].name} is for 2 players.` });
       }
+      const time = body.time ?? defaultTime(game);
+      const timing = typeof time === 'string' && Object.hasOwn(TIME_CHOICES, time) ? TIME_CHOICES[time] : null;
+      if (!timing) return response(400, { error: 'Pick a time limit.' });
+      if (timing.kind === 'clock' && (!CLOCK_GAMES.includes(game) || seats !== 2)) return response(400, { error: 'Chess clocks are for chess.' });
       let options;
       try { options = GAMES[game].options(body.options); } catch (err) {
         if (err instanceof GameError) return response(400, { error: err.message });
@@ -320,7 +352,7 @@ export async function handleGames(ctx, user, method, segments, body) {
       const now = new Date().toISOString();
       const match = {
         matchId: `${Date.now()}-${randomInt(36 ** 6).toString(36)}`,
-        groupId, game, stake, seats, options, status: 'open', invited,
+        groupId, game, stake, seats, options, time, status: 'open', invited,
         players: [{ ...publicPlayer(user), paid: checks.paid, joinedAt: now }],
         state: null, version: 0, createdAt: now, updatedAt: now,
       };
@@ -356,6 +388,10 @@ export async function handleGames(ctx, user, method, segments, body) {
 
   if (method === 'GET' && !action) {
     if (seat === -1 && !(await membership(match.groupId, user.userId))) return response(404, { error: 'Game not found.' });
+    // A poll for a match that hasn't changed since ?v=<version> gets a short answer
+    if (typeof ctx.query?.v === 'string' && ctx.query.v === String(match.version)) {
+      return response(200, { same: true, version: match.version, now: Date.now() });
+    }
     return matchResponse(match, 200, typeof ctx.query?.have === 'string' ? ctx.query.have : null);
   }
   if (method !== 'POST') return response(404, { error: 'Route not found.' });
@@ -437,6 +473,23 @@ export async function handleGames(ctx, user, method, segments, body) {
 
   if (action === 'move') {
     if (match.state.turn !== seat) return response(409, { error: 'It\'s not your turn.' });
+    // A chess clock: charge the time this turn took; a flag that fell loses
+    const timing = timingOf(match);
+    let clocks = match.clocks;
+    if (timing.kind === 'clock' && clocks && clockRunning(match.state)) {
+      const used = Math.max(0, Date.now() - (match.turnStartedAt ?? Date.now()) - CLOCK_LAG_MS);
+      const left = clocks[seat] - used;
+      clocks = clocks.map((c, i) => (i === seat ? Math.max(0, left) + (left > 0 ? timing.inc : 0) : c));
+      if (left <= 0) {
+        const lost = lostOnTime(match, seat);
+        const book = ledger();
+        const records = [];
+        settle(match, lost, book, records);
+        const saved = await save(match, progress(match, lost, 'timeout', false, clocks), [...book.items(), ...records]);
+        if (saved.statusCode) return saved;
+        return matchResponse(saved);
+      }
+    }
     let state;
     try { state = GAMES[match.game].apply(match.state, seat, body.move, rand); } catch (err) {
       if (err instanceof GameError) return response(400, { error: err.message });
@@ -445,7 +498,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     const book = ledger();
     const records = [];
     if (state.over) settle(match, state, book, records);
-    const saved = await save(match, progress(match, state), [...book.items(), ...records]);
+    const saved = await save(match, progress(match, state, 'game', false, clocks), [...book.items(), ...records]);
     if (saved.statusCode) return saved;
     return matchResponse(saved);
   }
@@ -458,10 +511,14 @@ export async function handleGames(ctx, user, method, segments, body) {
     const reason = action === 'resign' ? 'resign' : 'timeout';
     let state;
     let keepClock = false;
-    if (match.players.length === 2) {
+    let clocks = match.clocks;
+    if (match.players.length === 2 && action === 'claim') {
+      // Their time ran out: the claimer wins (or, in chess, a draw if they can't mate)
+      state = lostOnTime(match, match.state.turn);
+      if (clocks && timingOf(match).kind === 'clock' && clockRunning(match.state)) clocks = clocks.map((c, i) => (i === match.state.turn ? 0 : c));
+    } else if (match.players.length === 2) {
       // Two players: the other one wins
-      const winner = action === 'resign' ? 1 - seat : seat;
-      state = { ...match.state, over: true, turn: null, winner, draw: false };
+      state = { ...match.state, over: true, turn: null, winner: 1 - seat, draw: false };
     } else {
       // A bigger table: just that player is out, and the rest play on
       const leaving = action === 'resign' ? seat : match.state.turn;
@@ -471,7 +528,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     const book = ledger();
     const records = [];
     if (state.over) settle(match, state, book, records);
-    const saved = await save(match, progress(match, state, reason, keepClock), [...book.items(), ...records]);
+    const saved = await save(match, progress(match, state, reason, keepClock, clocks), [...book.items(), ...records]);
     if (saved.statusCode) return saved;
     return matchResponse(saved);
   }

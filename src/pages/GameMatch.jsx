@@ -8,23 +8,26 @@ import Avatar from '../components/common/Avatar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { BOARDS } from '../components/games/Boards';
 import { StakeBadge } from '../components/games/GroupGames';
-import { GAME_BY_ID, clock, gameTile, seatsOf, logText } from '../components/games/gameInfo';
+import { GAME_BY_ID, TIME_BY_ID, CLOCK_LAG_MS, clock, timeLabel, gameTile, seatsOf, logText } from '../components/games/gameInfo';
 import '../components/games/games.css';
 
 // How often to check for the other player's move. Faster while waiting on
-// them; slower on your own turn (only a resign or timeout claim can land then).
-const POLL_THEIRS = 2000;
+// them (fastest against a chess clock); slower on your own turn (only a
+// resign or timeout claim can land then). A poll for a match that hasn't
+// changed gets a tiny answer, so these stay cheap.
+const POLL_THEIRS = 1500;
+const POLL_CLOCK  = 800;
 const POLL_MINE   = 8000;
 const POLL_OPEN   = 4000;
 
-function useNow(active) {
+function useNow(active, every = 1000) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!active) return undefined;
     setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(Date.now()), every);
     return () => clearInterval(t);
-  }, [active]);
+  }, [active, every]);
   return now;
 }
 
@@ -184,36 +187,54 @@ export default function GameMatch() {
     }
   }, [data]);
 
+  const version = useRef(null); // the match version on screen
   const apply = useCallback(result => {
     offset.current = (result.now ?? Date.now()) - Date.now();
+    if (result.same) return;      // nothing changed since the version we show
     if (result.view?.shot?.frames) shotNo.current = result.view.shot.no;
+    version.current = result.version ?? null;
     setData(result);
   }, []);
 
   const load = useCallback(async () => {
     try {
-      apply(await api.getGame(matchId, shotNo.current));
+      apply(await api.getGame(matchId, shotNo.current, version.current));
       setError('');
     } catch (err) {
       setError(err.message);
     }
   }, [matchId, apply]);
 
-  useEffect(() => { setData(null); shotNo.current = null; load(); }, [load]);
+  useEffect(() => { setData(null); shotNo.current = null; version.current = null; load(); }, [load]);
 
   const match = data?.match;
   const seat = data?.seat ?? null;
   const live = match?.status === 'active' || match?.status === 'open';
   const myTurn = match?.status === 'active' && match.turnUserId === user?.userId;
+  const timing = TIME_BY_ID[match?.time] ?? null;
+  const chessClock = timing?.kind === 'clock' && Array.isArray(match?.clocks);
 
   useEffect(() => {
     if (!live) return undefined;
-    const every = match.status === 'open' ? POLL_OPEN : myTurn ? POLL_MINE : POLL_THEIRS;
+    const every = match.status === 'open' ? POLL_OPEN : myTurn ? POLL_MINE : chessClock ? POLL_CLOCK : POLL_THEIRS;
     const t = setInterval(() => { if (!document.hidden && !busy) load(); }, every);
     return () => clearInterval(t);
-  }, [live, match?.status, myTurn, busy, load]);
+  }, [live, match?.status, myTurn, chessClock, busy, load]);
 
-  const now = useNow(match?.status === 'active');
+  const now = useNow(match?.status === 'active', chessClock ? 100 : 1000);
+
+  // Against a chess clock, a flag that falls ends the game by itself: the
+  // waiting player's page claims it as soon as the server will agree
+  const claimed = useRef(null);
+  const serverNow = now + offset.current;
+  const flagFell = chessClock && match.status === 'active' && match.deadline && serverNow - match.deadline > 300;
+  const mySeat = data?.seat ?? null;
+  const shownVersion = data?.version;
+  useEffect(() => {
+    if (!flagFell || myTurn || mySeat === null || busy || claimed.current === shownVersion) return;
+    claimed.current = shownVersion;
+    api.gameAction(matchId, 'claim').then(apply).catch(() => load());
+  }, [flagFell, myTurn, mySeat, busy, shownVersion, matchId, apply, load]);
 
   async function run(request) {
     setBusy(true);
@@ -248,7 +269,13 @@ export default function GameMatch() {
   const many = seats > 2;
   const imOut = seat !== null && !!match.outUserIds?.includes(user?.userId);
   const left = match.deadline ? match.deadline - (now + offset.current) : null;
-  const canClaim = match.status === 'active' && seat !== null && !imOut && !myTurn && left !== null && left <= 0;
+  // Each player's clock, ticking for whoever is on turn
+  const clocks = chessClock ? match.clocks.map((ms, s) => {
+    if (match.status !== 'active' || !match.clockRunning || players[s]?.userId !== match.turnUserId) return ms;
+    return Math.max(0, ms - Math.max(0, now + offset.current - match.turnStartedAt - CLOCK_LAG_MS));
+  }) : null;
+  const showTurnTimer = !(chessClock && match.clockRunning);
+  const canClaim = match.status === 'active' && seat !== null && !imOut && !myTurn && left !== null && left <= 0 && !flagFell;
   const invitedMe = match.status === 'open' && match.invited?.userId === user?.userId;
   const canAccept = match.status === 'open' && seat === null && players.length < seats && (!match.invited || invitedMe);
   const turnName = players.find(p => p.userId === match.turnUserId)?.displayName ?? 'Someone';
@@ -274,7 +301,10 @@ export default function GameMatch() {
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={gameTile(match.game)}>
             <Icon size={20} className="text-white" aria-hidden="true" />
           </div>
-          <h1 className="text-lg font-bold text-[var(--text-primary)] flex-1">{info?.name ?? match.game}</h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-[var(--text-primary)] leading-tight">{info?.name ?? match.game}</h1>
+            {match.time && <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><Timer size={12} aria-hidden="true" /> {timeLabel(match.time)}</p>}
+          </div>
           <StakeBadge stake={match.stake} />
         </div>
 
@@ -337,7 +367,11 @@ export default function GameMatch() {
           <p className={`flex items-center justify-center gap-1.5 text-sm font-semibold ${myTurn ? 'text-aura-400' : 'text-[var(--text-secondary)]'}`} aria-live="polite">
             <Timer size={15} aria-hidden="true" />
             {myTurn ? 'Your turn' : seat === null || many ? `${turnName}'s turn` : 'Their turn'}
-            {left !== null && <span className="tabular-nums font-normal text-[var(--text-muted)]">· {left > 0 ? clock(left) : 'time\'s up'}</span>}
+            {left !== null && showTurnTimer && (
+              <span className="tabular-nums font-normal text-[var(--text-muted)]">
+                · {left > 0 ? `${chessClock ? 'first move ' : ''}${clock(left)}` : 'time\'s up'}
+              </span>
+            )}
           </p>
         )}
         {match.status === 'finished' && revealing && (
@@ -430,8 +464,8 @@ export default function GameMatch() {
 
       {view && Board && (
         <section className="card p-3 sm:p-4" aria-label="Game board">
-          <Board view={view} seat={seat} players={players} busy={busy} myTurn={myTurn}
-            move={m => run(() => api.gameMove(match.matchId, m))} />
+          <Board view={view} seat={seat} players={players} busy={busy} myTurn={myTurn} clocks={clocks}
+            live={match.status === 'active'} move={m => run(() => api.gameMove(match.matchId, m))} />
         </section>
       )}
 

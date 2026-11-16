@@ -374,6 +374,17 @@ section.game-result-win { animation: game-win-glow 2.6s ease-in-out infinite; }
 .chess-black { color: #141416; text-shadow: 0 0 1px rgba(255, 255, 255, .55), 0 2px 3px rgba(0, 0, 0, .4); }
 .chess-land { animation: chess-land .35s cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes chess-land { from { transform: scale(.6); opacity: .4; } }
+.chess-frame { --chess-arrow: rgba(22, 163, 74, .78); }
+.chess-slide { animation: chess-slide .18s cubic-bezier(.25, .8, .35, 1) both; z-index: 2; }
+@keyframes chess-slide { from { transform: translate(var(--dx), var(--dy)); } }
+.chess-premove::before { content: ''; position: absolute; inset: 0; background: rgba(56, 189, 248, .42); }
+.chess-drag { transform: translate(-50%, -50%) scale(1.2); filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45)); }
+.chess-clock { min-width: 4.4rem; padding: 3px 8px; border-radius: 8px; text-align: right; font-size: 1.05rem; font-weight: 700;
+  background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); flex-shrink: 0; }
+.chess-clock-on { background: var(--text-primary); color: var(--bg-card); border-color: var(--text-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-primary) 15%, transparent); }
+.chess-clock-low { background: #dc2626; color: #fff; border-color: #dc2626; animation: chess-low 1s ease-in-out infinite; }
+@keyframes chess-low { 50% { box-shadow: 0 0 0 5px rgba(220, 38, 38, .25); } }
+@media (prefers-reduced-motion: reduce) { .chess-slide, .chess-clock-low { animation: none; } }
 
 /* ─── Crazy 8 ───────────────────────────────────────────────── */
 .c8-table {

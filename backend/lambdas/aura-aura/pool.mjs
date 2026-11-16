@@ -73,8 +73,11 @@ function inMouth(x, y, rail) {
   return rail === 'x' && Math.abs(y - H / 2) < SIDE_MOUTH;
 }
 
+const CAPTURE2 = CAPTURE * CAPTURE;
 function pocketed(x, y) {
-  for (const [px, py] of POCKETS) if (Math.hypot(x - px, y - py) < CAPTURE) return true;
+  // well inside the table, nothing can drop
+  if (x > CAPTURE && x < W - CAPTURE && y > 0 && y < H) return false;
+  for (const [px, py] of POCKETS) { const dx = x - px, dy = y - py; if (dx * dx + dy * dy < CAPTURE2) return true; }
   // A ball that slipped past the cushion line through a mouth has dropped
   return x < -R * 0.7 || x > W + R * 0.7 || y < -R * 0.7 || y > H + R * 0.7;
 }
@@ -126,14 +129,14 @@ export function simulate(balls, angle, power, spin = [0, 0]) {
       const p = pos[i];
       if (!p) continue;
       const v = vel[i], s = top[i];
-      const slip = [v[0] - s[0], v[1] - s[1]];
-      const slipSpeed = Math.hypot(slip[0], slip[1]);
-      const sp = Math.hypot(v[0], v[1]);
+      const slipX = v[0] - s[0], slipY = v[1] - s[1];
+      const slipSpeed = Math.sqrt(slipX * slipX + slipY * slipY);
+      const sp = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
       if (slipSpeed > STOP) {
         // Sliding: friction acts against the slip, slowing the ball and
         // winding its spin toward a natural roll
         moving = true;
-        const ux = slip[0] / slipSpeed, uy = slip[1] / slipSpeed;
+        const ux = slipX / slipSpeed, uy = slipY / slipSpeed;
         if (slipSpeed <= 3.5 * SLIDE * DT) {
           // it catches up this step and starts to roll
           v[0] -= ux * slipSpeed / 3.5; v[1] -= uy * slipSpeed / 3.5;
@@ -161,11 +164,12 @@ export function simulate(balls, angle, power, spin = [0, 0]) {
       if ((p[1] < R && v[1] < 0) || (p[1] > H - R && v[1] > 0)) {
         if (!inMouth(p[0], p[1], 'y')) { const into = p[1] < R ? 1 : -1; p[1] = into > 0 ? R : H - R; cushion(i, 1, into); }
       }
-      // The jaws: hard corners where the cushions end
-      for (const [jx, jy] of JAWS) {
+      // The jaws: hard corners where the cushions end (only near a rail)
+      if (p[0] < 2 * R || p[0] > W - 2 * R || p[1] < 2 * R || p[1] > H - 2 * R) for (const [jx, jy] of JAWS) {
         const dx = p[0] - jx, dy = p[1] - jy;
-        const dist = Math.hypot(dx, dy);
-        if (dist >= R || dist === 0) continue;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= R * R || d2 === 0) continue;
+        const dist = Math.sqrt(d2);
         const nx = dx / dist, ny = dy / dist;
         const vn = v[0] * nx + v[1] * ny;
         if (vn < 0) {
@@ -184,8 +188,10 @@ export function simulate(balls, angle, power, spin = [0, 0]) {
         if (!pos[j]) continue;
         const dx = pos[j][0] - pos[i][0];
         const dy = pos[j][1] - pos[i][1];
-        const dist = Math.hypot(dx, dy);
-        if (dist >= 2 * R || dist === 0) continue;
+        if (dx >= 2 * R || dx <= -2 * R || dy >= 2 * R || dy <= -2 * R) continue;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= 4 * R * R || d2 === 0) continue;
+        const dist = Math.sqrt(d2);
         const nx = dx / dist, ny = dy / dist;
         const closing = (vel[i][0] - vel[j][0]) * nx + (vel[i][1] - vel[j][1]) * ny;
         if (closing > 0) {

@@ -662,7 +662,8 @@ export const handler = async (event) => {
   if (!userId) return response(401, { error: 'Unauthorized' });
 
   try {
-    const limited = await firstLimit([userId, 'api', 120, 60]);
+    // The rate limit and the account load run side by side; the limit still decides first
+    const [limited, account] = await Promise.all([firstLimit([userId, 'api', 120, 60]), getAuraAccount(userId)]);
     if (limited) return limited;
 
     // Request bodies must be JSON objects; anything else is a 400, not a crash
@@ -678,7 +679,7 @@ export const handler = async (event) => {
       .map(s => { try { return decodeURIComponent(s); } catch { return null; } });
     if (segments.includes(null)) return response(404, { error: 'Route not found.' });
 
-    const user = await getAuraAccount(userId);
+    const user = account;
     if (!user) return response(404, { error: 'User not found.' });
     if (user.isBanned) return response(403, { error: 'Account banned.' });
 

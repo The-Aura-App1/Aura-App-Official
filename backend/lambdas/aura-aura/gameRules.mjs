@@ -25,6 +25,28 @@ export class GameError extends Error {}
 // maxPlayers in src/components/games/gameInfo.js (a test checks).
 export const MAX_PLAYERS = { dice: 6, gofish: 5, poker: 6, crazy8: 4, golf: 4 };
 
+// Time limits a challenger can pick. A 'move' limit gives every turn the same
+// time, after which the others may claim it. A chess clock gives each player
+// a total (base) plus an increment after each of their moves; the clocks
+// start once both sides have moved, and a flag that falls loses the game.
+export const TIME_CHOICES = {
+  'm30':    { kind: 'move', ms: 30000 },
+  'm60':    { kind: 'move', ms: 60000 },
+  'm120':   { kind: 'move', ms: 120000 },
+  'm300':   { kind: 'move', ms: 300000 },
+  'm900':   { kind: 'move', ms: 900000 },
+  'c1+0':   { kind: 'clock', base: 60000, inc: 0 },
+  'c3+0':   { kind: 'clock', base: 180000, inc: 0 },
+  'c3+2':   { kind: 'clock', base: 180000, inc: 2000 },
+  'c5+0':   { kind: 'clock', base: 300000, inc: 0 },
+  'c10+0':  { kind: 'clock', base: 600000, inc: 0 },
+  'c15+10': { kind: 'clock', base: 900000, inc: 10000 },
+};
+export const CLOCK_GAMES = ['chess'];
+export const defaultTime = game => (CLOCK_GAMES.includes(game) ? 'c10+0' : 'm120');
+// Each turn's first half second isn't charged, for the trip to the server and back
+export const CLOCK_LAG_MS = 500;
+
 const fail = message => { throw new GameError(message); };
 const other = seat => 1 - seat;
 const clone = value => JSON.parse(JSON.stringify(value));

@@ -4,7 +4,7 @@ import { Swords, Sparkles, X } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
-import { GAME_LIST, GAME_BY_ID, STAKE_CAP, statusText, gameTile, seatsOf } from './gameInfo';
+import { GAME_LIST, GAME_BY_ID, STAKE_CAP, TIME_CHOICES, CLOCK_GAMES, defaultTime, statusText, gameTile, seatsOf } from './gameInfo';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
 const REFRESH_MS = 10000;
@@ -26,10 +26,14 @@ function ChallengeForm({ groupId, onClose }) {
   const [opponent, setOpponent] = useState('');
   const [seats, setSeats]       = useState(2);
   const [holes, setHoles]       = useState(5);
+  const [times, setTimes]       = useState({});     // the time picked for each game
   const [busy, setBusy]         = useState(false);
   const [error, setError]       = useState('');
   const maxSeats = GAME_BY_ID[game]?.maxPlayers ?? 2;
   const table = Math.min(seats, maxSeats);   // switching to a two-player game drops back to 2
+  const time = times[game] ?? defaultTime(game);
+  const clocks = CLOCK_GAMES.includes(game);
+  const pickedTime = TIME_CHOICES.find(t => t.id === time);
 
   async function submit(e) {
     e.preventDefault();
@@ -38,7 +42,7 @@ function ChallengeForm({ groupId, onClose }) {
     setBusy(true);
     try {
       const result = await api.createGame(groupId, {
-        game, stake, seats: table, opponent: table === 2 ? opponent.trim() || undefined : undefined,
+        game, stake, seats: table, time, opponent: table === 2 ? opponent.trim() || undefined : undefined,
         options: game === 'coinflip' ? { call } : game === 'golf' ? { holes } : undefined,
       });
       navigate(`/games/${encodeURIComponent(result.match.matchId)}`);
@@ -104,6 +108,37 @@ function ChallengeForm({ groupId, onClose }) {
           <p className="text-xs text-[var(--text-muted)] mt-2">Every hole is new and random, with sand, ice, slopes, water and bumpers, and every one can be beaten.</p>
         </fieldset>
       )}
+
+      <fieldset>
+        <legend className="text-xs font-semibold text-[var(--text-muted)] mb-2">{clocks ? 'Time control' : 'Time for each turn'}</legend>
+        {clocks && (
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {TIME_CHOICES.filter(t => t.kind === 'clock').map(t => (
+              <button key={t.id} type="button" aria-pressed={time === t.id} onClick={() => setTimes(v => ({ ...v, [game]: t.id }))}
+                className={`flex flex-col items-center py-1.5 rounded-lg border
+                  ${time === t.id ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+                <span className="text-sm font-semibold tabular-nums">{t.label}</span>
+                <span className="text-[10px] text-[var(--text-muted)]">{t.note}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {clocks && <p className="text-[11px] text-[var(--text-muted)] mb-1.5">Or a limit on each move:</p>}
+        <div className="flex flex-wrap gap-2">
+          {TIME_CHOICES.filter(t => t.kind === 'move').map(t => (
+            <button key={t.id} type="button" aria-pressed={time === t.id} onClick={() => setTimes(v => ({ ...v, [game]: t.id }))}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border tabular-nums
+                ${time === t.id ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-[var(--text-muted)] mt-2">
+          {pickedTime?.kind === 'clock'
+            ? `Each player has ${pickedTime.base / 60000} minute${pickedTime.base === 60000 ? '' : 's'} for the whole game${pickedTime.inc ? `, plus ${pickedTime.inc / 1000} seconds back after each move` : ''}. Run out and you lose.`
+            : `Each turn has ${pickedTime?.label}. When it runs out, the others can claim it.`}
+        </p>
+      </fieldset>
 
       {maxSeats > 2 && (
         <fieldset>

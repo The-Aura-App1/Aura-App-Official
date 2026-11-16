@@ -244,6 +244,12 @@ export function makeChess({ fail, clone, log, finish }) {
       s.turn = 1 - seat;
       return s;
     },
+    // Whether a seat still has the pieces to checkmate (a flag only wins if so)
+    canWin(state, seat) {
+      const color = seat === state.white ? 'w' : 'b';
+      const left = [...state.board].filter(p => p !== '.' && colorOf(p) === color && p.toLowerCase() !== 'k');
+      return !(left.length === 0 || (left.length === 1 && 'nb'.includes(left[0].toLowerCase())));
+    },
     view(state, seat) {
       const mine = (seat === 0 || seat === 1) && state.turn === seat && !state.over;
       return {

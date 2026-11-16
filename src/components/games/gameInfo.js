@@ -28,9 +28,44 @@ export const STAKE_CAP = { regular: 500, premium: 2000 };
 
 export const TURN_SECONDS = 120;
 
+// Time limits to pick from when setting up a game; ids and kinds match
+// TIME_CHOICES in gameRules.mjs (a test keeps them equal). Chess clocks are
+// chess only. CLOCK_LAG_MS matches the server's: each turn's first half
+// second isn't charged.
+export const TIME_CHOICES = [
+  { id: 'm30',    kind: 'move',  label: '30 sec', note: 'a move' },
+  { id: 'm60',    kind: 'move',  label: '1 min',  note: 'a move' },
+  { id: 'm120',   kind: 'move',  label: '2 min',  note: 'a move' },
+  { id: 'm300',   kind: 'move',  label: '5 min',  note: 'a move' },
+  { id: 'm900',   kind: 'move',  label: '15 min', note: 'a move' },
+  { id: 'c1+0',   kind: 'clock', label: '1 min',  note: 'Bullet',   base: 60000,  inc: 0 },
+  { id: 'c3+0',   kind: 'clock', label: '3 min',  note: 'Blitz',    base: 180000, inc: 0 },
+  { id: 'c3+2',   kind: 'clock', label: '3 | 2',  note: 'Blitz',    base: 180000, inc: 2000 },
+  { id: 'c5+0',   kind: 'clock', label: '5 min',  note: 'Blitz',    base: 300000, inc: 0 },
+  { id: 'c10+0',  kind: 'clock', label: '10 min', note: 'Rapid',    base: 600000, inc: 0 },
+  { id: 'c15+10', kind: 'clock', label: '15 | 10', note: 'Rapid',   base: 900000, inc: 10000 },
+];
+export const TIME_BY_ID = Object.fromEntries(TIME_CHOICES.map(t => [t.id, t]));
+export const CLOCK_GAMES = ['chess'];
+export const defaultTime = game => (CLOCK_GAMES.includes(game) ? 'c10+0' : 'm120');
+export const CLOCK_LAG_MS = 500;
+
+// A short name for a match's time limit: "3 | 2" or "1 min a move"
+export function timeLabel(id) {
+  const t = TIME_BY_ID[id];
+  if (!t) return '2 min a move';
+  return t.kind === 'clock' ? `${t.note} ${t.label}` : `${t.label} a move`;
+}
+
 export function clock(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// A chess clock's face: tenths under 10 seconds, like a real one
+export function clockFace(ms) {
+  if (ms > 0 && ms < 10000) return `0:0${(Math.floor(ms / 100) / 10).toFixed(1)}`;
+  return clock(ms);
 }
 
 export const seatsOf = match => match.seats ?? 2;
