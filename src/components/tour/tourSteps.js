@@ -40,8 +40,8 @@ export const TOUR_STEPS = [
   {
     id: 'write', route: '/create', target: 'post-caption', handsOn: true, waitFor: 'aura:post-created',
     title: 'Say hello',
-    body: 'Write something, like who you are or what you’re into, then tap Share Post at the bottom. Topics, photos and the rest are optional.',
-    typing: 'Tap Share Post when you’re ready.',
+    body: 'Write something, like who you are or what you’re into, then tap Next. You can style it and add stickers, then Share on the last step. All of that is optional.',
+    typing: 'Tap Next, then Share when you’re ready.',
     next: 'I’ll post later',
   },
   {

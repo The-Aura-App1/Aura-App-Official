@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FeedVideo from './FeedVideo';
+import PostOverlays from './PostOverlays';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
 
@@ -12,14 +13,15 @@ const FEED_ASPECT = [4 / 5, 1.91];
 export default function PostMedia({ post, seekable = false, maxHeight, className = '' }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [aspect, setAspect] = useState(1);
-  const keys = post.mediaKeys ?? [];
+  // previewUrls: local files being posted (the composer's preview), in place of uploaded keys
+  const keys = post.previewUrls ?? post.mediaKeys ?? [];
 
   if (!keys.length) return null;
 
   const isMultiple = keys.length > 1;
   const isVideo    = post.type === 'video';
   const currentKey = keys[currentIndex];
-  const url        = `${S3_URL}/${currentKey}`;
+  const url        = post.previewUrls ? currentKey : `${S3_URL}/${currentKey}`;
 
   const shape = !isVideo ? 1
     : maxHeight ? aspect
@@ -49,6 +51,9 @@ export default function PostMedia({ post, seekable = false, maxHeight, className
           loading="lazy"
         />
       )}
+
+      {/* Text, links and stickers placed on this photo or the video */}
+      <PostOverlays overlays={post.overlays} slide={isVideo ? 0 : currentIndex} />
 
       {/* Carousel controls */}
       {isMultiple && (

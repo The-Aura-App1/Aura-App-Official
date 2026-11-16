@@ -27,7 +27,7 @@
     "prebuild": "node scripts/copy-ort.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "test:games": "node backend/tests/gameRules.test.mjs && node backend/tests/gamesClock.test.mjs && node backend/tests/support.test.mjs && node backend/tests/groups.test.mjs && node backend/tests/premium.test.mjs && node backend/tests/bots.test.mjs --quick",
+    "test:games": "node backend/tests/gameRules.test.mjs && node backend/tests/gamesClock.test.mjs && node backend/tests/support.test.mjs && node backend/tests/groups.test.mjs && node backend/tests/premium.test.mjs && node backend/tests/overlays.test.mjs && node backend/tests/bots.test.mjs --quick",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

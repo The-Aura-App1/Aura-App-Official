@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { textCardStyle, captionStyle, frameStyle, loadPostFont } from '../../utils/postStyle';
+import PostOverlays from './PostOverlays';
 
 // How a post's `style` shows up. PostCard and the composer's live preview
 // both render through these, so what you design is what people see.
@@ -11,13 +12,14 @@ export function usePostFont(style) {
 
 // The body of a text post: a designed card when it has a background, plain
 // text in the chosen font/color/size otherwise
-export function TextBody({ text, style, groupBg = null, className = '' }) {
+export function TextBody({ text, style, groupBg = null, overlays = null, className = '' }) {
   usePostFont(style);
   const css = textCardStyle(style, text.length, groupBg);
   if (style?.bg) {
     return (
-      <div className={`mx-4 mb-1 rounded-xl px-6 py-8 min-h-[13rem] flex flex-col justify-center ${className}`} style={css}>
+      <div className={`relative mx-4 mb-1 rounded-xl px-6 py-8 min-h-[13rem] flex flex-col justify-center overflow-hidden ${className}`} style={css}>
         <p className="whitespace-pre-wrap break-words leading-snug" style={{ textShadow: '0 1px 2px rgba(0,0,0,.12)' }}>{text}</p>
+        {overlays?.length > 0 && <PostOverlays overlays={overlays} slide={0} />}
       </div>
     );
   }

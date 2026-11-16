@@ -96,7 +96,7 @@ test('typing shrinks the note out of the way, and posting carries on', async () 
   await settle();
   expect(title()).toBe('Say hello');
   fireEvent.focusIn(screen.getByText('post-caption'));
-  expect(screen.getByText('Tap Share Post when you’re ready.')).toBeInTheDocument();
+  expect(screen.getByText('Tap Next, then Share when you’re ready.')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
 
   await act(async () => { window.dispatchEvent(new CustomEvent('aura:post-created')); });

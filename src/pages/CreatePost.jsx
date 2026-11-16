@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Image, Video, Type, X, Upload, Sparkles, Users } from 'lucide-react';
+import { Image, Video, Type, X, Upload, Sparkles, Users, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
@@ -10,8 +10,16 @@ import { embedTexts, warmUpModel } from '../utils/embedClient';
 import shrinkImage from '../utils/shrinkImage';
 import { prefersReducedMotion } from '../utils/motion';
 import StylePicker from '../components/post/StylePicker';
+import OverlayEditor, { readyOverlays } from '../components/post/OverlayEditor';
+import PostMedia from '../components/post/PostMedia';
+import { TextBody, CaptionText, frameProps } from '../components/post/PostStyle';
 import { PERKS } from '../utils/powerUps';
 import { cleanStyle } from '../utils/postStyle';
+
+// Posting goes step by step, like Instagram: make it (write, or pick photos or
+// a video), edit it (place text, links, @mentions, #hashtags and emoji on it,
+// and style it), then share it (caption, topics, settings) with a live preview
+// of exactly how it will look in the feed.
 
 // Where the little sparks rise from as a new post drifts away
 const SPARKS = [12, 24, 37, 50, 63, 76, 88].map((left, i) => ({ left, delay: (i * 137) % 420 }));
@@ -21,6 +29,10 @@ const EMBED_TIMEOUT_MS = 15000;
 const MAX_IMAGES = 10;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;  // 20MB
 const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
+const FEED_ASPECT = [4 / 5, 1.91];        // the shapes PostMedia crops feed videos to
+
+const STEPS = ['create', 'edit', 'share'];
+const STEP_TITLES = { create: 'New post', edit: 'Edit', share: 'Share' };
 
 export default function CreatePost() {
   const navigate = useNavigate();
@@ -44,9 +56,13 @@ export default function CreatePost() {
       .catch(() => setGroupName(''));
   }, [groupId]);
 
+  const [step, setStep]             = useState('create');
   const [postType, setPostType]     = useState('text');
   const [caption, setCaption]       = useState('');
   const [look, setLook]             = useState({});   // fonts, colors, background, frame
+  const [overlays, setOverlays]     = useState([]);   // things placed on the post
+  const [slide, setSlide]           = useState(0);    // which photo is being edited or shown
+  const [videoAspect, setVideoAspect] = useState(1);
   const [topics, setTopics]         = useState([]);
   const [hashtags, setHashtags]     = useState([]);
   const [allowTakes, setAllowTakes] = useState(true);
@@ -65,6 +81,13 @@ export default function CreatePost() {
 
   const fileInputRef = useRef(null);
   const warmedRef    = useRef(false);
+  const topRef       = useRef(null);
+
+  const style   = cleanStyle(look, postType) ?? {};
+  const groupBg = style.bg?.startsWith('grp:') ? groupBackgrounds.find(b => `grp:${b.id}` === style.bg) : null;
+  // A text post only has a card to place things on once it has a background
+  const canPlace = postType !== 'text' || !!style.bg;
+  const placed   = canPlace ? overlays : [];
 
   // Start loading the on-device model once there's something to read, so it's
   // usually ready by the time the post is shared. Group posts skip the feed.
@@ -73,6 +96,9 @@ export default function CreatePost() {
     warmedRef.current = true;
     warmUpModel();
   }, [groupId, caption, topics, hashtags]);
+
+  // Each step starts at the top
+  useEffect(() => { topRef.current?.scrollIntoView?.({ block: 'start' }); }, [step]);
 
   async function captionEmbedding(tags) {
     const text = postEmbeddingText(caption, topics.map(topicLabel), tags);
@@ -87,41 +113,65 @@ export default function CreatePost() {
   }
 
   function handleTypeSelect(type) {
+    if (type === postType) return;
     setPostType(type);
     setFiles([]);
     setPreviews([]);
+    setOverlays([]);
+    setSlide(0);
     setError('');
   }
 
   function handleFileSelect(e) {
-    const selected = Array.from(e.target.files);
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = '';
     setError('');
+    if (!selected.length) return;
 
     if (postType === 'image') {
-      if (selected.length > MAX_IMAGES) {
-        setError(`Maximum ${MAX_IMAGES} images per post.`);
+      // Adding to what's already picked, like Instagram's multi-select
+      const all = [...files, ...selected];
+      if (all.length > MAX_IMAGES) {
+        setError(`Up to ${MAX_IMAGES} photos per post.`);
         return;
       }
-      for (const f of selected) {
-        if (f.size > MAX_IMAGE_SIZE) {
-          setError(`Each image must be under 20MB.`);
-          return;
-        }
+      if (selected.some(f => f.size > MAX_IMAGE_SIZE)) {
+        setError('Each photo must be under 20MB.');
+        return;
       }
-      setFiles(selected);
-      setPreviews(selected.map(f => URL.createObjectURL(f)));
+      setFiles(all);
+      setPreviews(prev => [...prev, ...selected.map(f => URL.createObjectURL(f))]);
     }
 
     if (postType === 'video') {
       const f = selected[0];
-      if (!f) return;
       if (f.size > MAX_VIDEO_SIZE) {
         setError('Video must be under 500MB.');
         return;
       }
       setFiles([f]);
       setPreviews([URL.createObjectURL(f)]);
+      setOverlays([]);
     }
+  }
+
+  // Removing a photo takes what was placed on it too, and shifts the rest
+  function removeFile(index) {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+    setOverlays(prev => prev.filter(o => o.slide !== index).map(o => (o.slide > index ? { ...o, slide: o.slide - 1 } : o)));
+    setSlide(s => (s > index ? s - 1 : s === index ? 0 : s));
+  }
+
+  // Moves a photo one place left or right, keeping what's placed on it
+  function moveFile(index, by) {
+    const to = index + by;
+    if (to < 0 || to >= files.length) return;
+    const swap = list => { const out = [...list]; [out[index], out[to]] = [out[to], out[index]]; return out; };
+    setFiles(swap);
+    setPreviews(swap);
+    setOverlays(prev => prev.map(o => (o.slide === index ? { ...o, slide: to } : o.slide === to ? { ...o, slide: index } : o)));
+    setSlide(to);
   }
 
   function toggleTopic(id) {
@@ -142,21 +192,36 @@ export default function CreatePost() {
     return list;
   }
 
-  function removeFile(index) {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => prev.filter((_, i) => i !== index));
+  // What stops this step from moving on, if anything
+  function blocker(at) {
+    if (at === 'create') {
+      if (postType === 'text' && !caption.trim()) return 'Write something first.';
+      if (postType !== 'text' && files.length === 0) return postType === 'image' ? 'Pick at least one photo.' : 'Pick a video.';
+    }
+    if (at === 'edit' || at === 'share') {
+      const ready = readyOverlays(placed);
+      if (ready.error) return ready.error;
+    }
+    return '';
+  }
+
+  function goNext() {
+    const problem = blocker(step);
+    if (problem) { setError(problem); return; }
+    setError('');
+    setStep(STEPS[STEPS.indexOf(step) + 1]);
+  }
+
+  function goBack() {
+    setError('');
+    if (step === 'create') navigate(doneUrl);
+    else setStep(STEPS[STEPS.indexOf(step) - 1]);
   }
 
   async function handleSubmit() {
-    if (postType === 'text' && !caption.trim()) {
-      setError('Write something first.');
-      return;
-    }
-    if (postType !== 'text' && files.length === 0) {
-      setError('Select at least one file.');
-      return;
-    }
-
+    const problem = blocker('create') || blocker('share');
+    if (problem) { setError(problem); return; }
+    const ready = readyOverlays(placed).overlays;
     const tags = commitHashtags();
     if (!tags) return;
     setLoading(true);
@@ -210,6 +275,7 @@ export default function CreatePost() {
         ...(embedding && { embedding }),
         allowTakes: allowTakes && !groupTakesOff,
         ...(cleanStyle(look, postType) && { style: cleanStyle(look, postType) }),
+        ...(ready.length && { overlays: ready }),
         ...(groupId ? { groupId } : { commentVisibility: whoCanComment }),
       });
 
@@ -228,282 +294,331 @@ export default function CreatePost() {
     }
   }
 
+  const stepIndex = STEPS.indexOf(step);
+  const isLast = step === 'share';
+  const mediaAspect = postType === 'video' ? Math.min(FEED_ASPECT[1], Math.max(FEED_ASPECT[0], videoAspect)) : 1;
+
   return (
     <>
     {sent && SPARKS.map(spark => (
       <span key={spark.left} className="aura-send-spark" aria-hidden="true"
         style={{ left: `${spark.left}%`, animationDelay: `${spark.delay}ms` }} />
     ))}
-    <div className={`max-w-lg mx-auto pb-8 ${sent ? 'aura-send-off' : ''}`}>
+    <div ref={topRef} className={`max-w-lg mx-auto pb-8 scroll-mt-24 ${sent ? 'aura-send-off' : ''}`}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">New Post</h1>
+      {/* Header: back, the step, and next (or share) */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <button onClick={goBack} aria-label={step === 'create' ? 'Cancel' : 'Back'}
+          className="p-2 -ml-2 rounded-lg text-[var(--text-muted)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)] transition-all">
+          {step === 'create' ? <X size={20} /> : <ArrowLeft size={20} />}
+        </button>
+        <div className="text-center min-w-0">
+          <h1 className="text-lg font-bold text-[var(--text-primary)]">{STEP_TITLES[step]}</h1>
           {groupId && (
-            <p className="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
-              <Users size={14} /> Posting to {groupName || 'group'}
+            <p className="text-xs text-[var(--text-muted)] flex items-center justify-center gap-1 truncate">
+              <Users size={12} /> {groupName || 'group'}
             </p>
           )}
         </div>
-        <button
-          onClick={() => navigate(doneUrl)}
-          aria-label="Cancel"
-          className="p-2 rounded-lg text-[var(--text-muted)]
-                     hover:bg-[var(--accent-subtle)] hover:text-[var(--accent)]
-                     transition-all duration-200"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      {/* Post type selector */}
-      <div className="grid grid-cols-3 gap-2 mb-6" data-tour="post-type">
-        {[
-          { type: 'text',  icon: Type,   label: 'Text'  },
-          { type: 'image', icon: Image,  label: 'Image' },
-          { type: 'video', icon: Video,  label: 'Video' },
-        ].map(({ type, icon: Icon, label }) => (
-          <button
-            key={type}
-            onClick={() => handleTypeSelect(type)}
-            className={`flex flex-col items-center gap-2 py-4 rounded-2xl
-                        border transition-all duration-200
-              ${postType === type
-                ? 'bg-aura-500/15 border-aura-500/50 text-aura-400'
-                : 'bg-[var(--bg-elevated)] border-[var(--border)] text-[var(--text-muted)] hover:border-aura-500/30'
-              }`}
-          >
-            <Icon size={22} />
-            <span className="text-xs font-medium">{label}</span>
+        {isLast ? (
+          <button onClick={handleSubmit} disabled={loading} className="px-3 py-1.5 rounded-lg text-sm font-bold text-aura-400 hover:bg-aura-500/10 disabled:opacity-50">
+            {loading ? '...' : 'Share'}
           </button>
-        ))}
-      </div>
-
-      {/* Media upload area */}
-      {postType !== 'text' && (
-        <div className="mb-4">
-          {previews.length === 0 ? (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-48 rounded-2xl border-2 border-dashed
-                         border-[var(--border)] hover:border-aura-500/50
-                         flex flex-col items-center justify-center gap-3
-                         text-[var(--text-muted)] hover:text-[var(--accent)]
-                         transition-all duration-200"
-            >
-              <Upload size={28} />
-              <p className="text-sm font-medium">
-                {postType === 'image'
-                  ? `Upload up to ${MAX_IMAGES} images`
-                  : 'Upload a video (max 90 seconds)'
-                }
-              </p>
-              <p className="text-xs">
-                {postType === 'image' ? 'JPEG, PNG, WEBP — 20MB each' : 'MP4, MOV — 500MB max'}
-              </p>
-            </button>
-          ) : (
-            <div className={`grid gap-2 mb-2
-              ${previews.length === 1 ? 'grid-cols-1' :
-                previews.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-              {previews.map((preview, i) => (
-                <div key={i} className="relative rounded-xl overflow-hidden"
-                     style={{ aspectRatio: '1/1' }}>
-                  {postType === 'video' ? (
-                    <video src={preview} className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={preview} alt="" className="w-full h-full object-cover" />
-                  )}
-                  <button
-                    onClick={() => removeFile(i)}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full
-                               bg-black/60 flex items-center justify-center
-                               text-white hover:bg-black/80 transition-all"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              {postType === 'image' && previews.length < MAX_IMAGES && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-xl border-2 border-dashed border-[var(--border)]
-                             hover:border-aura-500/50 flex items-center justify-center
-                             text-[var(--text-muted)] hover:text-[var(--accent)]
-                             transition-all duration-200"
-                  style={{ aspectRatio: '1/1' }}
-                >
-                  <Upload size={20} />
-                </button>
-              )}
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={postType === 'image' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
-            multiple={postType === 'image'}
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-        </div>
-      )}
-
-      {/* Caption */}
-      <div className="mb-4" data-tour="post-caption">
-        <textarea
-          value={caption}
-          onChange={e => setCaption(e.target.value)}
-          placeholder={postType === 'text' ? "What's on your mind?" : 'Add a caption...'}
-          rows={postType === 'text' ? 6 : 3}
-          maxLength={2200}
-          className="input resize-none"
-        />
-        <p className="text-xs text-[var(--text-muted)] text-right mt-1">
-          {caption.length} / 2200
-        </p>
-      </div>
-
-      <StylePicker style={look} onChange={setLook} postType={postType} caption={caption} isPremium={!!dbProfile?.isPremium} groupBackgrounds={groupBackgrounds} />
-
-      {!groupId && (
-        <div className="mb-4" data-tour="post-topics">
-          <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
-            Topics <span className="text-[var(--text-muted)] font-normal">({topics.length}/{MAX_POST_TOPICS}, optional)</span>
-          </p>
-          <p className="text-xs text-[var(--text-muted)] mb-2">Helps people who want more of these find your post.</p>
-          <div className="flex flex-wrap gap-2">
-            {TOPICS.map(topic => {
-              const selected = topics.includes(topic.id);
-              const full     = !selected && topics.length >= MAX_POST_TOPICS;
-              return (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => toggleTopic(topic.id)}
-                  disabled={full}
-                  aria-pressed={selected}
-                  className={`px-3 py-1 rounded-full border text-xs font-medium transition-all disabled:opacity-40
-                    ${selected
-                      ? 'bg-aura-500/20 border-aura-500/50 text-aura-400'
-                      : 'bg-[var(--bg-elevated)] border-[var(--border)] text-[var(--text-muted)] hover:border-aura-500/30'}`}>
-                  {topic.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mb-4">
-        <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
-          Hashtags <span className="text-[var(--text-muted)] font-normal">({hashtags.length}/{MAX_HASHTAGS}, optional)</span>
-        </p>
-        <p className="text-xs text-[var(--text-muted)] mb-2">Your own tags, like #jazz or #streetphoto. Separate them with spaces.</p>
-        <form onSubmit={e => { e.preventDefault(); commitHashtags(); }} className="flex gap-2">
-          <input
-            value={hashtagInput}
-            onChange={e => { setHashtagInput(e.target.value); setHashtagError(''); }}
-            disabled={hashtags.length >= MAX_HASHTAGS}
-            placeholder={hashtags.length >= MAX_HASHTAGS ? 'Hashtag limit reached' : 'Add a hashtag'}
-            aria-label="Hashtags"
-            className="input flex-1 min-w-0 py-1.5 text-sm"
-          />
-          <button type="submit" disabled={!hashtagInput.trim()}
-            className="px-3 rounded-xl text-xs font-semibold bg-aura-500/15 text-aura-400 border border-aura-500/30 disabled:opacity-40">
-            Add
+        ) : (
+          <button onClick={goNext} className="px-3 py-1.5 rounded-lg text-sm font-bold text-aura-400 hover:bg-aura-500/10" data-tour="post-next">
+            Next
           </button>
-        </form>
-        {hashtagError && <p className="text-xs text-red-400 mt-2">{hashtagError}</p>}
-        {hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {hashtags.map(tag => (
-              <span key={tag}
-                className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-full border text-xs font-medium bg-aura-500/20 border-aura-500/50 text-aura-400">
-                #{tag}
-                <button
-                  type="button"
-                  onClick={() => setHashtags(prev => prev.filter(t => t !== tag))}
-                  aria-label={`Remove #${tag}`}
-                  className="p-0.5 rounded-full hover:bg-black/20">
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
         )}
       </div>
 
-      {/* Taking aura: chosen once, locked after posting */}
-      <div className="card mb-4 flex items-center justify-between gap-4" data-tour="post-takes">
-        <div>
-          <p className="text-sm font-medium text-[var(--text-primary)]">Allow others to take aura</p>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-            {groupTakesOff
-              ? 'Taking is turned off in this group.'
-              : "You can't change this after posting."}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={allowTakes && !groupTakesOff}
-          aria-label="Allow others to take aura"
-          disabled={groupTakesOff}
-          onClick={() => setAllowTakes(v => !v)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                      ${allowTakes && !groupTakesOff ? 'bg-aura-500' : 'bg-[var(--border)]'}`}>
-          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform
-                            ${allowTakes && !groupTakesOff ? 'translate-x-5' : 'translate-x-0.5'}`} />
-        </button>
-      </div>
+      {/* Where you are */}
+      <ol className="flex items-center gap-1.5 mb-5" aria-label="Steps">
+        {STEPS.map((s, i) => (
+          <li key={s} className={`h-1 flex-1 rounded-full transition-colors ${i <= stepIndex ? 'bg-aura-500' : 'bg-[var(--border)]'}`}
+            aria-current={s === step ? 'step' : undefined}>
+            <span className="sr-only">{STEP_TITLES[s]}</span>
+          </li>
+        ))}
+      </ol>
 
-      {/* Who can comment (not in groups, where members always can) */}
-      {!groupId && (
-        <div className="card mb-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-[var(--text-primary)]">Who can comment</p>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">Your default is in Settings › Privacy.</p>
+      {/* ── Step 1: make it ── */}
+      {step === 'create' && (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border)]" data-tour="post-type" role="radiogroup" aria-label="Post type">
+            {[
+              { type: 'text',  icon: Type,   label: 'Text'  },
+              { type: 'image', icon: Image,  label: 'Photos' },
+              { type: 'video', icon: Video,  label: 'Video' },
+            ].map(({ type, icon: Icon, label }) => (
+              <button key={type} role="radio" aria-checked={postType === type} onClick={() => handleTypeSelect(type)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all
+                  ${postType === type ? 'bg-aura-500/20 text-aura-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>
+                <Icon size={17} /> {label}
+              </button>
+            ))}
           </div>
-          <select value={whoCanComment} onChange={e => setCommentVisibility(e.target.value)}
-            aria-label="Who can comment" className="input w-auto py-2">
-            <option value="anyone">Anyone</option>
-            <option value="followers">Followers</option>
-          </select>
+
+          {postType === 'text' && (
+            <div data-tour="post-caption">
+              <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="What's on your mind?"
+                rows={8} maxLength={2200} autoFocus className="input resize-none text-base" aria-label="Your post" />
+              <p className="text-xs text-[var(--text-muted)] text-right mt-1">{caption.length} / 2200</p>
+            </div>
+          )}
+
+          {postType !== 'text' && (previews.length === 0 ? (
+            <button onClick={() => fileInputRef.current?.click()}
+              className="w-full aspect-square rounded-2xl border-2 border-dashed border-[var(--border)] hover:border-aura-500/50
+                         flex flex-col items-center justify-center gap-3 text-[var(--text-muted)] hover:text-[var(--accent)] transition-all">
+              <Upload size={32} />
+              <p className="text-sm font-semibold">{postType === 'image' ? `Pick up to ${MAX_IMAGES} photos` : 'Pick a video (up to 90 seconds)'}</p>
+              <p className="text-xs">{postType === 'image' ? 'JPEG, PNG, WEBP — 20MB each' : 'MP4, MOV — 500MB max'}</p>
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="relative w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: String(mediaAspect) }}>
+                {postType === 'video'
+                  ? <video src={previews[0]} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover"
+                      onLoadedMetadata={e => e.currentTarget.videoWidth && setVideoAspect(e.currentTarget.videoWidth / e.currentTarget.videoHeight)} />
+                  : <img src={previews[slide] ?? previews[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                {postType === 'video' && (
+                  <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-semibold">
+                    Change video
+                  </button>
+                )}
+              </div>
+              {postType === 'image' && (
+                <Thumbs previews={previews} slide={slide} onPick={setSlide} onRemove={removeFile} onMove={moveFile}
+                  onAdd={previews.length < MAX_IMAGES ? () => fileInputRef.current?.click() : null} />
+              )}
+            </div>
+          ))}
+
+          <input ref={fileInputRef} type="file" className="hidden"
+            accept={postType === 'image' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+            multiple={postType === 'image'} onChange={handleFileSelect} />
+        </div>
+      )}
+
+      {/* ── Step 2: edit it ── */}
+      {step === 'edit' && (
+        <div className="flex flex-col gap-4">
+          {canPlace ? (
+            <OverlayEditor overlays={overlays} onChange={setOverlays} slide={postType === 'image' ? slide : 0} aspect={postType === 'text' ? null : mediaAspect}>
+              {postType === 'text' && <TextBody text={caption} style={style} groupBg={groupBg} className="!mx-0 !mb-0" />}
+              {postType === 'image' && <img src={previews[slide]} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" draggable={false} />}
+              {postType === 'video' && <video src={previews[0]} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover pointer-events-none" />}
+            </OverlayEditor>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="rounded-xl border border-[var(--border)] py-3"><TextBody text={caption} style={style} groupBg={groupBg} className="!mx-3 !mb-0" /></div>
+              <p className="text-xs text-[var(--text-muted)] text-center">Pick a background below to place text, links and stickers on your card.</p>
+            </div>
+          )}
+          {postType === 'image' && previews.length > 1 && (
+            <Thumbs previews={previews} slide={slide} onPick={setSlide} counts={previews.map((_, i) => overlays.filter(o => o.slide === i).length)} />
+          )}
+          {postType === 'text' && (
+            <StylePicker bare style={look} onChange={setLook} postType={postType} caption={caption}
+              isPremium={!!dbProfile?.isPremium} groupBackgrounds={groupBackgrounds} />
+          )}
+        </div>
+      )}
+
+      {/* ── Step 3: share it ── */}
+      {step === 'share' && (
+        <div className="flex flex-col gap-4">
+          <PostPreview profile={dbProfile} postType={postType} caption={caption} style={style} groupBg={groupBg}
+            overlays={placed} previews={previews} />
+
+          {postType !== 'text' && (
+            <>
+              <div data-tour="post-caption">
+                <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="Write a caption..."
+                  rows={3} maxLength={2200} className="input resize-none" aria-label="Caption" />
+                <p className="text-xs text-[var(--text-muted)] text-right mt-1">{caption.length} / 2200</p>
+              </div>
+              <StylePicker style={look} onChange={setLook} postType={postType} caption={caption}
+                isPremium={!!dbProfile?.isPremium} groupBackgrounds={groupBackgrounds} />
+            </>
+          )}
+
+          {!groupId && (
+            <div data-tour="post-topics">
+              <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+                Topics <span className="text-[var(--text-muted)] font-normal">({topics.length}/{MAX_POST_TOPICS}, optional)</span>
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mb-2">Helps people who want more of these find your post.</p>
+              <div className="flex flex-wrap gap-2">
+                {TOPICS.map(topic => {
+                  const selected = topics.includes(topic.id);
+                  const full     = !selected && topics.length >= MAX_POST_TOPICS;
+                  return (
+                    <button key={topic.id} type="button" onClick={() => toggleTopic(topic.id)} disabled={full} aria-pressed={selected}
+                      className={`px-3 py-1 rounded-full border text-xs font-medium transition-all disabled:opacity-40
+                        ${selected
+                          ? 'bg-aura-500/20 border-aura-500/50 text-aura-400'
+                          : 'bg-[var(--bg-elevated)] border-[var(--border)] text-[var(--text-muted)] hover:border-aura-500/30'}`}>
+                      {topic.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
+              Hashtags <span className="text-[var(--text-muted)] font-normal">({hashtags.length}/{MAX_HASHTAGS}, optional)</span>
+            </p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Your own tags, like #jazz or #streetphoto. Separate them with spaces.</p>
+            <form onSubmit={e => { e.preventDefault(); commitHashtags(); }} className="flex gap-2">
+              <input value={hashtagInput} onChange={e => { setHashtagInput(e.target.value); setHashtagError(''); }}
+                disabled={hashtags.length >= MAX_HASHTAGS}
+                placeholder={hashtags.length >= MAX_HASHTAGS ? 'Hashtag limit reached' : 'Add a hashtag'}
+                aria-label="Hashtags" className="input flex-1 min-w-0 py-1.5 text-sm" />
+              <button type="submit" disabled={!hashtagInput.trim()}
+                className="px-3 rounded-xl text-xs font-semibold bg-aura-500/15 text-aura-400 border border-aura-500/30 disabled:opacity-40">
+                Add
+              </button>
+            </form>
+            {hashtagError && <p className="text-xs text-red-400 mt-2">{hashtagError}</p>}
+            {hashtags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {hashtags.map(tag => (
+                  <span key={tag} className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-full border text-xs font-medium bg-aura-500/20 border-aura-500/50 text-aura-400">
+                    #{tag}
+                    <button type="button" onClick={() => setHashtags(prev => prev.filter(t => t !== tag))} aria-label={`Remove #${tag}`}
+                      className="p-0.5 rounded-full hover:bg-black/20">
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Taking aura: chosen once, locked after posting */}
+          <div className="card flex items-center justify-between gap-4" data-tour="post-takes">
+            <div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">Allow others to take aura</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {groupTakesOff ? 'Taking is turned off in this group.' : "You can't change this after posting."}
+              </p>
+            </div>
+            <button type="button" role="switch" aria-checked={allowTakes && !groupTakesOff} aria-label="Allow others to take aura"
+              disabled={groupTakesOff} onClick={() => setAllowTakes(v => !v)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                          ${allowTakes && !groupTakesOff ? 'bg-aura-500' : 'bg-[var(--border)]'}`}>
+              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${allowTakes && !groupTakesOff ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          {/* Who can comment (not in groups, where members always can) */}
+          {!groupId && (
+            <div className="card flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Who can comment</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Your default is in Settings › Privacy.</p>
+              </div>
+              <select value={whoCanComment} onChange={e => setCommentVisibility(e.target.value)} aria-label="Who can comment" className="input w-auto py-2">
+                <option value="anyone">Anyone</option>
+                <option value="followers">Followers</option>
+              </select>
+            </div>
+          )}
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20
-                      rounded-xl px-4 py-2.5 mb-4">
-          {error}
-        </p>
+        <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2.5 mt-4" role="alert">{error}</p>
       )}
 
       {/* Upload progress */}
-      {uploadProgress && (
-        <p className="text-aura-400 text-sm text-center mb-4">{uploadProgress}</p>
-      )}
+      {uploadProgress && <p className="text-aura-400 text-sm text-center mt-4">{uploadProgress}</p>}
 
-      {/* Submit */}
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="btn-primary w-full"
-        data-tour="post-share"
-      >
-        {loading ? uploadProgress || 'Posting...' : (
-          <span className="flex items-center gap-2">
-            <Sparkles size={16} />
-            Share Post
-          </span>
+      {/* Next / Share */}
+      <div className="mt-5">
+        {isLast ? (
+          <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full" data-tour="post-share">
+            {loading ? uploadProgress || 'Posting...' : <span className="flex items-center gap-2"><Sparkles size={16} /> Share Post</span>}
+          </button>
+        ) : (
+          <button onClick={goNext} className="btn-primary w-full">
+            {step === 'create' ? 'Next: edit' : 'Next: share'}
+          </button>
         )}
-      </button>
+      </div>
     </div>
     </>
+  );
+}
+
+// The picked photos in a row: tap to choose one, move it left or right,
+// remove it, or add more. `counts` shows how many things sit on each.
+function Thumbs({ previews, slide, onPick, onRemove, onMove, onAdd, counts }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+      {previews.map((src, i) => (
+        <div key={src} className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 ${i === slide ? 'border-aura-500' : 'border-transparent'}`}>
+          <button type="button" onClick={() => onPick(i)} aria-label={`Photo ${i + 1}`} aria-pressed={i === slide} className="block w-full h-full">
+            <img src={src} alt="" className="w-full h-full object-cover" />
+          </button>
+          <span className="absolute bottom-1 left-1 px-1.5 rounded-full bg-black/60 text-white text-[10px] font-semibold pointer-events-none">
+            {i + 1}{counts?.[i] ? ` · ${counts[i]}✦` : ''}
+          </span>
+          {onRemove && (
+            <button type="button" onClick={() => onRemove(i)} aria-label={`Remove photo ${i + 1}`}
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80">
+              <X size={11} />
+            </button>
+          )}
+          {onMove && i === slide && previews.length > 1 && (
+            <div className="absolute bottom-1 right-1 flex gap-0.5">
+              {i > 0 && <button type="button" onClick={() => onMove(i, -1)} aria-label="Move left" className="w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"><ChevronLeft size={12} /></button>}
+              {i < previews.length - 1 && <button type="button" onClick={() => onMove(i, 1)} aria-label="Move right" className="w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"><ChevronRight size={12} /></button>}
+            </div>
+          )}
+        </div>
+      ))}
+      {onAdd && (
+        <button type="button" onClick={onAdd} aria-label="Add photos"
+          className="flex-shrink-0 w-20 h-20 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-aura-500/50 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--accent)]">
+          <Upload size={18} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The post as the feed will show it, built from the same pieces PostCard uses
+function PostPreview({ profile, postType, caption, style, groupBg, overlays, previews }) {
+  const frame = frameProps(style);
+  const name = profile?.displayName || profile?.username || 'You';
+  const fake = { type: postType, previewUrls: previews, overlays };
+  return (
+    <section aria-label="Preview">
+      <p className="aura-kicker mb-2">Preview</p>
+      <article className={`card p-0 overflow-hidden ${frame.className}`} style={frame.style}>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="w-9 h-9 rounded-full bg-aura-500/20 border border-aura-500/30 overflow-hidden flex items-center justify-center">
+            {profile?.profilePicKey
+              ? <img src={`https://aura-app-media-570934198135.s3.amazonaws.com/${profile.profilePicKey}`} alt="" className="w-full h-full object-cover" />
+              : <span className="text-aura-400 text-sm font-bold">{name[0]?.toUpperCase()}</span>}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{name}</p>
+            <p className="text-xs text-[var(--text-muted)]">Just now</p>
+          </div>
+        </div>
+        {postType !== 'text' && <PostMedia post={fake} />}
+        {postType === 'text' && <TextBody text={caption || ' '} style={style} groupBg={groupBg} overlays={overlays} />}
+        {postType !== 'text' && caption.trim() && (
+          <p className="px-4 py-3 text-sm text-[var(--text-primary)]"><span className="font-semibold mr-1">{profile?.username ?? 'you'}</span><CaptionText text={caption} style={style} /></p>
+        )}
+        {postType === 'text' && <div className="h-3" />}
+      </article>
+    </section>
   );
 }

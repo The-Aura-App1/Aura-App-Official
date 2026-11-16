@@ -205,7 +205,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         )}
 
         {/* ── Text post content ── */}
-        {post.type === 'text' && post.caption && <TextBody text={post.caption} style={post.style} groupBg={post.groupBg} />}
+        {post.type === 'text' && post.caption && <TextBody text={post.caption} style={post.style} groupBg={post.groupBg} overlays={post.overlays} />}
 
         {/* ── Action bar ── */}
         <div className="px-4 py-2 flex items-center justify-between">

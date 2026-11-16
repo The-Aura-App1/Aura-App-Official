@@ -244,3 +244,11 @@ test('group power-ups: the app shows the same prices, limits, XP and level curve
   expect(stats).toContain('export const levelFloor = level => 50 * level * (level - 1);');
   expect([1, 2, 3, 10].map(app.levelFloor)).toEqual([0, 100, 300, 4500]);
 });
+
+test('post overlay limits match aura-posts', () => {
+  const app = require('./utils/overlays');
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-posts', 'overlays.mjs'), 'utf8');
+  for (const name of ['MAX_OVERLAYS', 'OVERLAY_TEXT_MAX', 'OVERLAY_LABEL_MAX', 'OVERLAY_URL_MAX']) {
+    expect(Number(constant(server, name))).toBe(app[name]);
+  }
+});

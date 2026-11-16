@@ -52,9 +52,11 @@ function CustomColor({ value, onChange, label }) {
 const TABS = { text: ['Font', 'Background', 'Color', 'Size', 'Frame'], media: ['Font', 'Color', 'Frame'] };
 
 // groupBackgrounds: a level-10 group's own backgrounds, when posting in it
-export default function StylePicker({ style, onChange, postType, caption, isPremium, groupBackgrounds = [] }) {
+// bare: always open, no header and no preview of its own (the composer's
+// edit step shows the post itself as the preview)
+export default function StylePicker({ style, onChange, postType, caption, isPremium, groupBackgrounds = [], bare = false }) {
   const kind = postType === 'text' ? 'text' : 'media';
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(bare);
   const [tab, setTab] = useState('Font');
   const [fontCat, setFontCat] = useState('All');
   const [query, setQuery] = useState('');
@@ -76,15 +78,15 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
   const groupBg = current.bg?.startsWith('grp:') ? groupBackgrounds.find(b => `grp:${b.id}` === current.bg) : null;
 
   return (
-    <section className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]/40">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+    <section className={bare ? '' : 'mb-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]/40'}>
+      {!bare && <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-[var(--text-primary)]">
         <Palette size={16} className="text-aura-400" aria-hidden="true" />
         Customize the look
         {changed > 0 && <span className="aura-badge text-[10px]">{changed} change{changed === 1 ? '' : 's'}</span>}
         {STYLE_PREMIUM_ONLY && <span className="aura-badge text-[10px]">Premium</span>}
         <ChevronDown size={16} className={`ml-auto text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-      </button>
+      </button>}
 
       {open && locked && (
         <p className="flex items-center gap-2 px-3 pb-3 text-xs text-[var(--text-muted)]">
@@ -93,13 +95,13 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
       )}
 
       {open && !locked && (
-        <div className="flex flex-col gap-3 px-3 pb-3">
+        <div className={`flex flex-col gap-3 ${bare ? '' : 'px-3 pb-3'}`}>
           {/* Live preview, drawn the way the feed draws it */}
-          <div className={`card p-0 overflow-hidden ${frame.className}`} style={frame.style} aria-label="Preview">
+          {!bare && <div className={`card p-0 overflow-hidden ${frame.className}`} style={frame.style} aria-label="Preview">
             {kind === 'text'
               ? <div className="py-3"><TextBody text={sample} style={current} groupBg={groupBg} className="!mx-3 !mb-0" /></div>
               : <p className="px-4 py-3 text-sm text-[var(--text-primary)]"><span className="font-semibold mr-1">you</span><CaptionText text={sample} style={current} /></p>}
-          </div>
+          </div>}
 
           <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="Style settings">
             {tabs.map(t => (

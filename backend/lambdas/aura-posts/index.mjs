@@ -9,6 +9,7 @@ import { cleanText } from './text.mjs';
 import { canSeeAccount, hiddenAuthors, blockedBetween, eitherBlocked } from './privacy.mjs';
 import { addGroupXp, GROUP_STATS_TABLE, groupLevel, PERKS } from './groupStats.mjs';
 import { parseReaction, reactionKey, visibleCounts, MAX_PER_USER, MAX_KINDS } from './reactions.mjs';
+import { checkOverlays } from './overlays.mjs';
 import { checkStyle } from './postStyle.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
@@ -305,6 +306,13 @@ async function createPost(userId, body) {
   // The background's image and text color are copied onto the post, so it keeps its look
   const groupBg = styled.style?.bg?.startsWith('grp:')
     ? (group.backgrounds ?? []).find(b => `grp:${b.id}` === styled.style.bg) : null;
+  // Text, links, mentions, hashtags and emoji placed on the photos, the video,
+  // or a text post's card (only one with a background has a card to place them on)
+  if (body.overlays !== undefined && type === 'text' && !styled.style?.bg) {
+    return response(400, { error: 'Pick a background for your text post to put things on it.' });
+  }
+  const placed = checkOverlays(body.overlays, type === 'image' ? (mediaKeys?.length ?? 0) : 1, cleanText);
+  if (placed.error) return response(400, { error: placed.error });
 
   const postId = generateId();
   const now    = new Date().toISOString();
@@ -333,6 +341,7 @@ async function createPost(userId, body) {
     updatedAt:      now,
     ...(styled.style && { style: styled.style }),
     ...(groupBg && { groupBg: { key: groupBg.key, ink: groupBg.ink, name: groupBg.name } }),
+    ...(placed.overlays.length && { overlays: placed.overlays }),
     reactions:      {},
     ...(group && { groupId: group.groupId, groupName: group.name }),
     ...(!group && embedding && { embedding, embeddingModel: EMBED_MODEL }),

@@ -223,6 +223,24 @@
 - **Testing a level:** `node scripts/set-group-level.mjs --name "First Group" [--level N] [--write]` raises one group's XP (it never lowers it).
 - **Tests:** `backend/tests/groups.test.mjs` (part of `npm run test:games`).
 
+## Posting flow and post overlays (2026-11-16)
+
+- **Steps** (`src/pages/CreatePost.jsx`, Instagram style, as the user asked):
+  1. **Create:** pick Text, Photos or Video. Text posts are written here. Photos can be added in batches (up to 10), reordered and removed from a thumbnail strip.
+  2. **Edit:** the post itself is the canvas. Text posts style it here (`StylePicker bare`).
+  3. **Share:** a live preview drawn the way the feed draws it (`PostPreview`), then caption (photos and video, plus their style picker), topics, hashtags, taking and who can comment.
+  - Next and Share sit both in the header and at the bottom. Back keeps everything.
+  - The tour's "write" step still targets `post-caption` (step 1 for text).
+- **Overlays:** text, links, @mentions, #hashtags and emoji placed on a post, dragged anywhere and tapped to edit (`OverlayEditor.jsx`; color, size; text can be plain, filled or shaded).
+  - **Where they go:** on each photo of a carousel (`slide`), on the video, or on a text post's card, but only once it has a background (aura-posts refuses them otherwise).
+  - **Storage:** `overlays` on the post, `[{ kind, slide, x, y, size, color, text|url+label|username|tag|emoji, bg? }]`. x and y are the item's center as fractions of the media box, and sizes are in container units, so they land in the same spot on every screen.
+  - **Checks:** aura-posts `overlays.mjs` checks every field. At most 12; text up to 120 characters through `cleanText`; links only http(s) with a real host, no credentials, up to 300 characters, label up to 40; usernames and hashtags by pattern; one emoji (`isReactionEmoji`); colors as hex. Unknown fields are dropped.
+  - **Limits shared with the app:** `src/utils/overlays.js` (kept equal by a test).
+  - **In the feed:** `PostOverlays.jsx`, drawn in `PostMedia` (photos and video) and `TextBody` (text cards). Links show their domain or label and open in a new tab with `rel="noopener noreferrer nofollow ugc"`; mentions go to the profile, hashtags to search.
+  - **Set once:** overlays are fixed at posting, like `style`.
+  - **Video caveat:** feed videos are cropped to 4:5..1.91:1 while the post page shows the exact shape, so items on a cropped video can sit slightly differently there.
+  - **Tests:** `backend/tests/overlays.test.mjs` (in `npm run test:games`), `OverlayEditor.test.jsx`, `CreatePost.test.jsx`.
+
 ## Likes and shares
 
 - Likes: a free, private bookmark/reaction with no aura effect. They only shape the liker's own on-device feed learning, never anyone else's ranking. Posts, comments and Moments can be liked. The author always sees their own like count; nobody else does (strip likeCount for non-authors). The Liked tab is owner-only and re-checks visibility on every read. Likes don't notify. Only followers can like a private account's posts. Banned users can't like.
