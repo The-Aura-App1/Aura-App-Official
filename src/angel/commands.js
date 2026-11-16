@@ -79,6 +79,14 @@ function privacy(text, ctx) {
 export async function commandReply(raw, text, ctx) {
   // Questions get answers, not actions ("how do I make my account private?")
   if (/^(how|what|why|where|when|which|who|is|are|does|do|did|have|has|was|were|am|should|would|will|can i|could i|if)\b/.test(text)) return null;
+  // Save (or rename) the custom theme in use under any name: "save it as Midnight Drive"
+  const named = /^(?:please )?(?:(?:save|keep|store) (?:this|it|that|my|the)?\s*(?:custom )?(?:theme)?\s*(?:as|called|named)|(?:name|call|rename) (?:this|it|that|my)\s*(?:custom )?(?:theme)?\s*(?:to|as)?)\s+["“']?(.+?)["”']?[.!]?$/i.exec(raw.trim());
+  if (named) {
+    const name = named[1].trim().slice(0, 40);
+    if (!ctx.customTheme) return { kind: 'command', text: 'There\'s no custom theme on right now. Ask me to make one first, like "a calm theme with sage green".' };
+    return { kind: 'theme', text: `Saving your theme as "${name}"…`, autoAction: { id: 'save-theme', payload: { name } } };
+  }
+
   // Claim the daily bonus
   if (/\b(claim|collect|get|grab|redeem|take)\b.{0,16}\b(daily (bonus|aura|reward)|bonus)\b/.test(text)) {
     return { kind: 'command', text: 'Claiming your daily bonus…', autoAction: { id: 'daily-bonus' } };

@@ -67,12 +67,12 @@ export const KNOWLEDGE = [
   {
     id: 'themes', q: 'How do themes work?',
     keys: ['theme', 'themes', 'dark mode', 'light mode', 'scenery'],
-    a: 'Pick a theme in Settings > Appearance; each has its own colors and moving scenery, and you can turn the scenery off there. I can also make you a custom theme: tell me the colors, mood or font you want.',
+    a: 'Pick a theme in Settings > Appearance; each has its own colors and moving scenery, and you can turn the scenery off there. I can also make you a custom theme: tell me the colors, mood or font you want. You can save up to 20 custom themes with any names you like (say "save it as" and a name, or use Your themes in Settings > Appearance) and switch between them there.',
   },
   {
     id: 'premium', q: 'What does Premium include?',
-    keys: ['premium', 'subscription', 'upgrade', 'subscribe', 'ad free', 'ad-free'],
-    a: 'Premium is $4.99 a month: an ad-free feed, more daily aura and higher limits, and a username change once a day. Aura itself is never sold for money.',
+    keys: ['premium', 'subscription', 'upgrade', 'subscribe', 'ad free', 'ad-free', 'creator account', 'creator', 'pro'],
+    a: 'Premium is $4.99 a month: 1,000 free aura a day instead of 250, higher give, take and game limits, no ads, 5 free group boosts a month, your groups\' reaction pins on any post, and a username change once a day. A creator account is $20 a year, for cashing out earned aura later (once that launches), verification, analytics and share counts. The Premium page lists everything. Aura itself is never sold for money.',
   },
   {
     id: 'ads', q: 'Why do I see ads?',
@@ -247,7 +247,7 @@ export const KNOWLEDGE_LINKS = {
   limits: { to: '/wallet', label: 'Open Aura Wallet' },
   wallet: { to: '/wallet', label: 'Open Aura Wallet' },
   ads: { to: '/wallet', label: 'Watch an ad in my wallet' },
-  premium: { to: '/wallet', label: 'Open Aura Wallet' },
+  premium: { to: '/premium', label: 'See Premium' },
   'feedback-page': { to: '/feedback', label: 'Open Suggestions & Reviews' },
   support: { to: '/feedback', label: 'Open Suggestions & Reviews' },
   tour: { to: '/?tour=1', label: 'Start the tour' },

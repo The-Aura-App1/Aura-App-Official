@@ -11,7 +11,7 @@ import { reasonLabel, announceBlocked } from '../utils/reportReasons';
 import { defaultNotificationPrefs } from '../utils/notificationOptions';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
 import { loadPrefs, savePrefs, clearPrefs, setTopics, addKeyword, hasKeyword, MAX_KEYWORDS } from '../utils/feedPrefs';
-import { saveCustom, customVars } from '../themes/customTheme';
+import { saveCustom, customVars, loadCustom, saveTheme, renameSavedTheme, loadSavedThemes } from '../themes/customTheme';
 import { getTheme } from '../themes';
 import { loadTaste, prepareTaste, isLearningOn } from '../utils/tasteProfile';
 import { fontFamily, loadPostFont } from '../utils/postStyle';
@@ -158,7 +158,7 @@ export default function Angel() {
         // their own app state, all already on this device
         me: dbProfile, currentThemeId: themeId, skyDetails,
         taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
-        flow, lookupUser, lookupPost,
+        flow, lookupUser, lookupPost, customTheme: loadCustom(),
       });
       if (reply.theme) lastTheme.current = reply.theme;
       lastKind.current = reply.kind;
@@ -297,7 +297,26 @@ export default function Angel() {
         saveCustom(action.payload);
         if (themeId === 'custom') refreshCustom();
         else chooseTheme('custom');
-        say('angel', { kind: 'theme', text: 'It\'s on. Keep tweaking it with me, or pick another theme any time in Settings > Appearance, where yours now shows as "' + (action.payload.name || 'My theme') + '".' });
+        const name = action.payload.name || 'My theme';
+        say('angel', { kind: 'theme', text: 'It\'s on. Keep tweaking it with me, or save it to your themes. To give it your own name, say "save it as" and the name.',
+          actions: [{ id: 'save-theme', label: `Save as "${name}"`, payload: { name } }] });
+      }
+      // Saves the custom theme in use under a name (or renames it, if it's already saved)
+      if (action.id === 'save-theme') {
+        const current = loadCustom();
+        if (!current) {
+          say('angel', { kind: 'theme', text: 'There\'s no custom theme on right now. Ask me to make one first.' });
+        } else {
+          const already = current.savedId && loadSavedThemes().some(t => t.id === current.savedId);
+          const result = already ? renameSavedTheme(current.savedId, action.payload.name) : saveTheme(current, action.payload.name);
+          if (result.error) say('angel', { kind: 'theme', text: result.error });
+          else {
+            if (result.theme) saveCustom({ ...current, name: result.theme.name, savedId: result.theme.id });
+            markDone();
+            say('angel', { kind: 'theme', text: `Saved as "${action.payload.name.trim()}". It's in Settings > Appearance > Your themes, where you can switch back to it, rename it or delete it.`,
+              links: [{ to: '/settings#appearance', label: 'Your themes' }] });
+          }
+        }
       }
     } catch {
       say('angel', { kind: 'error', text: 'Something went wrong on my side. Try again.' });

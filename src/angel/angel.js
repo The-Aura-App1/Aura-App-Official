@@ -345,6 +345,8 @@ const PAGES = [
   [/^(about|about page|roadmap)$/, { to: '/about', label: 'Open About Aura' }],
   [/^(appearance|themes|theme settings)$/, { to: '/settings#appearance', label: 'Appearance settings' }],
   [/^(privacy|privacy settings)$/, { to: '/settings#privacy', label: 'Privacy settings' }],
+  [/^(premium|premium page|subscriptions?|upgrade|creator account)$/, { to: '/premium', label: 'See Premium' }],
+  [/^(my themes|saved themes|your themes)$/, { to: '/settings#appearance', label: 'Your themes' }],
 ];
 
 // "How do I…", "what is…", "can people…": questions about the app itself

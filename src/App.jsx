@@ -29,6 +29,7 @@ const pages = {
   Search:        () => import('./pages/Search'),
   GameMatch:     () => import('./pages/GameMatch'),
   Angel:         () => import('./pages/Angel'),
+  Premium:       () => import('./pages/Premium'),
 };
 const SignIn        = lazy(pages.SignIn);
 const SignUp        = lazy(pages.SignUp);
@@ -48,6 +49,7 @@ const Feedback      = lazy(pages.Feedback);
 const Search        = lazy(pages.Search);
 const GameMatch     = lazy(pages.GameMatch);
 const Angel         = lazy(pages.Angel);
+const Premium       = lazy(pages.Premium);
 
 // Once the first page has settled, fetch the rest quietly in the background
 // so tapping around later is instant.
@@ -101,6 +103,7 @@ function AppRoutes() {
         <Route path="feedback"           element={<Feedback />} />
         <Route path="search"             element={<Search />} />
         <Route path="angel"              element={<Angel />} />
+        <Route path="premium"            element={<Premium />} />
         <Route path="games/:matchId"     element={<GameMatch />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api';
 import { ThemeCards } from '../components/theme/ThemePicker';
+import SavedThemes from '../components/theme/SavedThemes';
 import { clearTaste, isLearningOn, setLearningOn } from '../utils/tasteProfile';
 import { usernameStatusText } from '../utils/format';
 import { NOTIFICATION_OPTIONS, defaultNotificationPrefs } from '../utils/notificationOptions';
@@ -282,6 +283,7 @@ export default function Settings() {
           <p className="text-xs text-[var(--text-muted)] mt-0.5 mb-3">Saved to your account, so it follows you to other devices.</p>
           <ThemeCards />
         </div>
+        <SavedThemes />
         <Toggle
           label="Animated scenery"
           description="The moving scenery behind themes like Day, Night, Snowy Peaks, Northern Lights, Abyss and Lantern Lake. Saved on this device."

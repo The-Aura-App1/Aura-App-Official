@@ -158,6 +158,19 @@
 - Table `aura-group-stats` (partition `groupId`, sort `sk`, TTL `expiresAt`). `groupStats.mjs` (identical in aura-aura, aura-posts, aura-comments; a test keeps them equal) adds XP best effort: post 10, comment 3, give 2, game 5, at most 60 per member a day; level floor is 50 × L × (L − 1). Gives to group posts and comments also add to `WEEK#<iso week>#<userId>` (hidden from the board when the giver has `hideAuraRank`).
 - aura-aura serves `GET|POST|PUT|DELETE /power-ups/{proxy+}` (`powerups.mjs`): Spotlight (own group post, 150 spendable, 24 h, one at a time; aura-posts pins it first in the group feed with `spotlight: true`) and Aura Rain (100–2,000 of the starter's spendable, 10 minutes, a catch is random up to a tenth of the pot, once per person; at most 2,000 a day per group; catchers need a 7-day-old account and 3 days in the group; what's left goes back to the starter when the rain is next looked at). All money moves in one transaction with the stats item, so aura is conserved. Owners turn it off with `powerUpsEnabled` on the group. Prices and limits are `POWER_UPS` in powerups.mjs and `src/utils/powerUps.js` (a test keeps them equal).
 
+## Saved themes and the Premium page (2026-11-16)
+
+- **Saved custom themes:** up to 20 per device, in localStorage `aura-custom-themes` (`saveTheme`, `renameSavedTheme`, `deleteSavedTheme`, `applySavedTheme` in `src/themes/customTheme.js`).
+  - **Names:** any name up to 40 characters (`cleanName` drops control and invisible characters).
+  - **Using one:** copies it in as the custom theme (`savedId` on it) and switches to the `custom` theme id.
+  - **Where:** Settings > Appearance > Your themes (`SavedThemes.jsx`) saves the theme in use and can use, rename or delete any saved one. Angel offers "Save as" after applying a theme, and "save it as <name>" or "call it <name>" saves or renames the theme in use (`commands.js`, the `save-theme` action).
+  - **Still device-only:** like the custom theme itself, nothing is sent to the account.
+- **Premium page:** `/premium` (`src/pages/Premium.jsx`, in moreItems).
+  - **Premium ($4.99 a month):** lists the real perks from the economy rules and constants, with a Regular vs Premium table.
+  - **Creator account ($20 a year):** cashout later (75% to the creator, $20 minimum, verified, 18+), verification, analytics and share counts, all marked coming soon.
+  - **Buying:** payments aren't set up, so both buttons say "coming soon".
+  - **Upkeep:** keep the page true when perks or limits change.
+
 ## Group perks, boosts, reactions and boards (2026-11-16)
 
 - **Levels:** levels cap at `MAX_LEVEL` 15. `PERKS`, `BOOSTS`, `MAX_PINS` and `MAX_BACKGROUNDS` live in `groupStats.mjs`. Its copies in aura-aura, aura-posts, aura-comments and aura-groups must stay identical, and they mirror `src/utils/powerUps.js`; tests check both.

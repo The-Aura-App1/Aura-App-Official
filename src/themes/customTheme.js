@@ -81,8 +81,9 @@ export function cleanCustom(raw) {
   const background = HEX.test(raw.background ?? '') ? raw.background.toLowerCase() : (base === 'dark' ? '#0f0d1a' : '#f8f7ff');
   const accent = HEX.test(raw.accent ?? '') ? raw.accent.toLowerCase() : '#7c3aed';
   const font = typeof raw.font === 'string' && Object.hasOwn(FONT_BY_ID, raw.font) && THEME_FONT_CATEGORIES.includes(FONT_BY_ID[raw.font].cat) ? raw.font : null;
-  const name = typeof raw.name === 'string' ? raw.name.slice(0, 30) : 'My theme';
-  return { name, base, background, accent, font };
+  const name = cleanName(raw.name) || 'My theme';
+  const savedId = typeof raw.savedId === 'string' ? raw.savedId : undefined;
+  return { name, base, background, accent, font, ...(savedId && { savedId }) };
 }
 
 // Every CSS variable a theme defines (see index.css), from the custom spec
@@ -118,6 +119,71 @@ export function customVars(spec) {
     '--brand-ink-1': ink[0], '--brand-ink-2': ink[1], '--brand-ink-3': ink[2],
     '--wordmark-ink': text,
   };
+}
+
+// A theme's name: anything the person likes, up to NAME_MAX characters,
+// without control or invisible characters
+export const NAME_MAX = 40;
+export function cleanName(value) {
+  if (typeof value !== 'string') return '';
+  // eslint-disable-next-line no-control-regex -- strips invisible and control characters on purpose
+  return value.normalize('NFC').replace(/[\t\n\r]+/g, ' ').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+}
+
+// ── Saved themes ─────────────────────────────────────────────────────
+// Up to SAVED_MAX named custom themes, kept on this device next to the one
+// in use. Using one copies it in as the custom theme.
+export const SAVED_KEY = 'aura-custom-themes';
+export const SAVED_MAX = 20;
+const SAVED_EVENT = 'aura:saved-themes';
+
+export function loadSavedThemes() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SAVED_KEY));
+    if (!Array.isArray(list)) return [];
+    return list.filter(t => t && typeof t.id === 'string').map(t => ({ ...cleanCustom(t), id: t.id, savedAt: t.savedAt ?? null })).slice(0, SAVED_MAX);
+  } catch {
+    return [];
+  }
+}
+function writeSaved(list) {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(list)); } catch { /* private mode */ }
+  window.dispatchEvent(new Event(SAVED_EVENT));
+  return list;
+}
+export const onSavedThemesChange = fn => {
+  window.addEventListener(SAVED_EVENT, fn);
+  return () => window.removeEventListener(SAVED_EVENT, fn);
+};
+
+// Saves a theme under a name; returns { theme } or { error }
+export function saveTheme(spec, name) {
+  const list = loadSavedThemes();
+  if (list.length >= SAVED_MAX) return { error: `You can keep up to ${SAVED_MAX} themes. Delete one to save another.` };
+  const clean = cleanName(name);
+  if (!clean) return { error: 'Give your theme a name.' };
+  const theme = { ...cleanCustom({ ...spec, name: clean }), id: `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, savedAt: new Date().toISOString() };
+  writeSaved([theme, ...list]);
+  return { theme };
+}
+export function renameSavedTheme(id, name) {
+  const clean = cleanName(name);
+  if (!clean) return { error: 'Give your theme a name.' };
+  const list = loadSavedThemes().map(t => (t.id === id ? { ...t, name: clean } : t));
+  writeSaved(list);
+  // keep the one in use in step if it's this one
+  const current = loadCustom();
+  if (current && current.savedId === id) saveCustom({ ...current, name: clean });
+  return { ok: true };
+}
+export function deleteSavedTheme(id) {
+  writeSaved(loadSavedThemes().filter(t => t.id !== id));
+}
+// Makes a saved theme the custom theme in use (the caller switches to 'custom')
+export function applySavedTheme(id) {
+  const theme = loadSavedThemes().find(t => t.id === id);
+  if (!theme) return null;
+  return saveCustom({ ...theme, savedId: id });
 }
 
 export function loadCustom() {
