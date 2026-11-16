@@ -58,6 +58,37 @@ export function ThemeCards({ onPick }) {
   );
 }
 
+// Small tiles grouped Light and Dark, for the tour's first step. Tapping one
+// switches the whole app at once and saves it to the account.
+export function ThemeTiles({ onPick, chosen }) {
+  const { themeId } = useTheme();
+  const chooseTheme = useChooseTheme();
+  const groups = [['light', 'Light'], ['dark', 'Dark']];
+  return (
+    <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Theme">
+      {groups.map(([base, label]) => (
+        <div key={base}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)] mb-1">{label}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {allThemes().filter(t => t.base === base).map(theme => {
+              const selected = chosen && theme.id === themeId;
+              return (
+                <button key={theme.id} type="button" role="radio" aria-checked={selected} aria-label={theme.name}
+                  onClick={() => { chooseTheme(theme.id); onPick?.(theme.id); }}
+                  className={`rounded-lg border-2 overflow-hidden text-left bg-[var(--bg-card)] transition-colors
+                    ${selected ? 'border-aura-500' : 'border-[var(--border)] hover:border-aura-500/50'}`}>
+                  <ThemePreview theme={theme} className="h-10" />
+                  <span className="block px-1.5 py-1 text-[11px] font-semibold text-[var(--text-primary)] truncate">{theme.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // A compact theme switcher for the top bar and sidebar. `children` renders
 // the button; `placement` decides whether the menu opens below or above it.
 export function ThemeMenu({ placement = 'below', align = 'right', children, buttonClassName = '' }) {

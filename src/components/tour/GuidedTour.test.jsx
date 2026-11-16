@@ -6,7 +6,14 @@ import GuidedTour from './GuidedTour';
 import { placeCard } from './placement';
 import { TOUR_STEPS, stepsFor } from './tourSteps';
 
-jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ username: 'me' }) }));
+// An existing account (it has a theme) unless a test says otherwise
+let mockProfile = { theme: 'night' };
+const mockSetTheme = jest.fn();
+const mockChoose = jest.fn();
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ username: 'me', dbProfile: mockProfile }) }));
+jest.mock('../../context/ThemeContext', () => ({ useTheme: () => ({ setThemeId: mockSetTheme, themeId: 'light' }) }));
+jest.mock('../../hooks/useChooseTheme', () => ({ __esModule: true, default: () => mockChoose }));
+afterEach(() => { mockProfile = { theme: 'night' }; mockSetTheme.mockClear(); mockChoose.mockClear(); });
 
 // jsdom has no layout: give every tagged element a box
 const realRect = Element.prototype.getBoundingClientRect;
@@ -149,4 +156,32 @@ describe('placing the note', () => {
     const p = placeCard(null, card, view);
     expect(p).toMatchObject({ side: 'none', top: 325, left: 50 });
   });
+});
+
+
+test('a new account starts on Light and must pick a theme before going on', async () => {
+  mockProfile = {};
+  const onClose = renderTour();
+  await settle(1000);
+  expect(title()).toBe('Welcome to Aura');
+  expect(mockSetTheme).toHaveBeenCalledWith('light');
+  const go = screen.getByRole('button', { name: 'Pick a theme to continue' });
+  expect(go).toBeDisabled();
+  // no way around it: no Skip, and Escape does nothing
+  expect(screen.queryByRole('button', { name: 'Skip tour' })).toBeNull();
+  fireEvent.keyDown(window, { key: 'Escape' });
+  expect(onClose).not.toHaveBeenCalled();
+  // tapping Light counts, and it's saved through the normal theme path
+  fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+  expect(mockChoose).toHaveBeenCalledWith('light');
+  expect(screen.getByRole('button', { name: 'Show me around' })).not.toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Skip tour' })).toBeInTheDocument();
+});
+
+test('an account that already has a theme is not made to choose again', async () => {
+  renderTour();
+  await settle(1000);
+  expect(mockSetTheme).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Show me around' })).not.toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Skip tour' })).toBeInTheDocument();
 });

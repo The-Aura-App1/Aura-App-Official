@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeTiles } from '../theme/ThemePicker';
 import { stepsFor } from './tourSteps';
 import { placeCard, findTarget } from './placement';
 import { prefersReducedMotion } from '../../utils/motion';
@@ -57,7 +59,12 @@ function measure(el) {
 export default function GuidedTour({ onClose }) {
   const navigate     = useNavigate();
   const { pathname } = useLocation();
-  const { username } = useAuth();
+  const { username, dbProfile } = useAuth();
+  const { setThemeId } = useTheme();
+  // The theme step: accounts that never chose a theme start on Light and must
+  // pick one (tapping Light counts); accounts with one can just go on
+  const hasTheme = !!dbProfile?.theme;
+  const [pickedTheme, setPickedTheme] = useState(false);
   const [posted, setPosted] = useState(false);
   const steps = stepsFor({ posted });
   const [index, setIndex]   = useState(0);
@@ -71,6 +78,12 @@ export default function GuidedTour({ onClose }) {
 
   const step   = steps[Math.min(index, steps.length - 1)];
   const isLast = index >= steps.length - 1;
+  const mustPick = step.pick === 'theme' && !hasTheme && !pickedTheme;
+
+  // New accounts see Light underneath until they choose
+  useEffect(() => {
+    if (step.pick === 'theme' && !hasTheme && !pickedTheme) setThemeId('light');
+  }, [step.pick, hasTheme]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = useCallback(delta => {
     const next = index + delta;
@@ -191,12 +204,13 @@ export default function GuidedTour({ onClose }) {
   }, [step]);
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    const onKey = e => { if (e.key === 'Escape' && !mustPick) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, mustPick]);
 
   function primary() {
+    if (mustPick) return;
     if (step.goTo) navigate(step.goTo);   // arriving there moves the tour on
     else go(1);
   }
@@ -242,7 +256,7 @@ export default function GuidedTour({ onClose }) {
         <div key={step.id} className="aura-arrive">
           <div className="flex items-center justify-between mb-1.5">
             <p className="aura-kicker text-[10px] font-bold uppercase tracking-[0.18em]">Tour · {counter}</p>
-            {!isLast && (
+            {!isLast && !mustPick && (
               <button type="button" onClick={onClose} aria-label="Skip tour"
                 className="-mr-1 flex items-center gap-1 text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 Skip <X size={13} />
@@ -251,6 +265,14 @@ export default function GuidedTour({ onClose }) {
           </div>
           <h2 className="font-heading text-lg font-semibold text-[var(--text-primary)] leading-snug">{step.title}</h2>
           <p className="text-sm text-[var(--text-secondary)] leading-relaxed mt-1">{step.body}</p>
+          {step.pick === 'theme' && (
+            <div className="mt-3 max-h-[min(19rem,45vh)] overflow-y-auto -mx-1 px-1">
+              <ThemeTiles chosen={hasTheme || pickedTheme} onPick={() => setPickedTheme(true)} />
+            </div>
+          )}
+          {step.pick === 'theme' && !mustPick && step.chosen && (
+            <p className="text-xs text-[var(--text-muted)] mt-2">{step.chosen}</p>
+          )}
           {step.target && searching && (
             <p className="text-xs text-[var(--text-muted)] mt-2">Finding it on the page…</p>
           )}
@@ -260,9 +282,9 @@ export default function GuidedTour({ onClose }) {
               <button type="button" onClick={() => go(-1)} aria-label="Back"
                 className="btn-secondary px-3 py-2 text-sm flex items-center"><ChevronLeft size={16} /></button>
             )}
-            <button type="button" onClick={primary}
-              className={`${step.waitFor ? 'btn-secondary' : 'btn-primary'} flex-1 py-2 text-sm`}>
-              {step.next ?? (isLast ? 'Done' : 'Next')}
+            <button type="button" onClick={primary} disabled={mustPick}
+              className={`${step.waitFor ? 'btn-secondary' : 'btn-primary'} flex-1 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
+              {mustPick ? 'Pick a theme to continue' : step.next ?? (isLast ? 'Done' : 'Next')}
             </button>
           </div>
         </div>

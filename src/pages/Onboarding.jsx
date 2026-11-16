@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ChevronRight, ChevronLeft, Skip } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import { useTheme } from '../context/ThemeContext';
 
 const STEPS = ['welcome', 'username', 'avatar', 'banner', 'bio', 'done'];
 
 export default function Onboarding() {
-  const { user, attrs, refreshUser } = useAuth();
+  const { user, attrs, refreshUser, dbProfile } = useAuth();
+  // New accounts start on the Light theme; the tour then has them pick one
+  const { setThemeId } = useTheme();
+  useEffect(() => { if (!dbProfile?.theme) setThemeId('light'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const navigate = useNavigate();
 
   const [step, setStep]         = useState(0);

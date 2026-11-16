@@ -202,7 +202,7 @@ export const KNOWLEDGE = [
   {
     id: 'tour', q: 'Can I see the app tour again?',
     keys: ['tour', 'walkthrough', 'tutorial', 'getting started'],
-    a: 'Yes: choose App tour in the More menu (the Me sheet on phones). It\'s short and you can skip it any time.',
+    a: 'Yes: choose App tour in the More menu (the Me sheet on phones). It\'s short and you can skip it any time. New accounts start on the Light theme and pick their own look on its first step.',
   },
   {
     id: 'sign-out', q: 'How do I sign out?',

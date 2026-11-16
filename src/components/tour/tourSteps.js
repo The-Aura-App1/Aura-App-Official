@@ -14,11 +14,14 @@
 //                  shrinks while they type, and the step waits for `waitFor`
 //   waitFor        a window event that completes the step (the first post)
 //   onlyIfPosted   shown only after the person posted during the tour
+//   pick: 'theme'  shows the theme tiles; an account with no saved theme must
+//                  tap one before going on (and can't skip this step)
 export const TOUR_STEPS = [
   {
-    id: 'welcome', route: '/',
+    id: 'welcome', route: '/', pick: 'theme',
     title: 'Welcome to Aura',
-    body: 'Here’s a quick look at the main things you can do. It takes about a minute, and you can skip any time.',
+    body: 'First, pick a look to start with. Tap one to see the whole app change. You can switch any time in Settings › Appearance.',
+    chosen: 'Then a quick look around: about a minute, and you can skip from here on.',
     next: 'Show me around',
   },
   {
