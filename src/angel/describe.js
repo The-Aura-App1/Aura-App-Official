@@ -32,7 +32,6 @@ const LOOKING = /\b(find|finding|look(?:ing)? for|search(?:ing)?(?: for)?|where(
 const VAGUE_ONE = /\b(?:the|that)\s+[\p{L}\p{N}' ]{2,40}?\s(?:one|thing)\b/u;
 const LIKED = /\b(i (?:have |'ve |had )?liked|i like[ds]|my likes|liked (?:posts?|ones|list|tab|photos?|videos?)|from my likes|i saved)\b/;
 const GROUPS = /\b(my groups?|groups? i'?m in|in (?:a |one of )?(?:my |the )?groups?|in (?:my |the |our )?[\p{L}\p{N}' ]{2,30}? group)\b/u;
-const GLOBAL = /\b(everywhere|anywhere|global(?:ly)?|all (?:of )?aura|on aura|popular|trending|top|best|hottest)\b/;
 
 // Is this someone describing a post they want found?
 export function asksToDescribe(text) {

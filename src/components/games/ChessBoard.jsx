@@ -73,7 +73,6 @@ export function playLocal(board, { from, to, promo }) {
 }
 
 function Piece({ p, slide, faded }) {
-  const white = p === p.toUpperCase();
   return (
     <span className={`absolute inset-0 flex items-center justify-center pointer-events-none ${slide ? 'chess-slide' : ''}`}
       style={slide ? { '--dx': `${slide[0] * 100}%`, '--dy': `${slide[1] * 100}%` } : undefined} aria-hidden="true">

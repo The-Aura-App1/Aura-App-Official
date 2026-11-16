@@ -13,7 +13,7 @@ import INTENT_MODEL from './intentModel.json';
 import { continueFlow, startReport, startSupport, WANTS_REPORT, WANTS_SUPPORT, SUPPORT_MAX } from './flows';
 import { commandReply } from './commands';
 import {
-  vocabularyOf, relatedTags, ASKS_CATCH_UP, catchUpReply, asksToFindPosts, findPostsReply, wantsBot, playBotReply, ASKS_GROUPS, groupsReply,
+  vocabularyOf, relatedTags, ASKS_CATCH_UP, catchUpReply, asksToFindPosts, wantsBot, playBotReply, ASKS_GROUPS, groupsReply,
 } from './assist';
 import { asksToDescribe, describeReply, isFindFollowUp, findFollowUp } from './describe';
 
