@@ -149,8 +149,15 @@ async function listSuggestions(viewerId, query) {
     .filter(i => status === 'all' || i.status === status)
     .sort(SUGGESTION_SORTS[sort])
     .slice(0, SUGGESTIONS_SHOWN);
-  const votes = await batchGet(FEEDBACK_TABLE,
-    items.map(i => ({ feedbackID: `VOTE#${i.feedbackID}#${viewerId}` })), 'feedbackID');
+  // Which of these the viewer voted for. If that lookup fails, the list still
+  // shows (without their checkmarks) rather than the whole page failing.
+  let votes = [];
+  try {
+    votes = await batchGet(FEEDBACK_TABLE,
+      items.map(i => ({ feedbackID: `VOTE#${i.feedbackID}#${viewerId}` })), 'feedbackID');
+  } catch (err) {
+    console.warn(`Couldn't load votes (${err.name}).`);
+  }
   const voted = new Set(votes.map(v => v.feedbackID));
   return {
     sort, status, counts,

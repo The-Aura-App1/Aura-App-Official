@@ -47,6 +47,7 @@
       "Effect": "Allow",
       "Action": [
         "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
         "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
@@ -71,6 +72,12 @@
       "Effect": "Allow",
       "Action": "dynamodb:PutItem",
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-notifications"
+    },
+    {
+      "Sid": "SupportEmailsFromAngel",
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "arn:aws:ses:us-east-1:570934198135:identity/auraapp.relations@gmail.com"
     }
   ]
 }
