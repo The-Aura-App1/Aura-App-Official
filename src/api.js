@@ -67,6 +67,8 @@ export const api = {
   getFollowList:   (username, which, cursor = null) =>
     request('GET', `/follows/user/${id(username)}/${id(which)}${query({ cursor })}`),
   getFollowRequests: (cursor = null)     => request('GET',    `/follows/requests${query({ cursor })}`),
+  // People by name or username: { people: [{ username, displayName, profilePicKey, isPrivate, followerCount }] }
+  searchPeople:    (q)                   => request('GET',    `/follows/search${query({ q })}`),
   answerFollowRequest: (userId, approve) =>
     request('POST', `/follows/requests/${id(userId)}/${approve ? 'approve' : 'decline'}`),
   removeFollower:  (userId)              => request('DELETE', `/follows/followers/${id(userId)}`),

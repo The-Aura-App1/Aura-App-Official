@@ -161,8 +161,8 @@ export const KNOWLEDGE = [
   },
   {
     id: 'search', q: 'How do I search?',
-    keys: ['search', 'find posts', 'look up posts', 'find a group'],
-    a: 'Tap the search icon at the top (on a phone) or use the search box in the sidebar. Posts are matched on your device, by words first and then by meaning; groups and exact @usernames are looked up too. Your searches are never saved.',
+    keys: ['search', 'find posts', 'look up posts', 'find a group', 'find people', 'find someone', 'find a user', 'find users', 'find my friends', 'hide me from search', 'show me in search'],
+    a: 'Tap the search icon at the top (on a phone) or use the search box in the sidebar. It finds people by name or username, groups, and posts. Posts are matched on your device, by words first and then by meaning. Your searches are never saved. To stay out of people search, turn off Settings > Privacy > Show me in search; your profile still opens from a link or a tag.',
   },
   {
     id: 'follow', q: 'How does following work?',

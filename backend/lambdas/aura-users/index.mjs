@@ -3,7 +3,8 @@ import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand, Transac
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handleFeedback } from './feedback.mjs';
-import { handleFollows, approveAllPending, blockState } from './follows.mjs';
+import { handleFollows, approveAllPending, blockState, isBlockedEitherWay } from './follows.mjs';
+import { searchPeople } from './people.mjs';
 import { listReports, reviewReport } from './moderation.mjs';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
@@ -236,6 +237,22 @@ async function scanForUsername(...usernames) {
     ExclusiveStartKey = result.LastEvaluatedKey;
   } while (ExclusiveStartKey);
   return matches;
+}
+
+// Every account's searchable fields, for people search (people.mjs caches it)
+async function loadDirectory() {
+  const people = [];
+  let ExclusiveStartKey;
+  do {
+    const page = await db.send(new ScanCommand({
+      TableName:                USERS_TABLE,
+      ProjectionExpression:     'userId, username, displayName, profilePicKey, isPrivate, isBanned, hideFromSearch, followerCount',
+      ExclusiveStartKey,
+    }));
+    people.push(...(page.Items ?? []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return people;
 }
 
 // asTyped also matches legacy usernames that were stored before lowercasing was enforced
@@ -541,7 +558,7 @@ async function getToday(user) {
 async function updateProfile(userId, body) {
   const {
     username, profilePicKey, bannerKey,
-    isPrivate, hideAuraRank, commentVisibilityDefault, notificationPrefs, theme,
+    isPrivate, hideAuraRank, hideFromSearch, commentVisibilityDefault, notificationPrefs, theme,
   } = body;
   // Invisible and direction-flipping characters are removed before any check
   const displayName = typeof body.displayName === 'string' ? cleanLine(body.displayName) : body.displayName;
@@ -577,7 +594,7 @@ async function updateProfile(userId, body) {
   }
 
 
-  for (const [name, value] of Object.entries({ isPrivate, hideAuraRank })) {
+  for (const [name, value] of Object.entries({ isPrivate, hideAuraRank, hideFromSearch })) {
     if (value !== undefined && typeof value !== 'boolean') {
       return response(400, { error: `${name} must be true or false.` });
     }
@@ -620,6 +637,7 @@ async function updateProfile(userId, body) {
   if (bannerKey      !== undefined) updates.bannerKey      = bannerKey;
   if (isPrivate      !== undefined) updates.isPrivate      = isPrivate;
   if (hideAuraRank   !== undefined) updates.hideAuraRank   = hideAuraRank;
+  if (hideFromSearch !== undefined) updates.hideFromSearch = hideFromSearch;
   if (commentVisibilityDefault !== undefined) updates.commentVisibilityDefault = commentVisibilityDefault;
   if (theme          !== undefined) updates.theme          = theme;
   // Unknown keys are dropped; every known type defaults to on
@@ -704,6 +722,16 @@ export const handler = async (event) => {
   try {
     const limited = await firstLimit([who, 'api', userId ? 120 : 60, 60]);
     if (limited) return limited;
+
+    // GET /follows/search?q= — find people by name or username (people.mjs)
+    if (method === 'GET' && segments[0] === 'follows' && segments[1] === 'search' && segments.length === 2) {
+      if (!userId) return response(401, { error: 'Sign in first.' });
+      const searchLimited = await rateLimited(userId, 'people-search', 40, 60);
+      if (searchLimited) return searchLimited;
+      const query = event.queryStringParameters?.q;
+      if (typeof query !== 'string') return response(200, { people: [] });
+      return response(200, await searchPeople({ viewerId: userId, query, loadAll: loadDirectory, isBlocked: isBlockedEitherWay }));
+    }
 
     // /follows/... — following and follow requests (follows.mjs, its own limits)
     const follows = await handleFollows({

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, X, Users, User, Hash, Sparkles } from 'lucide-react';
+import { Search as SearchIcon, X, Users, User, Hash, Sparkles, Lock } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/post/PostCard';
@@ -17,6 +17,7 @@ import { EMPTY_TASTE, isLearningOn, loadTaste } from '../utils/tasteProfile';
 const PAGE_SIZE   = 20;
 const MAX_QUERY   = 80;
 const USERNAME_RE = /^@?[a-z0-9_]{3,30}$/i;
+const MIN_PEOPLE  = 2;
 
 // Waits until typing pauses before searching
 function useDebounced(value, ms) {
@@ -40,7 +41,10 @@ function useLatest(load, q, enabled) {
   return state.q === q ? state.data : null;
 }
 
-const findPerson = q => api.getUser(q.replace(/^@/, '').toLowerCase()).catch(() => null);
+// People by name or username. If the search route isn't reachable, an exact
+// username still finds its profile.
+const exactPerson = q => (USERNAME_RE.test(q) ? api.getUser(q.replace(/^@/, '').toLowerCase()).then(p => [p], () => []) : Promise.resolve([]));
+const findPeople = q => api.searchPeople(q).then(r => r.people ?? [], () => exactPerson(q));
 const findGroups = q => api.listGroups(q).then(r => (r.groups ?? []).slice(0, 5));
 // The query's meaning, from the on-device model; posts still match by words without it
 const findMeaning = q => embedTexts([q], 20000).then(([vec]) => decodeVector(vec)).catch(() => null);
@@ -62,6 +66,7 @@ function PersonRow({ person }) {
         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{person.displayName || person.username}</p>
         <p className="text-xs text-[var(--text-muted)] truncate">@{person.username}</p>
       </div>
+      {person.isPrivate && <Lock size={14} className="ml-auto shrink-0 text-[var(--text-muted)]" aria-label="Private account" />}
     </Link>
   );
 }
@@ -123,7 +128,7 @@ export default function Search() {
   }
   useEffect(loadPool, []);
 
-  const person  = useLatest(findPerson, q, USERNAME_RE.test(q));
+  const people  = useLatest(findPeople, q, q.replace(/^@/, '').length >= MIN_PEOPLE);
   const groups  = useLatest(findGroups, q, q.length >= 2);
   const meaning = useLatest(findMeaning, q, hasWords);
 
@@ -178,16 +183,16 @@ export default function Search() {
             </>
           )}
           <p className="text-xs text-[var(--text-muted)]">
-            Posts are matched on your device by their words and meaning, then ordered by aura and how recent they are.
-            Your searches aren't saved.
+            Search finds people by name or username, groups, and posts. Posts are matched on your device by their
+            words and meaning, then ordered by aura and how recent they are. Your searches aren't saved.
           </p>
         </section>
       )}
 
-      {person && (
+      {people?.length > 0 && (
         <section className="flex flex-col gap-2">
-          <SectionTitle icon={User}>Person</SectionTitle>
-          <PersonRow person={person} />
+          <SectionTitle icon={User}>{people.length === 1 ? 'Person' : 'People'}</SectionTitle>
+          {people.map(person => <PersonRow key={person.username} person={person} />)}
         </section>
       )}
 

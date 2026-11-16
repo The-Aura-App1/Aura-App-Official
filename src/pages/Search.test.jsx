@@ -6,7 +6,7 @@ import Search from './Search';
 import { api } from '../api';
 
 jest.mock('../api', () => ({
-  api: { getFeed: jest.fn(), getUser: jest.fn(), listGroups: jest.fn() },
+  api: { getFeed: jest.fn(), getUser: jest.fn(), listGroups: jest.fn(), searchPeople: jest.fn() },
 }));
 jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { userId: 'me' } }) }));
 jest.mock('../utils/embedClient', () => ({ embedTexts: () => Promise.reject(new Error('no model in tests')) }));
@@ -25,6 +25,9 @@ beforeEach(() => {
   api.getUser.mockImplementation(name => (name === 'jazzcat'
     ? Promise.resolve({ username: 'jazzcat', displayName: 'Jazz Cat' })
     : Promise.reject(new Error('User not found.'))));
+  api.searchPeople.mockImplementation(q => Promise.resolve({ people: 'jazzcat'.includes(q.replace(/^@/, '')) || q === 'jazz'
+    ? [{ username: 'jazzcat', displayName: 'Jazz Cat' }, { username: 'jazzy_jo', displayName: 'Jo', isPrivate: true }]
+    : [] }));
   api.listGroups.mockResolvedValue({ groups: [{ groupId: 'g1', name: 'Jazz Lovers', joinType: 'open', memberCount: 4 }] });
 });
 afterEach(() => jest.useRealTimers());
@@ -51,7 +54,19 @@ test('finds posts, groups and people, best match first', async () => {
   expect(screen.getByText('Jazz Lovers')).toBeInTheDocument();
   expect(api.listGroups).toHaveBeenLastCalledWith('jazz');
 
+  // people by name or username, with private accounts marked
+  expect(screen.getByText('People')).toBeInTheDocument();
+  expect(screen.getByText('Jazz Cat')).toBeInTheDocument();
+  expect(screen.getByLabelText('Private account')).toBeInTheDocument();
+  expect(api.searchPeople).toHaveBeenLastCalledWith('jazz');
+});
+
+test('falls back to the exact username if people search is unavailable', async () => {
+  api.searchPeople.mockRejectedValue(new Error('Route not found.'));
+  render(<MemoryRouter><Search /></MemoryRouter>);
+  await act(async () => {});
   await typeAndSettle('@jazzcat');
+  await act(async () => {});
   expect(screen.getByText('Jazz Cat')).toBeInTheDocument();
   expect(api.getUser).toHaveBeenLastCalledWith('jazzcat');
 });

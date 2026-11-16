@@ -215,6 +215,7 @@ export default function Settings() {
     setSettings({
       isPrivate:                !!dbProfile.isPrivate,
       hideAuraRank:             !!dbProfile.hideAuraRank,
+      hideFromSearch:           !!dbProfile.hideFromSearch,
       commentVisibilityDefault: dbProfile.commentVisibilityDefault ?? 'anyone',
       notificationPrefs:        defaultNotificationPrefs(dbProfile.notificationPrefs),
     });
@@ -336,6 +337,13 @@ export default function Settings() {
               checked={settings.hideAuraRank}
               disabled={saving}
               onChange={value => save({ hideAuraRank: value })}
+            />
+            <Toggle
+              label="Show me in search"
+              description="People can find you by your name or username in search. Turned off, your profile still opens from a link or a tag."
+              checked={!settings.hideFromSearch}
+              disabled={saving}
+              onChange={value => save({ hideFromSearch: !value })}
             />
             <div className="flex items-center justify-between gap-4">
               <div>
