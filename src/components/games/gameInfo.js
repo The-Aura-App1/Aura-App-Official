@@ -17,6 +17,15 @@ export const GAME_LIST = [
 
 export const GAME_BY_ID = Object.fromEntries(GAME_LIST.map(g => [g.id, g]));
 
+// Games you can play against a bot, and its levels; ids match BOT_GAMES,
+// BOT_LEVELS and BOT_NAMES in aura-aura/bots.mjs (a test keeps them equal)
+export const BOT_GAMES = ['connect4', 'pool', 'chess', 'gofish', 'crazy8', 'poker', 'golf'];
+export const BOT_LEVELS = [
+  { id: 'easy',   label: 'Easy',   name: 'Pip',   hint: 'learning' },
+  { id: 'medium', label: 'Medium', name: 'Nova',  hint: 'a fair game' },
+  { id: 'hard',   label: 'Hard',   name: 'Atlas', hint: 'plays to win' },
+];
+
 // The tile behind a game's icon, in the colors of its table
 export function gameTile(game) {
   const [a, b] = GAME_BY_ID[game]?.tint ?? ['var(--brand-1)', 'var(--brand-3)'];

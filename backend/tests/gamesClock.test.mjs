@@ -147,3 +147,53 @@ assert.equal((await call(A, 'POST', '/games/group/g1', { game: 'connect4', stake
 }
 
 console.log('clock checks passed');
+
+// ── Playing a bot ──
+{
+  // no bots for luck games, or with a stake, or at an unknown level
+  assert.equal((await call(A, 'POST', '/games/group/g1', { game: 'dice', bot: 'easy' })).statusCode, 400);
+  assert.equal((await call(A, 'POST', '/games/group/g1', { game: 'chess', bot: 'impossible' })).statusCode, 400);
+  const made = await call(A, 'POST', '/games/group/g1', { game: 'connect4', bot: 'hard', stake: 500 });
+  assert.equal(made.statusCode, 201, JSON.stringify(made.body));
+  const m0 = made.body.match;
+  assert.equal(m0.status, 'active');
+  assert.equal(m0.stake, 0, 'bot games are never for aura');
+  assert.equal(m0.bot, 'hard');
+  assert.ok(m0.players[1].userId.startsWith('bot:'));
+  const id = m0.matchId;
+  const botTurnNow = () => games.get(id).state.turn === 1;
+  // if the bot starts, it moves once it has "thought" (not straight away)
+  if (botTurnNow()) {
+    assert.equal((await call(A, 'GET', `/games/${id}`)).body.match.turnUserId, m0.players[1].userId, 'too soon');
+    now += 2000;
+    await call(A, 'GET', `/games/${id}`);
+    assert.equal(games.get(id).state.turn, 0);
+  }
+  // play a few moves: each human move is answered by the bot on the next check-in
+  for (let k = 0; k < 5 && games.get(id).status === 'active'; k++) {
+    const st = games.get(id).state;
+    const col = st.cols.findIndex(c => c.length < 6);
+    const r = await call(A, 'POST', `/games/${id}/move`, { move: { col } });
+    assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+    if (games.get(id).status !== 'active') break;
+    now += 2000;
+    const after = await call(A, 'GET', `/games/${id}`);
+    assert.equal(after.statusCode, 200);
+    if (games.get(id).status === 'active') assert.equal(games.get(id).state.turn, 0, 'the bot answered');
+  }
+  // only the person playing sees a bot game in the group's list
+  const QUERY = { op: 'query' };
+  const realSend = dynamo.send;
+  dynamo.send = async c => (c.op === QUERY.op ? { Items: [...games.values()].filter(g => g.groupId === 'g1') } : realSend(c));
+  const mine = await call(A, 'GET', '/games/group/g1');
+  const theirs = await call(B, 'GET', '/games/group/g1');
+  dynamo.send = realSend;
+  assert.ok(mine.body.games.some(g => g.matchId === id));
+  assert.ok(!theirs.body.games.some(g => g.matchId === id));
+  // claiming a win on time against a bot isn't a thing
+  if (games.get(id).status === 'active') {
+    now += 20 * 60000;
+    assert.equal((await call(A, 'POST', `/games/${id}/claim`)).statusCode, 409);
+  }
+  console.log('bot game checks passed');
+}

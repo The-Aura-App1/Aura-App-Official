@@ -32,6 +32,7 @@ import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { GAMES, GameError, MAX_PLAYERS, TIME_CHOICES, CLOCK_GAMES, CLOCK_LAG_MS, defaultTime, viewFor } from './gameRules.mjs';
 import { eitherBlocked } from './privacy.mjs';
 import { addGroupXp, recordGameWin, GROUP_STATS_TABLE } from './groupStats.mjs';
+import { BOT_GAMES, BOT_LEVELS, BOT_NAMES, botMove, fallbackMove, botDelay, isBotId } from './bots.mjs';
 
 const GAMES_TABLE         = 'aura-games';
 const GAMES_INDEX         = 'groupId-createdAt-index';
@@ -75,6 +76,7 @@ function summary(match) {
     endReason: match.endReason ?? null,
     deadline: match.deadline ?? null, createdAt: match.createdAt, finishedAt: match.finishedAt ?? null,
     time: match.time ?? null, clocks: match.clocks ?? null, turnStartedAt: match.turnStartedAt ?? null,
+    bot: match.bot ?? null,
     clockRunning: timingOf(match).kind === 'clock' && clockRunning(match.state),
   };
 }
@@ -224,7 +226,7 @@ export async function handleGames(ctx, user, method, segments, body) {
     const error = await ctx.commit(items, ['Someone else moved first. Refresh and try again.', ...messages]);
     if (error) return error;
     // A game that just ended counts toward the group's champions board
-    if (next.status === 'finished' && match.status !== 'finished' && next.endReason !== 'cancelled') {
+    if (next.status === 'finished' && match.status !== 'finished' && next.endReason !== 'cancelled' && !next.bot) {
       const winners = next.winnerUserIds ?? (next.winnerUserId ? [next.winnerUserId] : []);
       await Promise.all(next.players.filter(p => winners.includes(p.userId)).map(p => recordGameWin(dynamo, next.groupId, p, next.game)));
     }
@@ -268,6 +270,27 @@ export async function handleGames(ctx, user, method, segments, body) {
       finishedAt: new Date().toISOString(),
       expiresAt: Math.floor(Date.now() / 1000) + KEEP_FINISHED_DAYS * 86400,
     };
+  }
+
+  // In a game against a bot: when it's the bot's turn and it has "thought"
+  // long enough for the last move to play out, it moves. Runs when the page
+  // checks in, so the person sees their own shot or card first. Two checks at
+  // once can't both move: the save is conditional on the version.
+  async function botTurn(match) {
+    if (!match.bot || match.status !== 'active') return match;
+    const botSeat = match.players.findIndex(p => isBotId(p.userId));
+    if (botSeat === -1 || match.state.turn !== botSeat) return match;
+    if (Date.now() - (match.turnStartedAt ?? 0) < botDelay(match.game, match.state)) return match;
+    const look = { state: match.state, view: viewFor(match.game, match.state, botSeat), seat: botSeat, rand };
+    let state = null;
+    for (const choose of [() => botMove(match.game, match.bot, look), () => fallbackMove(match.game, look)]) {
+      try { state = GAMES[match.game].apply(match.state, botSeat, choose(), rand); break; } catch (err) {
+        console.warn(`Bot move refused in ${match.game} (${err.message}).`);
+      }
+    }
+    if (!state) return match;
+    const saved = await save(match, progress(match, state), []);
+    return saved.statusCode ? (await getMatch(match.matchId)) ?? match : saved;
   }
 
   function matchResponse(match, status = 200, have = null) {
@@ -341,7 +364,9 @@ export async function handleGames(ctx, user, method, segments, body) {
         KeyConditionExpression: 'groupId = :g', ExpressionAttributeValues: { ':g': groupId },
         ScanIndexForward: false, Limit: LIST_LIMIT,
       }));
-      return response(200, { games: (result.Items ?? []).map(summary), now: Date.now() });
+      // A game against a bot shows only to the person playing it
+      const games = (result.Items ?? []).filter(m => !m.bot || m.players[0]?.userId === user.userId);
+      return response(200, { games: games.map(summary), now: Date.now() });
     }
 
     if (method === 'POST') {
@@ -349,6 +374,32 @@ export async function handleGames(ctx, user, method, segments, body) {
       if (limited) return limited;
       const game = typeof body.game === 'string' && Object.hasOwn(GAMES, body.game) ? body.game : null;
       if (!game) return response(400, { error: 'Pick a game.' });
+
+      // Against a bot: just for fun (no stakes, no XP, no champions board), starts at once
+      if (body.bot !== undefined) {
+        const level = body.bot;
+        if (!BOT_LEVELS.includes(level)) return response(400, { error: 'Pick easy, medium or hard.' });
+        if (!BOT_GAMES.includes(game)) return response(400, { error: `There's no bot for ${GAMES[game].name}: it's down to luck.` });
+        const botLimited = await firstLimit([user.userId, 'botgame', 40, 3600]);
+        if (botLimited) return botLimited;
+        let options;
+        try { options = GAMES[game].options(body.options); } catch (err) {
+          if (err instanceof GameError) return response(400, { error: err.message });
+          throw err;
+        }
+        const now = new Date().toISOString();
+        const botPlayer = { userId: `bot:${level}`, username: `${BOT_NAMES[level].toLowerCase()}_bot`, displayName: `${BOT_NAMES[level]} (${level} bot)`, picKey: null, paid: { s: 0, e: 0 }, joinedAt: now };
+        const match = {
+          matchId: `${Date.now()}-${randomInt(36 ** 6).toString(36)}`,
+          groupId, game, stake: 0, seats: 2, options, time: 'm900', bot: level, status: 'active', invited: null,
+          players: [{ ...publicPlayer(user), paid: { s: 0, e: 0 }, joinedAt: now }, botPlayer],
+          state: null, version: 0, createdAt: now, updatedAt: now, startedAt: now,
+        };
+        Object.assign(match, progress(match, GAMES[game].init(rand, options, 2)));
+        const error = await ctx.commit([{ Put: { TableName: GAMES_TABLE, Item: match, ConditionExpression: 'attribute_not_exists(matchId)' } }], ['Please try again.']);
+        if (error) return error;
+        return matchResponse(match, 201);
+      }
       const stake = body.stake ?? 0;
       if (!Number.isInteger(stake) || stake < 0) return response(400, { error: 'The stake must be a whole number of aura (0 for a friendly game).' });
       const maxSeats = MAX_PLAYERS[game] ?? 2;
@@ -422,10 +473,11 @@ export async function handleGames(ctx, user, method, segments, body) {
   if (method === 'GET' && !action) {
     if (seat === -1 && !(await membership(match.groupId, user.userId))) return response(404, { error: 'Game not found.' });
     // A poll for a match that hasn't changed since ?v=<version> gets a short answer
-    if (typeof ctx.query?.v === 'string' && ctx.query.v === String(match.version)) {
-      return response(200, { same: true, version: match.version, now: Date.now() });
+    const current = await botTurn(match);
+    if (typeof ctx.query?.v === 'string' && ctx.query.v === String(current.version)) {
+      return response(200, { same: true, version: current.version, now: Date.now() });
     }
-    return matchResponse(match, 200, typeof ctx.query?.have === 'string' ? ctx.query.have : null);
+    return matchResponse(current, 200, typeof ctx.query?.have === 'string' ? ctx.query.have : null);
   }
   if (method !== 'POST') return response(404, { error: 'Route not found.' });
 
@@ -535,6 +587,8 @@ export async function handleGames(ctx, user, method, segments, body) {
     if (saved.statusCode) return saved;
     return matchResponse(saved);
   }
+
+  if (action === 'claim' && match.bot) return response(409, { error: 'Take your time: the bot will wait.' });
 
   if (action === 'resign' || action === 'claim') {
     if (action === 'claim') {

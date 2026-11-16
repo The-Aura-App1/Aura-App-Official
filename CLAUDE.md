@@ -158,6 +158,18 @@
 - Table `aura-group-stats` (partition `groupId`, sort `sk`, TTL `expiresAt`). `groupStats.mjs` (identical in aura-aura, aura-posts, aura-comments; a test keeps them equal) adds XP best effort: post 10, comment 3, give 2, game 5, at most 60 per member a day; level floor is 50 × L × (L − 1). Gives to group posts and comments also add to `WEEK#<iso week>#<userId>` (hidden from the board when the giver has `hideAuraRank`).
 - aura-aura serves `GET|POST|PUT|DELETE /power-ups/{proxy+}` (`powerups.mjs`): Spotlight (own group post, 150 spendable, 24 h, one at a time; aura-posts pins it first in the group feed with `spotlight: true`) and Aura Rain (100–2,000 of the starter's spendable, 10 minutes, a catch is random up to a tenth of the pot, once per person; at most 2,000 a day per group; catchers need a 7-day-old account and 3 days in the group; what's left goes back to the starter when the rain is next looked at). All money moves in one transaction with the stats item, so aura is conserved. Owners turn it off with `powerUpsEnabled` on the group. Prices and limits are `POWER_UPS` in powerups.mjs and `src/utils/powerUps.js` (a test keeps them equal).
 
+## Bots (2026-11-16)
+
+- "Play a bot" on a group's Games tab (`BotForm.jsx`): every skill game (Connect 4, pool, chess, Go Fish, Crazy 8, poker, mini golf), never dice or coin flip, at easy (Pip), medium (Nova) or hard (Atlas).
+- **Just for fun:** stake 0, no XP, no champions board, can't claim on time, and only the player sees it in the group's list. `POST /games/group/{id} { game, bot: level }` creates it already active, with seat 1 `bot:<level>` and `match.bot`.
+- **Brains:** `aura-aura/bots.mjs`. A bot decides from its seat's own view (it never peeks at hidden cards).
+  - Connect 4: hard is a depth-6 alpha-beta search.
+  - Chess: hard is iterative deepening to depth 4 with a 2.5 s limit.
+  - Pool and golf: try shots with the server's own physics and keep the best.
+  - Cards: memory and hand strength.
+- **When the bot moves:** on the next GET of the match (`botTurn`), once `botDelay` has passed, so a person's own shot plays out first. The save is conditional on the version, so two polls can't both move. If the bot's choice is ever refused it plays `fallbackMove`.
+- **Tests:** `backend/tests/bots.test.mjs` plays bot against bot at every level. `gamesClock.test.mjs` runs a whole bot game through the handler.
+
 ## Notifications (2026-11-16)
 
 - Each notification can be marked read or unread on its own (`PUT /notifications/{id}/read { read }`, no body means read) and starred to keep (`PUT /notifications/{id}/star { starred }`). `GET /notifications` returns the newest `limit` plus every starred one, however old. The page has All / Unread / Starred filters and always-visible star, read and delete buttons (deleting a starred one asks first). Opening one still marks it read.

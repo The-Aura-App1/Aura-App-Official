@@ -275,7 +275,7 @@ export default function GameMatch() {
     return Math.max(0, ms - Math.max(0, now + offset.current - match.turnStartedAt - CLOCK_LAG_MS));
   }) : null;
   const showTurnTimer = !(chessClock && match.clockRunning);
-  const canClaim = match.status === 'active' && seat !== null && !imOut && !myTurn && left !== null && left <= 0 && !flagFell;
+  const canClaim = match.status === 'active' && !match.bot && seat !== null && !imOut && !myTurn && left !== null && left <= 0 && !flagFell;
   const invitedMe = match.status === 'open' && match.invited?.userId === user?.userId;
   const canAccept = match.status === 'open' && seat === null && players.length < seats && (!match.invited || invitedMe);
   const turnName = players.find(p => p.userId === match.turnUserId)?.displayName ?? 'Someone';
@@ -303,7 +303,9 @@ export default function GameMatch() {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-[var(--text-primary)] leading-tight">{info?.name ?? match.game}</h1>
-            {match.time && <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><Timer size={12} aria-hidden="true" /> {timeLabel(match.time)}</p>}
+            {match.bot
+              ? <p className="text-xs text-[var(--text-muted)]">Against a bot ({match.bot}), just for fun</p>
+              : match.time && <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><Timer size={12} aria-hidden="true" /> {timeLabel(match.time)}</p>}
           </div>
           <StakeBadge stake={match.stake} />
         </div>
@@ -366,8 +368,8 @@ export default function GameMatch() {
         {match.status === 'active' && (
           <p className={`flex items-center justify-center gap-1.5 text-sm font-semibold ${myTurn ? 'text-aura-400' : 'text-[var(--text-secondary)]'}`} aria-live="polite">
             <Timer size={15} aria-hidden="true" />
-            {myTurn ? 'Your turn' : seat === null || many ? `${turnName}'s turn` : 'Their turn'}
-            {left !== null && showTurnTimer && (
+            {myTurn ? 'Your turn' : match.bot ? `${turnName} is thinking…` : seat === null || many ? `${turnName}'s turn` : 'Their turn'}
+            {left !== null && showTurnTimer && !match.bot && (
               <span className="tabular-nums font-normal text-[var(--text-muted)]">
                 · {left > 0 ? `${chessClock ? 'first move ' : ''}${clock(left)}` : 'time\'s up'}
               </span>

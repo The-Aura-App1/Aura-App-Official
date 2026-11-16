@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Swords, Sparkles, X } from 'lucide-react';
+import { Swords, Sparkles, X, Bot } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
 import Champions from './Champions';
+import BotForm from './BotForm';
 import { GAME_LIST, GAME_BY_ID, STAKE_CAP, TIME_CHOICES, CLOCK_GAMES, defaultTime, statusText, gameTile, seatsOf } from './gameInfo';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
@@ -304,13 +305,18 @@ export default function GroupGames({ groupId }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {creating
-        ? <ChallengeForm groupId={groupId} onClose={() => setCreating(false)} />
-        : (
-          <button type="button" onClick={() => setCreating(true)} className="btn-primary self-start">
+      {creating === 'challenge' && <ChallengeForm groupId={groupId} onClose={() => setCreating(false)} />}
+      {creating === 'bot' && <BotForm groupId={groupId} onClose={() => setCreating(false)} />}
+      {!creating && (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setCreating('challenge')} className="btn-primary">
             <Swords size={16} aria-hidden="true" /> Challenge someone
           </button>
-        )}
+          <button type="button" onClick={() => setCreating('bot')} className="btn-secondary px-4 py-2 text-[var(--text-primary)]">
+            <Bot size={16} aria-hidden="true" /> Play a bot
+          </button>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-400" role="alert">{error}</p>}
       {games === null && !error && <p className="text-sm text-[var(--text-muted)]">Loading games…</p>}

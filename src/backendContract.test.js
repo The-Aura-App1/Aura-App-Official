@@ -133,6 +133,16 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
 });
 
+test('the app offers bots for the same games and levels aura-aura plays', () => {
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'bots.mjs'), 'utf8');
+  const { BOT_GAMES, BOT_LEVELS } = require('./components/games/gameInfo');
+  const list = name => [...server.match(new RegExp(`export const ${name} = \\[([^\\]]*)\\]`))[1].matchAll(/'(\w+)'/g)].map(m => m[1]);
+  expect(list('BOT_GAMES')).toEqual(BOT_GAMES);
+  expect(list('BOT_LEVELS')).toEqual(BOT_LEVELS.map(l => l.id));
+  const names = Object.fromEntries([...server.match(/BOT_NAMES = \{([^}]*)\}/)[1].matchAll(/(\w+): '(\w+)'/g)].map(m => [m[1], m[2]]));
+  expect(names).toEqual(Object.fromEntries(BOT_LEVELS.map(l => [l.id, l.name])));
+});
+
 test('the app offers exactly the reactions aura-posts accepts', () => {
   const server = fs.readFileSync(path.join(LAMBDAS, 'aura-posts', 'reactions.mjs'), 'utf8');
   const app = require('./utils/reactions');
