@@ -5,6 +5,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { handleFeedback } from './feedback.mjs';
 import { handleFollows, approveAllPending, blockState, isBlockedEitherWay } from './follows.mjs';
 import { searchPeople } from './people.mjs';
+import { claimLaunchPremium, ensureHouseAccount, launchSpotsLeft } from './premium.mjs';
 import { listReports, reviewReport } from './moderation.mjs';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
 
@@ -775,6 +776,12 @@ export const handler = async (event) => {
     // PUT /users/me — update profile
     if (method === 'PUT' && path === '/users/me') {
       if (!userId) return response(401, { error: 'Unauthorized' });
+      // { claimPremium: true }: the launch offer (premium.mjs)
+      if (body.claimPremium === true) {
+        const me = await getUser(userId);
+        if (!me) return response(404, { error: 'User not found.' });
+        return await claimLaunchPremium(db, me, response);
+      }
       return await updateProfile(userId, body);
     }
 
@@ -798,13 +805,16 @@ export const handler = async (event) => {
       } else {
         user = await ensureReservation(user);
         user = await migrateAura(user);
+        user = await ensureHouseAccount(db, user);
       }
+      // How many free launch Premium spots are left, for people who don't have it
+      const premiumLaunchLeft = user.isPremium ? null : await launchSpotsLeft(db);
 
       const todayStatus = await getToday(user);
       // Reports against you (and who made them) are for moderators only
       const { reportCount, trustedReports, reportedBy, reportReasons, lastReportedAt, reviewedAt, reviewedBy, ...own } = user;
       return response(200, {
-        ...own, today: todayStatus, usernameStatus: usernameStatus(user),
+        ...own, today: todayStatus, usernameStatus: usernameStatus(user), premiumLaunchLeft,
         ...(ADMIN_IDS.has(userId) && { isAdmin: true }),
       });
     }

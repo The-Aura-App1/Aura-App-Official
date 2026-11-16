@@ -168,7 +168,9 @@
 - **Premium page:** `/premium` (`src/pages/Premium.jsx`, in moreItems).
   - **Premium ($4.99 a month):** lists the real perks from the economy rules and constants, with a Regular vs Premium table.
   - **Creator account ($20 a year):** cashout later (75% to the creator, $20 minimum, verified, 18+), verification, analytics and share counts, all marked coming soon.
-  - **Buying:** payments aren't set up, so both buttons say "coming soon".
+  - **Buying:** payments aren't set up, so the creator button says "coming soon".
+  - **Launch offer (2026-11-16):** the first 100 people to press "Get Premium free" get Premium at no cost, with no end date set. It goes through `PUT /users/me { claimPremium: true }` (aura-users `premium.mjs`). A counter `PROMO#premium-launch` in aura-feedback and the person's record change in one transaction, so there are never more than 100 and nobody claims twice. The record gets `premiumSource: 'launch'`, `premiumSince` and `premiumClaimedAt`. GET /users/me returns `premiumLaunchLeft` to anyone without Premium. Once the 100 are gone, the button goes back to "coming soon".
+  - **House accounts:** `HOUSE_IDS` in premium.mjs are `aura_app` (official) and `demo_judge` (the contest judge). They're made Premium and creator accounts (`premiumSource: 'house'`) the next time they load their profile.
   - **Upkeep:** keep the page true when perks or limits change.
 
 ## Group perks, boosts, reactions and boards (2026-11-16)

@@ -72,7 +72,7 @@ export const KNOWLEDGE = [
   {
     id: 'premium', q: 'What does Premium include?',
     keys: ['premium', 'subscription', 'upgrade', 'subscribe', 'ad free', 'ad-free', 'creator account', 'creator', 'pro'],
-    a: 'Premium is $4.99 a month: 1,000 free aura a day instead of 250, higher give, take and game limits, no ads, 5 free group boosts a month, your groups\' reaction pins on any post, and a username change once a day. A creator account is $20 a year, for cashing out earned aura later (once that launches), verification, analytics and share counts. The Premium page lists everything. Aura itself is never sold for money.',
+    a: 'Premium is $4.99 a month: 1,000 free aura a day instead of 250, higher give, take and game limits, no ads, 5 free group boosts a month, your groups\' reaction pins on any post, and a username change once a day. Right now the first 100 people to press Get Premium on the Premium page get it free. A creator account is $20 a year, for cashing out earned aura later (once that launches), verification, analytics and share counts. The Premium page lists everything. Aura itself is never sold for money.',
   },
   {
     id: 'ads', q: 'Why do I see ads?',

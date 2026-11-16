@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Crown, Sparkles, Gift, ShieldOff, Rocket, Smile, AtSign, Palette, Swords, BadgeCheck, Wallet, BarChart3, Share2, Check, Minus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
 import { BOOSTS } from '../utils/powerUps';
 import { STAKE_CAP } from '../components/games/gameInfo';
 import { STYLE_PREMIUM_ONLY } from '../utils/postStyle';
@@ -12,6 +13,7 @@ import { STYLE_PREMIUM_ONLY } from '../utils/postStyle';
 // the economy rules (CLAUDE.md) and the same constants the app and servers
 // use. Payments aren't set up yet, so there's nothing to buy here today.
 export const PREMIUM_PRICE = '$4.99';
+export const LAUNCH_SPOTS = 100;   // matches LAUNCH_SPOTS in aura-users/premium.mjs
 export const CREATOR_PRICE = '$20';
 
 // Regular vs Premium, from the limits aura-aura enforces (RULES in aura-aura/index.mjs)
@@ -61,9 +63,28 @@ function Perk({ icon: Icon, title, text, soon }) {
 }
 
 export default function Premium() {
-  const { dbProfile } = useAuth();
+  const { dbProfile, refreshUser } = useAuth();
   const isPremium = !!dbProfile?.isPremium;
   const isCreator = !!dbProfile?.isCreator;
+  // The launch offer: the first LAUNCH_SPOTS people to press the button get Premium free
+  const left = dbProfile?.premiumLaunchLeft ?? null;
+  const [claiming, setClaiming] = useState(false);
+  const [claimMsg, setClaimMsg] = useState(null);
+
+  async function claim() {
+    setClaiming(true);
+    setClaimMsg(null);
+    try {
+      const res = await api.updateProfile({ claimPremium: true });
+      setClaimMsg({ ok: res.message });
+      await refreshUser?.();
+    } catch (err) {
+      setClaimMsg({ error: err.message });
+      await refreshUser?.();
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-5 pb-10">
@@ -92,13 +113,22 @@ export default function Premium() {
           {PREMIUM_PERKS.map(p => <Perk key={p.title} {...p} />)}
         </ul>
         {isPremium ? (
-          <p className="flex items-center gap-2 text-sm font-semibold text-amber-400"><Check size={16} /> You have Premium. Thank you!</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-400"><Check size={16} /> You have Premium. {dbProfile?.premiumSource === 'launch' ? 'You were one of the first 100. Enjoy!' : 'Thank you!'}</p>
+        ) : left > 0 ? (
+          <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-amber-400/40 bg-amber-400/10">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Launch offer: the first {LAUNCH_SPOTS} people get Premium free.</p>
+            <p className="text-xs text-[var(--text-secondary)] tabular-nums">{left} of {LAUNCH_SPOTS} spots left.</p>
+            <button type="button" onClick={claim} disabled={claiming} className="btn-primary self-start mt-1">
+              <Crown size={16} aria-hidden="true" /> {claiming ? 'Claiming…' : 'Get Premium free'}
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-1.5">
             <button type="button" disabled className="btn-primary self-start opacity-70 cursor-not-allowed">Get Premium (coming soon)</button>
-            <p className="text-[11px] text-[var(--text-muted)]">Subscriptions open once payments are set up.</p>
+            <p className="text-[11px] text-[var(--text-muted)]">{left === 0 ? `All ${LAUNCH_SPOTS} free launch spots have been claimed. ` : ''}Subscriptions open once payments are set up.</p>
           </div>
         )}
+        {claimMsg && <p className={`text-sm ${claimMsg.error ? 'text-red-400' : 'text-amber-400 font-semibold'}`} role={claimMsg.error ? 'alert' : 'status'}>{claimMsg.error ?? claimMsg.ok}</p>}
       </section>
 
       {/* ── Comparison ── */}
