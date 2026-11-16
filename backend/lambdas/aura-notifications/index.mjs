@@ -96,33 +96,49 @@ async function getNotifications(userId, limit = 30) {
     ExpressionAttributeValues: { ':deleted': 'deleted' },
   });
 
-  const notifications = all
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, limit);
+  // The newest `limit`, plus every starred one however old (starring keeps it to come back to)
+  const sorted = all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const newest = sorted.slice(0, limit);
+  const kept = new Set(newest.map(n => n.notificationId));
+  const notifications = [...newest, ...sorted.filter(n => n.starred && !kept.has(n.notificationId))];
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return response(200, { notifications, unreadCount });
 }
 
-// ─── Mark notification as read ────────────────────────────────
+// ─── Mark one notification read or unread, star or unstar it ───
 // The condition stops these updates from creating empty notifications
-async function markRead(userId, notificationId) {
+async function setFlag(userId, notificationId, field, value) {
   try {
     await dynamo.send(new UpdateCommand({
       TableName:                 NOTIFICATIONS_TABLE,
       Key:                       { userId, notificationId },
-      UpdateExpression:          'SET #read = :true',
+      UpdateExpression:          'SET #f = :v',
       ConditionExpression:       'attribute_exists(notificationId)',
-      ExpressionAttributeNames:  { '#read': 'read' },
-      ExpressionAttributeValues: { ':true': true },
+      ExpressionAttributeNames:  { '#f': field },
+      ExpressionAttributeValues: { ':v': value },
     }));
   } catch (err) {
     if (err.name !== 'ConditionalCheckFailedException') throw err;
     return response(404, { error: 'Notification not found.' });
   }
+  return null;
+}
 
-  return response(200, { message: 'Marked as read.' });
+// PUT /notifications/{id}/read { read?: boolean } (no body: read)
+async function markRead(userId, notificationId, body) {
+  const read = body?.read === undefined ? true : body.read;
+  if (typeof read !== 'boolean') return response(400, { error: 'read must be true or false.' });
+  const failed = await setFlag(userId, notificationId, 'read', read);
+  return failed ?? response(200, { message: read ? 'Marked as read.' : 'Marked as unread.', read });
+}
+
+// PUT /notifications/{id}/star { starred: boolean }: starred ones are kept to come back to
+async function markStarred(userId, notificationId, body) {
+  if (typeof body?.starred !== 'boolean') return response(400, { error: 'starred must be true or false.' });
+  const failed = await setFlag(userId, notificationId, 'starred', body.starred);
+  return failed ?? response(200, { message: body.starred ? 'Starred.' : 'Unstarred.', starred: body.starred });
 }
 
 // ─── Mark all notifications as read ──────────────────────────
@@ -166,6 +182,15 @@ async function deleteNotification(userId, notificationId) {
   return response(200, { message: 'Notification deleted.' });
 }
 
+// Ids arrive URL-encoded (they contain '#'); a bad escape is just an unknown id
+function decodeId(value) {
+  try { return decodeURIComponent(value); } catch { return ''; }
+}
+function parseBody(raw) {
+  if (!raw) return {};
+  try { const b = JSON.parse(raw); return b && typeof b === 'object' && !Array.isArray(b) ? b : {}; } catch { return {}; }
+}
+
 // ─── Main handler ─────────────────────────────────────────────
 export const handler = async (event) => {
   const method   = event.requestContext?.http?.method ?? event.httpMethod;
@@ -191,14 +216,19 @@ export const handler = async (event) => {
       return await markAllRead(userId);
     }
 
-    // PUT /notifications/{id}/read — mark one as read
+    // PUT /notifications/{id}/read { read? } — mark one read (or unread)
     if (method === 'PUT' && segments[0] === 'notifications' && segments.length === 3 && segments[2] === 'read') {
-      return await markRead(userId, segments[1]);
+      return await markRead(userId, decodeId(segments[1]), parseBody(event.body));
+    }
+
+    // PUT /notifications/{id}/star { starred } — star or unstar one
+    if (method === 'PUT' && segments[0] === 'notifications' && segments.length === 3 && segments[2] === 'star') {
+      return await markStarred(userId, decodeId(segments[1]), parseBody(event.body));
     }
 
     // DELETE /notifications/{id} — delete notification
     if (method === 'DELETE' && segments[0] === 'notifications' && segments.length === 2) {
-      return await deleteNotification(userId, segments[1]);
+      return await deleteNotification(userId, decodeId(segments[1]));
     }
 
     return response(404, { error: 'Route not found.' });

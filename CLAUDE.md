@@ -158,6 +158,10 @@
 - Table `aura-group-stats` (partition `groupId`, sort `sk`, TTL `expiresAt`). `groupStats.mjs` (identical in aura-aura, aura-posts, aura-comments; a test keeps them equal) adds XP best effort: post 10, comment 3, give 2, game 5, at most 60 per member a day; level floor is 50 × L × (L − 1). Gives to group posts and comments also add to `WEEK#<iso week>#<userId>` (hidden from the board when the giver has `hideAuraRank`).
 - aura-aura serves `GET|POST|PUT|DELETE /power-ups/{proxy+}` (`powerups.mjs`): Spotlight (own group post, 150 spendable, 24 h, one at a time; aura-posts pins it first in the group feed with `spotlight: true`) and Aura Rain (100–2,000 of the starter's spendable, 10 minutes, a catch is random up to a tenth of the pot, once per person; at most 2,000 a day per group; catchers need a 7-day-old account and 3 days in the group; what's left goes back to the starter when the rain is next looked at). All money moves in one transaction with the stats item, so aura is conserved. Owners turn it off with `powerUpsEnabled` on the group. Prices and limits are `POWER_UPS` in powerups.mjs and `src/utils/powerUps.js` (a test keeps them equal).
 
+## Notifications (2026-11-16)
+
+- Each notification can be marked read or unread on its own (`PUT /notifications/{id}/read { read }`, no body means read) and starred to keep (`PUT /notifications/{id}/star { starred }`). `GET /notifications` returns the newest `limit` plus every starred one, however old. The page has All / Unread / Starred filters and always-visible star, read and delete buttons (deleting a starred one asks first). Opening one still marks it read.
+
 ## Saved themes and the Premium page (2026-11-16)
 
 - **Saved custom themes:** up to 20 per device, in localStorage `aura-custom-themes` (`saveTheme`, `renameSavedTheme`, `deleteSavedTheme`, `applySavedTheme` in `src/themes/customTheme.js`).

@@ -156,7 +156,8 @@ export const api = {
 
   // ─── Notifications ────────────────────────────────────────
   getNotifications: (limit = 30)         => request('GET',  `/notifications?limit=${limit}`),
-  markRead:         (notificationId)     => request('PUT',  `/notifications/${id(notificationId)}/read`),
+  markRead:         (notificationId, read = true) => request('PUT', `/notifications/${id(notificationId)}/read`, { read }),
+  starNotification: (notificationId, starred) => request('PUT', `/notifications/${id(notificationId)}/star`, { starred }),
   markAllRead:      ()                   => request('PUT',  '/notifications/read-all'),
   deleteNotification: (notificationId)   => request('DELETE', `/notifications/${id(notificationId)}`),
 

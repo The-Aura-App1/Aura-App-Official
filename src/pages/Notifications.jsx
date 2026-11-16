@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Sparkles, MessageCircle, UserPlus,
-  TrendingUp, TrendingDown, Check, Trash2, AtSign, Swords
+  TrendingDown, Check, CheckCheck, Trash2, AtSign, Swords, Star, Circle,
 } from 'lucide-react';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -93,11 +93,14 @@ function notificationRoute(type, data) {
   }
 }
 
+const FILTERS = [['all', 'All'], ['unread', 'Unread'], ['starred', 'Starred']];
+
 export default function Notifications() {
   const navigate                              = useNavigate();
   const [notifications, setNotifications]     = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState('');
+  const [filter, setFilter]                   = useState('all');
 
   const load = useCallback(async () => {
     try {
@@ -113,22 +116,33 @@ export default function Notifications() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleClick(notification) {
-    // Mark as read
-    if (!notification.read) {
-      await api.markRead(notification.notificationId);
-      setNotifications(prev =>
-        prev.map(n =>
-          n.notificationId === notification.notificationId
-            ? { ...n, read: true }
-            : n
-        )
-      );
+  // Changes one notification on screen at once, and puts it back if the server says no
+  async function change(notificationId, fields, request) {
+    const before = notifications.find(n => n.notificationId === notificationId);
+    setNotifications(prev => prev.map(n => (n.notificationId === notificationId ? { ...n, ...fields } : n)));
+    try {
+      await request();
+    } catch (err) {
+      setNotifications(prev => prev.map(n => (n.notificationId === notificationId ? before : n)));
+      setError(err.message);
     }
+  }
 
-    // Navigate to relevant content
+  async function handleClick(notification) {
+    // Opening one marks it read
+    if (!notification.read) change(notification.notificationId, { read: true }, () => api.markRead(notification.notificationId, true));
     const route = notificationRoute(notification.type, notification.data);
     if (route) navigate(route);
+  }
+
+  function toggleRead(e, n) {
+    e.stopPropagation();
+    change(n.notificationId, { read: !n.read }, () => api.markRead(n.notificationId, !n.read));
+  }
+
+  function toggleStar(e, n) {
+    e.stopPropagation();
+    change(n.notificationId, { starred: !n.starred }, () => api.starNotification(n.notificationId, !n.starred));
   }
 
   async function handleMarkAllRead() {
@@ -136,15 +150,20 @@ export default function Notifications() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }
 
-  async function handleDelete(e, notificationId) {
+  async function handleDelete(e, notification) {
     e.stopPropagation();
-    await api.deleteNotification(notificationId);
-    setNotifications(prev =>
-      prev.filter(n => n.notificationId !== notificationId)
-    );
+    if (notification.starred && !window.confirm('Delete this starred notification?')) return;
+    try {
+      await api.deleteNotification(notification.notificationId);
+      setNotifications(prev => prev.filter(n => n.notificationId !== notification.notificationId));
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const starredCount = notifications.filter(n => n.starred).length;
+  const shown = notifications.filter(n => (filter === 'unread' ? !n.read : filter === 'starred' ? n.starred : true));
 
   if (loading) return <LoadingSpinner />;
 
@@ -167,12 +186,27 @@ export default function Notifications() {
         </div>
         {unreadCount > 0 && (
           <button onClick={handleMarkAllRead}
-            className="text-xs text-aura-400 hover:text-aura-300
+            className="flex items-center gap-1 text-xs text-aura-400 hover:text-aura-300
                        font-medium transition-colors">
-            Mark all read
+            <CheckCheck size={14} /> Mark all read
           </button>
         )}
       </div>
+
+      {notifications.length > 0 && (
+        <div className="flex gap-1.5" role="tablist" aria-label="Show">
+          {FILTERS.map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border
+                ${filter === key ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+              {key === 'starred' && <Star size={12} className={starredCount ? 'fill-amber-400 text-amber-400' : ''} />}
+              {label}
+              {key === 'unread' && unreadCount > 0 && <span className="tabular-nums">({unreadCount})</span>}
+              {key === 'starred' && starredCount > 0 && <span className="tabular-nums">({starredCount})</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <p className="text-red-400 text-sm text-center py-4">{error}</p>
@@ -192,9 +226,15 @@ export default function Notifications() {
         </div>
       )}
 
+      {notifications.length > 0 && shown.length === 0 && (
+        <p className="text-sm text-[var(--text-muted)] text-center py-10">
+          {filter === 'unread' ? 'You\'re all caught up.' : 'No starred notifications. Tap the star on one to keep it here.'}
+        </p>
+      )}
+
       {/* Notification list */}
       <div className="flex flex-col gap-2">
-        {notifications.map((notification, i) => (
+        {shown.map((notification, i) => (
           <div
             key={notification.notificationId}
             onClick={() => handleClick(notification)}
@@ -231,18 +271,22 @@ export default function Notifications() {
               </p>
             </div>
 
-            {/* Unread dot + delete */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {!notification.read && (
-                <div className="w-2 h-2 rounded-full bg-aura-500" />
-              )}
-              <button
-                onClick={e => handleDelete(e, notification.notificationId)}
-                className="p-1.5 rounded-lg text-[var(--text-muted)]
-                           hover:text-red-400 hover:bg-red-400/10
-                           transition-all duration-200 opacity-0
-                           group-hover:opacity-100">
-                <Trash2 size={13} />
+            {/* Star, read or unread, delete */}
+            <div className="flex items-center gap-0.5 flex-shrink-0 -mr-1.5 -mt-1">
+              <button type="button" onClick={e => toggleStar(e, notification)}
+                aria-pressed={!!notification.starred} aria-label={notification.starred ? 'Unstar' : 'Star to keep it'}
+                title={notification.starred ? 'Unstar' : 'Star to keep it'}
+                className={`p-1.5 rounded-lg transition-colors ${notification.starred ? 'text-amber-400' : 'text-[var(--text-muted)] hover:text-amber-400'}`}>
+                <Star size={15} className={notification.starred ? 'fill-amber-400' : ''} />
+              </button>
+              <button type="button" onClick={e => toggleRead(e, notification)}
+                aria-label={notification.read ? 'Mark as unread' : 'Mark as read'} title={notification.read ? 'Mark as unread' : 'Mark as read'}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-aura-400 transition-colors">
+                {notification.read ? <Circle size={15} /> : <span className="flex w-[15px] h-[15px] items-center justify-center"><span className="w-2.5 h-2.5 rounded-full bg-aura-500" /></span>}
+              </button>
+              <button type="button" onClick={e => handleDelete(e, notification)} aria-label="Delete" title="Delete"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                <Trash2 size={14} />
               </button>
             </div>
           </div>
