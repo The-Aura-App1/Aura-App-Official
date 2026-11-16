@@ -98,7 +98,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
     setShowAuraModal(false);
   }
 
-  const frame = frameProps(post.style);
+  const frame = frameProps(post.style, post.type);
 
   // Blocked from this card or anywhere else on the page: gone at once
   if (blockedNow) return null;

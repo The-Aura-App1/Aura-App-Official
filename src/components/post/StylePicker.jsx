@@ -74,7 +74,7 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
 
   const changed = Object.keys(current).length;
   const sample = caption.trim() || (kind === 'text' ? 'Your words, your look.' : 'Your caption, your look.');
-  const frame = frameProps(current);
+  const frame = frameProps(current, postType);
   const groupBg = current.bg?.startsWith('grp:') ? groupBackgrounds.find(b => `grp:${b.id}` === current.bg) : null;
 
   return (

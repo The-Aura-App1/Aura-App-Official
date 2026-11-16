@@ -594,7 +594,7 @@ function Thumbs({ previews, slide, onPick, onRemove, onMove, onAdd, counts }) {
 
 // The post as the feed will show it, built from the same pieces PostCard uses
 function PostPreview({ profile, postType, caption, style, groupBg, overlays, previews }) {
-  const frame = frameProps(style);
+  const frame = frameProps(style, postType);
   const name = profile?.displayName || profile?.username || 'You';
   const fake = { type: postType, previewUrls: previews, overlays };
   return (

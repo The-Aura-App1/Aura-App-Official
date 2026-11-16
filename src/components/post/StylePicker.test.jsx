@@ -24,7 +24,9 @@ test('picking a font, background, size and frame builds the post style, with a l
   fireEvent.click(screen.getByRole('button', { name: 'Neon' }));
   expect(onStyle).toHaveBeenLastCalledWith({ font: 'lobster', bg: 'sunset', size: 'xl', frame: 'neon' });
   const preview = screen.getByLabelText('Preview');
-  expect(preview).toHaveClass('post-frame');
+  // a text post with a background is framed on its card, inside the preview
+  expect(preview.querySelector('.post-frame')).toBeTruthy();
+  expect(preview.className).not.toMatch(/post-frame/);
   expect(screen.getByText('Hello there').closest('div').style.color).toBe('rgb(255, 255, 255)');   // the background's own ink
   expect(screen.getByText('4 changes')).toBeInTheDocument();
 });
@@ -54,4 +56,27 @@ test('a styled text post renders as a card in its colors, and a frame paints the
   expect(frameProps({ frame: 'glow' }).className).toBe('post-frame post-frame-glow');
   expect(frameProps({ frame: '#123456' }).style['--frame-paint']).toBe('#123456');
   expect(frameProps(null).className).toBe('');
+});
+
+test('a text post with a background wears its frame on the card itself', () => {
+  const { BACKGROUND_KINDS, POST_BACKGROUNDS, POST_FRAMES } = require('../../utils/postStyle');
+  for (const kind of BACKGROUND_KINDS) {
+    const bg = POST_BACKGROUNDS.find(b => b.kind === kind);
+    for (const frame of [POST_FRAMES[0].id, '#123456']) {
+      const style = { bg: bg.id, frame };
+      const { container, unmount } = render(<TextBody text="Framed" style={style} />);
+      const card = container.firstChild;
+      expect(card.className).toMatch(/post-frame/);
+      expect(card.style.getPropertyValue('--frame-paint')).toBeTruthy();
+      unmount();
+      // and the outer post card doesn't draw a second one
+      expect(frameProps(style, 'text').className).toBe('');
+      expect(frameProps(style, 'image').className).toMatch(/post-frame/);
+    }
+  }
+  // a group background (grp:) too
+  const { container } = render(<TextBody text="x" style={{ bg: 'grp:a1', frame: 'glow' }} groupBg={{ key: 'k', ink: '#fff' }} />);
+  expect(container.firstChild.className).toMatch(/post-frame-glow/);
+  // without a background the frame stays on the post card
+  expect(frameProps({ frame: 'glow' }, 'text').className).toMatch(/post-frame/);
 });
