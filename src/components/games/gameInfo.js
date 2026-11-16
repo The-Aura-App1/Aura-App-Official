@@ -1,4 +1,4 @@
-import { CircleDot, Spade, Fish, Disc, Dice5, Coins } from 'lucide-react';
+import { CircleDot, Spade, Fish, Disc, Dice5, Coins, Crown, Club, Flag } from 'lucide-react';
 
 // The group games, in the order they're offered (skill games first). The ids
 // match GAMES in backend/lambdas/aura-aura/gameRules.mjs, and maxPlayers its
@@ -6,8 +6,11 @@ import { CircleDot, Spade, Fish, Disc, Dice5, Coins } from 'lucide-react';
 export const GAME_LIST = [
   { id: 'connect4', name: 'Connect 4',    Icon: CircleDot, kind: 'Skill', blurb: 'Drop discs and line up four in a row.', tint: ['#7c3aed', '#312e81'] },
   { id: 'pool',     name: '8-Ball Pool',  Icon: Disc,      kind: 'Skill', blurb: 'Aim, set your power, sink your group, then the 8.', tint: ['#0f766e', '#134e4a'] },
+  { id: 'chess',    name: 'Chess',        Icon: Crown,     kind: 'Skill', blurb: 'The classic. Checkmate their king.', tint: ['#92400e', '#3b2414'] },
+  { id: 'golf',     name: 'Mini Golf',    Icon: Flag,      kind: 'Skill', blurb: 'A new random course every game. 2 to 4 players.', maxPlayers: 4, tint: ['#15803d', '#14532d'] },
   { id: 'poker',    name: 'Poker',        Icon: Spade,     kind: 'Skill', blurb: 'Texas Hold\'em for 2 to 6. Win every chip.', maxPlayers: 6, tint: ['#047857', '#3b1f3f'] },
   { id: 'gofish',   name: 'Go Fish',      Icon: Fish,      kind: 'Skill', blurb: 'Ask for ranks and collect books of four. 2 to 5 players.', maxPlayers: 5, tint: ['#0369a1', '#0c4a6e'] },
+  { id: 'crazy8',   name: 'Crazy 8',      Icon: Club,      kind: 'Skill', blurb: 'Match suit or rank; 8s are wild. 2 to 4 players.', maxPlayers: 4, tint: ['#1d4ed8', '#172554'] },
   { id: 'dice',     name: 'Dice Duel',    Icon: Dice5,     kind: 'Luck',  blurb: 'Two dice each, first to two rounds. 2 to 6 players.', maxPlayers: 6, tint: ['#be123c', '#4c0519'] },
   { id: 'coinflip', name: 'Flip a Coin',  Icon: Coins,     kind: 'Luck',  blurb: 'Call it. One flip settles it.', tint: ['#d97706', '#78350f'] },
 ];

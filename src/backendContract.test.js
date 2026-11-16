@@ -136,6 +136,12 @@ test('the pool table in the app is the size of the one aura-aura plays on', () =
   expect(constant(app, 'POCKETS')).toBe(constant(server, 'POCKETS'));
 });
 
+test('mini golf in the app is drawn at the size aura-aura plays it', () => {
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'golf.mjs'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, 'components', 'games', 'GolfCourse.jsx'), 'utf8');
+  for (const name of ['W', 'H', 'T', 'COLS', 'BALL', 'CUP']) expect(constant(app, name).trim()).toBe(constant(server, name).trim());
+});
+
 test('post styles: aura-posts accepts exactly the fonts, backgrounds, frames and colors the app offers', () => {
   const dir = path.join(LAMBDAS, 'aura-posts');
   const server = fs.readFileSync(path.join(dir, 'postStyle.mjs'), 'utf8');

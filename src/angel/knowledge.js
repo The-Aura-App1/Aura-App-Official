@@ -56,8 +56,8 @@ export const KNOWLEDGE = [
   },
   {
     id: 'games', q: 'How do group games work?',
-    keys: ['game', 'games', 'poker', 'connect 4', 'pool', 'go fish', 'dice', 'coin', 'stake', 'wager', 'more players', 'multiplayer'],
-    a: 'In a group\'s Games tab you can challenge a member to Connect 4, 8-Ball Pool, Poker, Go Fish, Dice Duel or a coin flip, for fun or for an aura stake. Poker and Dice Duel seat up to 6 players and Go Fish up to 5: the table is open to the whole group and starts when it fills, or when you start it. Every stake is held until the end and the winner takes them all as spendable aura; players who tie share it, and a draw gives them back. There\'s a 2-minute turn timer.',
+    keys: ['game', 'games', 'poker', 'connect 4', 'pool', 'go fish', 'dice', 'coin', 'stake', 'wager', 'more players', 'multiplayer', 'chess', 'crazy 8', 'crazy eights', 'mini golf', 'golf'],
+    a: 'In a group\'s Games tab you can challenge a member to Connect 4, 8-Ball Pool, Chess, Mini Golf, Poker, Go Fish, Crazy 8, Dice Duel or a coin flip, for fun or for an aura stake. Mini Golf builds a new random course every game (3, 5 or 9 holes), and every hole can be beaten. Poker and Dice Duel seat up to 6 players, Go Fish up to 5, and Mini Golf and Crazy 8 up to 4: the table is open to the whole group and starts when it fills, or when you start it. Every stake is held until the end and the winner takes them all as spendable aura; players who tie share it, and a draw gives them back. There\'s a 2-minute turn timer.',
   },
   {
     id: 'power-ups', q: 'What are power-ups and the Hearth?',

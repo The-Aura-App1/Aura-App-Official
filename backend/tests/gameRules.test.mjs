@@ -5,6 +5,8 @@
 // Run with: npm run test:games
 import * as R from '../lambdas/aura-aura/gameRules.mjs';
 import * as P from '../lambdas/aura-aura/pool.mjs';
+import * as C from '../lambdas/aura-aura/chess.mjs';
+import * as G from '../lambdas/aura-aura/golf.mjs';
 const { GAMES, viewFor, bestHand, GameError, POKER_START_CHIPS, MAX_PLAYERS } = R;
 
 let seed = 12345;
@@ -15,6 +17,7 @@ const sum = list => list.reduce((t, v) => t + v, 0);
 
 function cardsIn(game, s) {
   if (game === 'gofish') return [...s.deck, ...s.hands.flat(), ...s.books.flat().flatMap(r => [r + 's', r + 'h', r + 'd', r + 'c'])];
+  if (game === 'crazy8') return [...s.deck, ...s.discard, ...s.hands.flat()];
   return null;
 }
 
@@ -46,6 +49,23 @@ function randomMove(game, view, seat) {
       if (targets.length > 1 || rand(2)) move.from = pick(targets);   // with one opponent, `from` is optional
       return move;
     }
+    case 'chess': {
+      const m = pick(view.legal);
+      return { from: m.slice(0, 2), to: m.slice(2, 4), ...(m[4] && { promo: m[4] }) };
+    }
+    case 'crazy8': {
+      if (view.playable.length && (rand(4) || !view.canDraw)) {
+        const card = pick(view.playable);
+        return { type: 'play', card, ...(card[0] === '8' && { suit: pick(['s', 'h', 'd', 'c']) }) };
+      }
+      return view.canDraw ? { type: 'draw' } : { type: 'pass' };
+    }
+    case 'golf': {
+      // roughly at the cup, sometimes anywhere
+      const b = view.balls[seat];
+      const aim = Math.atan2(view.course.cup[1] - b[1], view.course.cup[0] - b[0]);
+      return { angle: rand(3) ? aim + (rand(101) - 50) / 100 : rand(628) / 100, power: 0.05 + rand(96) / 100 };
+    }
     case 'poker': {
       const o = view.options;
       const opts = [];
@@ -67,6 +87,20 @@ function checkState(game, state, n) {
     assert(state.chips.every(c => c >= 0), 'poker: negative stack');
     if (!state.over) assert(sum(state.committed) === state.pot + sum(state.bets), 'poker: committed chips don\'t match the pot');
   }
+  if (game === 'golf') {
+    // every ball still out is on the course, and nobody plays past the stroke limit
+    for (const b of state.balls ?? []) {
+      if (!b) continue;
+      const tile = state.course.tiles[Math.floor(b[1] / G.T) * G.COLS + Math.floor(b[0] / G.T)];
+      assert(tile && tile !== '.' && tile !== 'w', `golf: ball off the course at ${b}`);
+    }
+    assert(state.strokes.every(s => s <= G.MAX_STROKES), 'golf: past the stroke limit');
+  }
+  if (game === 'chess' && !state.over) {
+    // the side that just moved is never left in check
+    const moved = state.side === 'w' ? 'b' : 'w';
+    assert(!C.inCheck(state, moved), 'chess: a move left its own king in check');
+  }
   if (game === 'pool') {
     // Balls stay on the cloth and never overlap; potted ones stay potted (the 8-on-break re-rack aside)
     const on = state.balls.map((b, k) => [b, k]).filter(([b]) => b);
@@ -86,7 +120,7 @@ const results = {};
 for (const game of Object.keys(GAMES)) {
   for (let n = 2; n <= (MAX_PLAYERS[game] ?? 2); n++) {
     const tally = { games: 0, wins: Array(n).fill(0), draws: 0, splits: 0, removed: 0, maxMoves: 0 };
-    const rounds = game === 'pool' ? 150 : n === 2 ? 2000 : 600;
+    const rounds = game === 'pool' || game === 'golf' || game === 'chess' ? 150 : n === 2 ? 2000 : 600;
     for (let g = 0; g < rounds; g++) {
       let state = GAMES[game].init(rand, GAMES[game].options({}), n);
       let moves = 0;
@@ -211,6 +245,70 @@ for (const bad of [{ type: 'raise', to: 1 }, { type: 'raise', to: 99999 }, { typ
   for (const k of ['v', 'n', 'out', 'folded', 'committed', 'gone']) delete oldPoker[k];
   const ov = GAMES.poker.view(oldPoker, oldPoker.turn);
   GAMES.poker.apply(oldPoker, oldPoker.turn, ov.options.canCheck ? { type: 'check' } : { type: 'call' }, rand);
+}
+
+// Chess: the move generator counts exactly the published numbers of positions
+{
+  const fen = f => {
+    const [place, side, castle, ep] = f.split(' ');
+    let board = '';
+    for (const row of place.split('/').reverse()) for (const ch of row) board += /\d/.test(ch) ? '.'.repeat(Number(ch)) : ch;
+    return { board, side, castle: castle === '-' ? '' : castle, ep: ep === '-' ? -1 : (Number(ep[1]) - 1) * 8 + 'abcdefgh'.indexOf(ep[0]) };
+  };
+  const counts = (s, upto) => Array.from({ length: upto }, (_, d) => C.perft(s, d + 1)).join(' ');
+  assert(counts({ board: C.START, side: 'w', castle: 'KQkq', ep: -1 }, 3) === '20 400 8902', 'chess perft: start');
+  assert(counts(fen('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -'), 2) === '48 2039', 'chess perft: kiwipete (castling, en passant)');
+  assert(counts(fen('8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -'), 3) === '14 191 2812', 'chess perft: position 3');
+  assert(counts(fen('r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -'), 2) === '6 264', 'chess perft: position 4 (promotions)');
+  // fool's mate: black mates on move two, and the game ends there
+  let s = GAMES.chess.init(() => 0);   // seat 0 plays white
+  for (const [seat, from, to] of [[0, 'f2', 'f3'], [1, 'e7', 'e5'], [0, 'g2', 'g4'], [1, 'd8', 'h4']]) s = GAMES.chess.apply(s, seat, { from, to }, rand);
+  assert(s.over && s.winner === 1 && s.log.some(e => /Qh4#/.test(e.t)), 'chess: fool\'s mate');
+  refused('chess', GAMES.chess.init(() => 0), 0, { from: 'e2', to: 'e5' });
+  refused('chess', GAMES.chess.init(() => 0), 0, { from: 'e7', to: 'e5' });
+}
+
+// Crazy 8: an 8 needs a suit, a card has to match, and you draw before passing
+{
+  const s = GAMES.crazy8.init(rand, {}, 2);
+  const seat = s.turn;
+  s.hands[seat] = ['8s', '3c', 'Kd'];
+  s.discard = ['5h']; s.suit = 'h';
+  refused('crazy8', s, seat, { type: 'play', card: '8s' });
+  refused('crazy8', s, seat, { type: 'play', card: '3c' });
+  refused('crazy8', s, seat, { type: 'pass' });
+  const after = GAMES.crazy8.apply(s, seat, { type: 'play', card: '8s', suit: 'c' }, rand);
+  assert(after.suit === 'c' && after.turn !== seat, 'crazy8: an 8 sets the suit');
+  s.hands[seat] = ['2h', 'Kd']; s.hands[1 - seat] = ['4c'];
+  const two = GAMES.crazy8.apply(s, seat, { type: 'play', card: '2h' }, rand);
+  assert(two.hands[1 - seat].length === 3 && two.turn === seat, 'crazy8: a 2 makes the next player draw two and miss a turn');
+}
+
+// Mini golf: every random course can be holed (a quick solver tries shots
+// from the tee), and no course puts water on the fairway path
+{
+  let grand = 99;
+  const gr = n => { grand = (grand * 1103515245 + 12345) % 2147483648; return Math.floor((grand / 2147483648) * n); };
+  for (let i = 0; i < 25; i++) {
+    const course = G.makeCourse(gr, i % 9);
+    assert(course.path.every(k => course.tiles[k] !== 'w' && course.tiles[k] !== '.'), 'golf: water on the path');
+    // greedy: from each spot try 36 directions at 5 powers, keep the 4 nearest the cup by path
+    let beam = [course.tee], holed = false;
+    const order = new Map(course.path.map((k, idx) => [k, course.path.length - idx]));
+    const rank = p => (order.get(Math.floor(p[1] / G.T) * G.COLS + Math.floor(p[0] / G.T)) ?? 99) * G.T + Math.hypot(p[0] - course.cup[0], p[1] - course.cup[1]);
+    for (let stroke = 0; stroke < 8 && !holed; stroke++) {
+      const next = [];
+      for (const from of beam) for (let a = 0; a < 36 && !holed; a++) for (const pw of [0.15, 0.3, 0.5, 0.75, 1]) {
+        const r = G.simulate(course, from, (a / 36) * Math.PI * 2, pw);
+        if (r.holed) { holed = true; break; }
+        if (!r.water) next.push(r.end);
+      }
+      beam = next.sort((p, q) => rank(p) - rank(q)).slice(0, 4);
+    }
+    assert(holed, `golf: course ${i} couldn't be holed`);
+  }
+  refused('golf', GAMES.golf.init(rand, GAMES.golf.options({}), 2), 0, { angle: 1, power: 0 });
+  try { GAMES.golf.options({ holes: 4 }); throw new Error('accepted 4 holes'); } catch (e) { assert(e instanceof GameError, e.message); }
 }
 
 // Hand rankings

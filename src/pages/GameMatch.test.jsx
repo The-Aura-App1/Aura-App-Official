@@ -185,3 +185,31 @@ test('pool: you set the power and shoot; the next poll says which shot it alread
   expect(api.gameMove).toHaveBeenCalledWith('m1', { angle: expect.any(Number), power: 0.8 });
   expect(screen.queryByRole('button', { name: 'Shoot' })).not.toBeInTheDocument();
 });
+
+test('chess: tap a piece, then a square, to move', async () => {
+  const start = 'RNBQKBNRPPPPPPPP' + '.'.repeat(32) + 'pppppppprnbqkbnr';
+  api.getGame.mockResolvedValue({
+    match: { ...base, game: 'chess', status: 'active', turnUserId: 'me', deadline: Date.now() + 90000 }, seat: 0, now: Date.now(),
+    view: { board: start, side: 'w', white: 0, last: null, check: false, captured: { w: [], b: [] }, moves: 0, legal: ['e2e3', 'e2e4', 'g1f3'], log: [], turn: 0, over: false, winner: null, draw: false },
+  });
+  api.gameMove.mockClear();
+  await open();
+  fireEvent.click(screen.getByRole('gridcell', { name: 'e2, white pawn' }));
+  expect(screen.getByRole('gridcell', { name: 'e2, white pawn' })).toHaveAttribute('aria-selected', 'true');
+  await act(async () => { fireEvent.click(screen.getByRole('gridcell', { name: 'e4' })); });
+  expect(api.gameMove).toHaveBeenCalledWith('m1', { from: 'e2', to: 'e4' });
+});
+
+test('crazy 8: an 8 asks which suit comes next', async () => {
+  api.getGame.mockResolvedValue({
+    match: { ...base, game: 'crazy8', status: 'active', turnUserId: 'me', deadline: Date.now() + 90000 }, seat: 0, now: Date.now(),
+    view: { n: 2, hand: ['8s', '3c'], handCounts: [2, 5], top: '5h', suit: 'h', deckCount: 30, out: [false, false], playable: ['8s'],
+      canDraw: true, canPass: false, log: [], turn: 0, over: false, winner: null, draw: false },
+  });
+  api.gameMove.mockClear();
+  await open();
+  expect(screen.getByRole('button', { name: 'Play the 3 of clubs' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Play the 8 of spades' }));
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'hearts' })); });
+  expect(api.gameMove).toHaveBeenCalledWith('m1', { type: 'play', card: '8s', suit: 'h' });
+});

@@ -25,6 +25,7 @@ function ChallengeForm({ groupId, onClose }) {
   const [call, setCall]         = useState('heads');
   const [opponent, setOpponent] = useState('');
   const [seats, setSeats]       = useState(2);
+  const [holes, setHoles]       = useState(5);
   const [busy, setBusy]         = useState(false);
   const [error, setError]       = useState('');
   const maxSeats = GAME_BY_ID[game]?.maxPlayers ?? 2;
@@ -38,7 +39,7 @@ function ChallengeForm({ groupId, onClose }) {
     try {
       const result = await api.createGame(groupId, {
         game, stake, seats: table, opponent: table === 2 ? opponent.trim() || undefined : undefined,
-        options: game === 'coinflip' ? { call } : undefined,
+        options: game === 'coinflip' ? { call } : game === 'golf' ? { holes } : undefined,
       });
       navigate(`/games/${encodeURIComponent(result.match.matchId)}`);
     } catch (err) {
@@ -85,6 +86,22 @@ function ChallengeForm({ groupId, onClose }) {
               </button>
             ))}
           </div>
+        </fieldset>
+      )}
+
+      {game === 'golf' && (
+        <fieldset>
+          <legend className="text-xs font-semibold text-[var(--text-muted)] mb-2">Holes</legend>
+          <div className="flex gap-2">
+            {[3, 5, 9].map(h => (
+              <button key={h} type="button" aria-pressed={holes === h} onClick={() => setHoles(h)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold border
+                  ${holes === h ? 'border-aura-500/60 bg-aura-500/10 text-aura-400' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
+                {h} holes
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--text-muted)] mt-2">Every hole is new and random, with sand, ice, slopes, water and bumpers, and every one can be beaten.</p>
         </fieldset>
       )}
 
@@ -263,8 +280,8 @@ export default function GroupGames({ groupId }) {
       {games === null && !error && <p className="text-sm text-[var(--text-muted)]">Loading games…</p>}
       {games && !list.length && (
         <p className="text-sm text-[var(--text-muted)] text-center py-8">
-          No games yet. Challenge a member to Connect 4, 8-Ball Pool, Poker, Go Fish, Dice Duel or a coin flip.
-          Poker, Go Fish and Dice Duel can seat more players.
+          No games yet. Challenge a member to Connect 4, 8-Ball Pool, Chess, Mini Golf, Poker, Go Fish, Crazy 8, Dice Duel or a coin flip.
+          Mini Golf, Poker, Go Fish, Crazy 8 and Dice Duel can seat more players.
         </p>
       )}
 

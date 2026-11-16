@@ -4,7 +4,8 @@
 // view(state, seat), which hides the deck and everyone else's cards.
 //
 // Seats are 0 (the challenger) to n - 1. Connect 4, Pool and Flip a Coin are
-// always two players; Dice Duel, Go Fish and Poker take up to MAX_PLAYERS.
+// always two players, and so is Chess; Dice Duel, Go Fish, Poker, Crazy 8
+// and Mini Golf take up to MAX_PLAYERS.
 // Each state has:
 //   turn    seat to move, or null once the game is over
 //   over    true when finished; winner is a seat, or null with draw: true
@@ -14,12 +15,15 @@
 //           where "{o}" in the text stands for seat o's name
 
 import { makePool } from './pool.mjs';
+import { makeChess } from './chess.mjs';
+import { makeCrazy8 } from './crazy8.mjs';
+import { makeGolf } from './golf.mjs';
 
 export class GameError extends Error {}
 
 // Most players a game takes (all others are two-player). Keep equal to
 // maxPlayers in src/components/games/gameInfo.js (a test checks).
-export const MAX_PLAYERS = { dice: 6, gofish: 5, poker: 6 };
+export const MAX_PLAYERS = { dice: 6, gofish: 5, poker: 6, crazy8: 4, golf: 4 };
 
 const fail = message => { throw new GameError(message); };
 const other = seat => 1 - seat;
@@ -712,7 +716,13 @@ const poker = {
   },
 };
 
-export const GAMES = { connect4, pool, gofish, poker, dice, coinflip };
+// Chess, Crazy 8 and Mini Golf live in their own files
+const chess = makeChess({ fail, clone, log, finish });
+const helpers = { fail, clone, log, finish, shuffle, shuffledDeck, activeSeats, nextSeat, isIn, isSeat };
+const crazy8 = makeCrazy8(helpers);
+const golf = makeGolf(helpers);
+
+export const GAMES = { connect4, pool, chess, gofish, crazy8, poker, golf, dice, coinflip };
 
 // What a player (their seat) or a spectator (null) may see
 export function viewFor(game, state, seat) {

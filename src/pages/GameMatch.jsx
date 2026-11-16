@@ -151,6 +151,7 @@ function revealDelay(game, view) {
   if (game === 'pool') return (view?.shot?.frames?.length ?? 0) * 50 + 500;
   if (game === 'coinflip') return 2300;
   if (game === 'poker') return 1400;
+  if (game === 'golf') return ((view?.shot?.frames?.length ?? 0) / 2) * 50 + 600;
   return 900;
 }
 

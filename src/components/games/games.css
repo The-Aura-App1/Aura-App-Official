@@ -354,3 +354,43 @@ section.game-result-win { animation: game-win-glow 2.6s ease-in-out infinite; }
   animation: game-rays 9s linear infinite;
 }
 @keyframes game-rays { to { transform: rotate(360deg); } }
+
+/* ─── Chess ─────────────────────────────────────────────────── */
+/* A classic wooden board; pieces stay black and white in every theme */
+.chess-frame { padding: 6px; border-radius: 12px; background: linear-gradient(145deg, #5b3a22, #3a2414); box-shadow: 0 18px 36px -18px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .15); }
+.chess-frame > div { border-radius: 6px; overflow: hidden; }
+.chess-light { background: #efd9b4; }
+.chess-dark  { background: #b07d52; }
+.chess-light .chess-coord { color: #b07d52; }
+.chess-dark .chess-coord { color: #efd9b4; }
+.chess-square { aspect-ratio: 1; }
+.chess-square:disabled { cursor: default; }
+.chess-last::before { content: ''; position: absolute; inset: 0; background: rgba(250, 204, 21, .38); }
+.chess-selected::before { content: ''; position: absolute; inset: 0; background: rgba(34, 197, 94, .45); }
+.chess-check::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(239, 68, 68, .9), rgba(239, 68, 68, 0) 70%); }
+.chess-piece { position: relative; z-index: 1; font-size: min(9vw, 44px); line-height: 1; font-family: 'Segoe UI Symbol', 'DejaVu Sans', 'Noto Sans Symbols2', 'Arial Unicode MS', serif; }
+.chess-mini { font-family: 'Segoe UI Symbol', 'DejaVu Sans', 'Noto Sans Symbols2', 'Arial Unicode MS', serif; }
+.chess-white { color: #fdfdfb; text-shadow: 0 0 1px #111, 0 0 1px #111, 0 0 2px rgba(0, 0, 0, .9), 0 2px 3px rgba(0, 0, 0, .45); }
+.chess-black { color: #141416; text-shadow: 0 0 1px rgba(255, 255, 255, .55), 0 2px 3px rgba(0, 0, 0, .4); }
+.chess-land { animation: chess-land .35s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes chess-land { from { transform: scale(.6); opacity: .4; } }
+
+/* ─── Crazy 8 ───────────────────────────────────────────────── */
+.c8-table {
+  background:
+    radial-gradient(70% 55% at 50% 45%, rgba(255, 255, 255, .08), transparent 70%),
+    radial-gradient(ellipse at 50% 50%, #1e3a8a, #172554 70%, #0b1437);
+  box-shadow: inset 0 0 0 8px #0b1437, inset 0 0 0 10px rgba(255, 255, 255, .12), 0 20px 40px -20px rgba(0, 0, 0, .8);
+}
+
+/* ─── Mini golf ─────────────────────────────────────────────── */
+.golf-ripple { animation: golf-ripple 3.5s ease-in-out infinite alternate; }
+@keyframes golf-ripple { to { transform: translateX(14px); } }
+.golf-chevrons { animation: golf-chevrons 1.6s linear infinite; }
+@keyframes golf-chevrons { from { transform: translateX(-12px); opacity: .4; } 50% { opacity: 1; } to { transform: translateX(12px); opacity: .4; } }
+.golf-flag { animation: golf-flag 3s ease-in-out infinite alternate; }
+@keyframes golf-flag { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+.golf-ring { animation: golf-ring 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes golf-ring { 50% { transform: scale(1.18); opacity: .4; } }
+.golf-splash { animation: golf-splash .6s ease-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes golf-splash { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
