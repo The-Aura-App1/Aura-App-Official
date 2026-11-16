@@ -31,7 +31,7 @@ import { randomInt } from 'crypto';
 import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { GAMES, GameError, MAX_PLAYERS, TIME_CHOICES, CLOCK_GAMES, CLOCK_LAG_MS, defaultTime, viewFor } from './gameRules.mjs';
 import { eitherBlocked } from './privacy.mjs';
-import { addGroupXp } from './groupStats.mjs';
+import { addGroupXp, recordGameWin, GROUP_STATS_TABLE } from './groupStats.mjs';
 
 const GAMES_TABLE         = 'aura-games';
 const GAMES_INDEX         = 'groupId-createdAt-index';
@@ -222,7 +222,13 @@ export async function handleGames(ctx, user, method, segments, body) {
       ...moneyItems,
     ];
     const error = await ctx.commit(items, ['Someone else moved first. Refresh and try again.', ...messages]);
-    return error ?? next;
+    if (error) return error;
+    // A game that just ended counts toward the group's champions board
+    if (next.status === 'finished' && match.status !== 'finished' && next.endReason !== 'cancelled') {
+      const winners = next.winnerUserIds ?? (next.winnerUserId ? [next.winnerUserId] : []);
+      await Promise.all(next.players.filter(p => winners.includes(p.userId)).map(p => recordGameWin(dynamo, next.groupId, p, next.game)));
+    }
+    return next;
   }
 
   // Fields for a match whose state just changed. The turn timer restarts,
@@ -297,11 +303,38 @@ export async function handleGames(ctx, user, method, segments, body) {
     return matchResponse(saved);
   }
 
+  // ── GET /games/group/{groupId}/champions: who has won the most, per game ──
+  if (method === 'GET' && segments[1] === 'group' && segments.length === 4 && segments[3] === 'champions') {
+    const groupId = segments[2];
+    if (!(await membership(groupId, user.userId))) return response(403, { error: 'Only members of this group can see its champions.' });
+    const rows = [];
+    let ExclusiveStartKey;
+    do {
+      const result = await dynamo.send(new QueryCommand({
+        TableName: GROUP_STATS_TABLE,
+        KeyConditionExpression: 'groupId = :g AND begins_with(sk, :p)',
+        ExpressionAttributeValues: { ':g': groupId, ':p': 'WINS#' },
+        ExclusiveStartKey,
+      }));
+      rows.push(...(result.Items ?? []));
+      ExclusiveStartKey = result.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    const person = r => ({ userId: r.userId, username: r.username, displayName: r.displayName, picKey: r.picKey || null });
+    const top = (key, n) => rows.filter(r => (r[key] ?? 0) > 0)
+      .sort((a, b) => b[key] - a[key] || String(a.username).localeCompare(String(b.username)))
+      .slice(0, n).map((r, i) => ({ rank: i + 1, ...person(r), wins: r[key] }));
+    return response(200, {
+      overall: top('wins', 10),
+      byGame: Object.fromEntries(Object.keys(GAMES).map(g => [g, top(g, 5)]).filter(([, list]) => list.length)),
+    });
+  }
+
   // ── GET/POST /games/group/{groupId} ──
   if (segments[1] === 'group' && segments.length === 3) {
     const groupId = segments[2];
     if (!(await membership(groupId, user.userId))) return response(403, { error: 'Only members of this group can play its games.' });
 
+    // GET /games/group/{groupId}/champions is matched below
     if (method === 'GET') {
       const result = await dynamo.send(new QueryCommand({
         TableName: GAMES_TABLE, IndexName: GAMES_INDEX,

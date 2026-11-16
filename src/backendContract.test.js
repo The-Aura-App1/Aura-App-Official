@@ -133,6 +133,18 @@ test('the app offers exactly the games aura-aura runs, with the same stake caps'
   expect(constant(lambdaSource('aura-users'), 'NOTIFICATION_TYPES')).toContain("'games'");
 });
 
+test('the app offers exactly the reactions aura-posts accepts', () => {
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-posts', 'reactions.mjs'), 'utf8');
+  const app = require('./utils/reactions');
+  const list = server.match(/export const REACTION_EMOJIS = \[([\s\S]*?)\];/)[1];
+  expect([...list.matchAll(/'([^']+)'/g)].map(m => m[1])).toEqual(app.REACTION_EMOJIS);
+  expect(new Set(app.REACTION_EMOJIS).size).toBe(app.REACTION_EMOJIS.length);
+  // nothing that could spell a word: no letters, digits, keycaps or regional-indicator flags
+  for (const e of app.REACTION_EMOJIS) expect(e).not.toMatch(/[A-Za-z0-9#*]|[\u{1F1E6}-\u{1F1FF}\u{1F170}-\u{1F189}⃣]/u);
+  expect(Number(server.match(/MAX_PER_USER = (\d+)/)[1])).toBe(app.MAX_PER_USER);
+  expect(Number(server.match(/MAX_KINDS = (\d+)/)[1])).toBe(app.MAX_KINDS);
+});
+
 test('Angel\'s support messages match what aura-users accepts', () => {
   const server = fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'support.mjs'), 'utf8');
   const { SUPPORT_CATEGORIES, SUPPORT_MIN, SUPPORT_MAX } = require('./angel/flows');
@@ -200,10 +212,15 @@ test('group power-ups: the app shows the same prices, limits, XP and level curve
   const serverPowerUps = Object.fromEntries([...block.matchAll(/(\w+):\s*(\d+)/g)].map(m => [m[1], Number(m[2])]));
   expect(serverPowerUps).toEqual(app.POWER_UPS);
 
-  const copies = ['aura-aura', 'aura-posts', 'aura-comments']
+  const copies = ['aura-aura', 'aura-posts', 'aura-comments', 'aura-groups']
     .map(name => fs.readFileSync(path.join(LAMBDAS, name, 'groupStats.mjs'), 'utf8').replace(/\r\n/g, '\n'));
   expect(new Set(copies).size).toBe(1);
   const stats = copies[0];
+  // level perks, boosts and limits
+  const obj = name => JSON.parse(stats.match(new RegExp(`export const ${name} = (\\{[^}]*\\})`))[1].replace(/(\w+):/g, '"$1":'));
+  expect(obj('PERKS')).toEqual(app.PERKS);
+  expect(obj('BOOSTS')).toEqual(app.BOOSTS);
+  for (const name of ['MAX_LEVEL', 'MAX_PINS', 'MAX_BACKGROUNDS']) expect(Number(stats.match(new RegExp(`${name} = (\\d+)`))[1])).toBe(app[name]);
   expect(JSON.parse(stats.match(/export const XP = (\{[^}]*\})/)[1].replace(/(\w+):/g, '"$1":'))).toEqual(app.XP);
   expect(Number(stats.match(/XP_DAILY_CAP = (\d+)/)[1])).toBe(app.XP_DAILY_CAP);
   expect(stats).toContain('export const levelFloor = level => 50 * level * (level - 1);');

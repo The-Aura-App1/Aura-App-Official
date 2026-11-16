@@ -158,6 +158,32 @@
 - Table `aura-group-stats` (partition `groupId`, sort `sk`, TTL `expiresAt`). `groupStats.mjs` (identical in aura-aura, aura-posts, aura-comments; a test keeps them equal) adds XP best effort: post 10, comment 3, give 2, game 5, at most 60 per member a day; level floor is 50 × L × (L − 1). Gives to group posts and comments also add to `WEEK#<iso week>#<userId>` (hidden from the board when the giver has `hideAuraRank`).
 - aura-aura serves `GET|POST|PUT|DELETE /power-ups/{proxy+}` (`powerups.mjs`): Spotlight (own group post, 150 spendable, 24 h, one at a time; aura-posts pins it first in the group feed with `spotlight: true`) and Aura Rain (100–2,000 of the starter's spendable, 10 minutes, a catch is random up to a tenth of the pot, once per person; at most 2,000 a day per group; catchers need a 7-day-old account and 3 days in the group; what's left goes back to the starter when the rain is next looked at). All money moves in one transaction with the stats item, so aura is conserved. Owners turn it off with `powerUpsEnabled` on the group. Prices and limits are `POWER_UPS` in powerups.mjs and `src/utils/powerUps.js` (a test keeps them equal).
 
+## Group perks, boosts, reactions and boards (2026-11-16)
+
+- **Levels:** levels cap at `MAX_LEVEL` 15. `PERKS`, `BOOSTS`, `MAX_PINS` and `MAX_BACKGROUNDS` live in `groupStats.mjs`. Its copies in aura-aura, aura-posts, aura-comments and aura-groups must stay identical, and they mirror `src/utils/powerUps.js`; tests check both.
+- **Perks** (owners and moderators set them up in a "Level perks" section on the Manage tab, `GroupPerks.jsx`):
+  - **Level 2, group picture:** the group's `picKey`.
+  - **Level 7, reaction pins:** `pins: [{ id, name, key }]`, up to 12.
+  - **Level 10, post backgrounds:** `backgrounds: [{ id, name, key, ink }]`, up to 8. A text post in the group uses style `bg: 'grp:<id>'`; aura-posts checks it and copies `groupBg { key, ink, name }` onto the post.
+  - **Level 10, glow:** the `glow` flag on group feed posts (`.post-group-glow`). The owner can turn it off with `glow: false`.
+- **Perk images:**
+  - **Upload:** `POST /groups/{id}/upload-url { kind: picture|pin|background, contentType, size }` returns a signed S3 PUT to `groups/<groupId>/<kind>/<hex>.<ext>`. `PUT /groups/{id}` only accepts keys of that shape, and only once the level is reached.
+  - **Not built yet:** accent color, second pin, banner frame and trophy shelf are still listed as "coming soon".
+- **Boosts (Premium, free):** up to 5 a calendar month (counted in aura-daily-budgets `<userId>#boosts#YYYY-MM`). Each lasts 30 days, one per person per group, stored as `boosts.<userId> = untilMs` on the LEVEL item.
+  - **Effect:** each active boost adds 25% to XP the group earns, up to 4 counting at once (`boostMultiplier`). The per-member daily cap applies to the plain amount.
+  - **Route:** `POST /power-ups/{groupId}/boost` (aura-aura). The Hearth shows a Boosts card.
+- **Reactions:** emoji reactions on every post (`reactions.mjs` in aura-posts, `src/utils/reactions.js`, `Reactions.jsx`).
+  - **Allowed reactions:** a fixed list of 48 emoji with no letters, digits or flags, so nobody can spell words. Moderation of reactions is still to be designed.
+  - **Limits:** up to 3 per person per post, and up to 20 different reactions per post.
+  - **Group pins:** written `pin:<groupId>:<pinId>`. Members use their group's pins on its posts (the group must be level 7); Premium members can also use them anywhere.
+  - **Storage:** per person in aura-likes `{ userId, postId: 'react#<postId>', reactions: string set }`, counts in the post's `reactions` map, changed in one transaction. Posts come back with `reactions`, `myReactions` and `reactionPins` (the image and name for pins in use).
+  - **Route:** `POST /posts/{id}/reactions { reaction, on }`.
+- **Boards:**
+  - **Top groups:** by level or by all-time aura given inside the group (`aura` on LEVEL, added in `recordGroupGive`), at `GET /groups/leaderboard?by=level|aura` (aura-groups scans the LEVEL items, cached 2 minutes). Invite-only groups and `showOnLeaderboard: false` are left out. It's shown on the Groups page.
+  - **Group champions:** every finished game adds to `WINS#<userId>` (per game and total). Served at `GET /games/group/{id}/champions` and shown on the Games tab.
+- **Testing a level:** `node scripts/set-group-level.mjs --name "First Group" [--level N] [--write]` raises one group's XP (it never lowers it).
+- **Tests:** `backend/tests/groups.test.mjs` (part of `npm run test:games`).
+
 ## Likes and shares
 
 - Likes: a free, private bookmark/reaction with no aura effect. They only shape the liker's own on-device feed learning, never anyone else's ranking. Posts, comments and Moments can be liked. The author always sees their own like count; nobody else does (strip likeCount for non-authors). The Liked tab is owner-only and re-checks visibility on every read. Likes don't notify. Only followers can like a private account's posts. Banned users can't like.

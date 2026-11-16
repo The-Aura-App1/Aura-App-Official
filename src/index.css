@@ -1147,3 +1147,19 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
 .post-frame.post-frame-glow {
   box-shadow: var(--frame-glow);
 }
+
+/* Level-10 groups: their posts glow softly in the group's feed */
+.post-group-glow {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-2) 45%, transparent),
+    0 0 22px -4px color-mix(in srgb, var(--brand-2) 55%, transparent),
+    0 0 46px -12px color-mix(in srgb, var(--brand-1) 60%, transparent);
+  animation: post-group-glow 4s ease-in-out infinite;
+}
+@keyframes post-group-glow {
+  50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-1) 55%, transparent),
+    0 0 30px -4px color-mix(in srgb, var(--brand-1) 60%, transparent),
+    0 0 60px -12px color-mix(in srgb, var(--brand-3) 55%, transparent); }
+}
+.reaction-picker { animation: reaction-picker .16s ease-out both; transform-origin: top left; }
+@keyframes reaction-picker { from { opacity: 0; transform: scale(.96) translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .post-group-glow, .reaction-picker { animation: none; } }

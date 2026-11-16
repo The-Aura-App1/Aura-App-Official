@@ -76,7 +76,7 @@ function GroupRow({ group }) {
   return (
     <Link to={`/groups/${encodeURIComponent(group.groupId)}`}
       className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 group">
-      <GroupAvatar name={group.name} />
+      <GroupAvatar name={group.name} picKey={group.picKey} />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-aura-400 truncate">{group.name}</p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">

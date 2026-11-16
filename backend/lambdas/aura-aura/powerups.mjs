@@ -5,6 +5,7 @@
 //   POST /power-ups/{groupId}/spotlight    { postId }  pin your own post to the top for 24 h
 //   POST /power-ups/{groupId}/rain         { pot }     drop a pot of your aura on the group for 10 min
 //   POST /power-ups/{groupId}/rain/catch               catch a share of the rain
+//   POST /power-ups/{groupId}/boost                    Premium: boost the group's XP for 30 days (free)
 //
 // Rules (economy, CLAUDE.md): power-ups cost spendable aura only and pay out
 // spendable only; nothing is created. A rain's pot comes from the person who
@@ -12,8 +13,8 @@
 // days old, or in the group under 3 days, can't catch. Owners can switch
 // power-ups off for their group (powerUpsEnabled on the group).
 import { randomInt } from 'crypto';
-import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { GROUP_STATS_TABLE, levelFloor, levelFor, isoWeek } from './groupStats.mjs';
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GROUP_STATS_TABLE, levelFloor, levelFor, isoWeek, BOOSTS, MAX_LEVEL, activeBoosts, boostMultiplier } from './groupStats.mjs';
 
 // Keep in sync with src/utils/powerUps.js (a test keeps them equal)
 export const POWER_UPS = {
@@ -36,6 +37,9 @@ const BOARD_SIZE = 10;
 
 const ttl = days => Math.floor(Date.now() / 1000) + days * 86400;
 const today = () => new Date().toISOString().slice(0, 10);
+const thisMonth = () => new Date().toISOString().slice(0, 7);
+// How many boosts someone has used this month (in aura-daily-budgets)
+const boostKey = userId => ({ budgetKey: `${userId}#boosts#${thisMonth()}` });
 
 export async function handlePowerUps(ctx, user, method, segments, body) {
   const { dynamo, response, balanceUpdate, transactionRecord, commit, firstLimit } = ctx;
@@ -77,13 +81,14 @@ export async function handlePowerUps(ctx, user, method, segments, body) {
   // GET /power-ups/{groupId}
   if (method === 'GET' && segments.length === 2) {
     const week = isoWeek();
-    const [level, spotlight, rawRain, board] = await Promise.all([
+    const [level, spotlight, rawRain, board, boostsUsed] = await Promise.all([
       stat('LEVEL'), stat('SPOTLIGHT'), stat('RAIN'),
       dynamo.send(new QueryCommand({
         TableName: GROUP_STATS_TABLE,
         KeyConditionExpression: 'groupId = :g AND begins_with(sk, :p)',
         ExpressionAttributeValues: { ':g': groupId, ':p': `WEEK#${week}#` },
       })).then(r => r.Items ?? []),
+      user.isPremium ? get('aura-daily-budgets', boostKey(user.userId)).catch(() => null) : null,
     ]);
     const rain = await settleRain(rawRain);
     const xp = level?.xp ?? 0;
@@ -96,7 +101,13 @@ export async function handlePowerUps(ctx, user, method, segments, body) {
     return response(200, {
       enabled,
       canManage: group.ownerId === user.userId || member.role === 'owner' || member.role === 'moderator',
-      level: { level: lv, xp, floor: levelFloor(lv), next: levelFloor(lv + 1) },
+      level: { level: lv, xp, floor: levelFloor(lv), next: lv >= MAX_LEVEL ? null : levelFloor(lv + 1), max: lv >= MAX_LEVEL, aura: level?.aura ?? 0 },
+      boost: {
+        active: activeBoosts(level?.boosts), multiplier: boostMultiplier(level?.boosts),
+        mine: (level?.boosts?.[user.userId] ?? 0) > Date.now() ? level.boosts[user.userId] : null,
+        premium: !!user.isPremium,
+        left: user.isPremium ? Math.max(0, BOOSTS.perMonth - (boostsUsed?.boosts ?? 0)) : 0,
+      },
       spotlight: spotlight && spotlight.until > Date.now()
         ? { postId: spotlight.postId, until: spotlight.until, byUsername: spotlight.byUsername, byUserId: spotlight.byUserId } : null,
       rain: active ? {
@@ -123,9 +134,44 @@ export async function handlePowerUps(ctx, user, method, segments, body) {
   }
 
   if (method !== 'POST') return response(404, { error: 'Route not found.' });
-  if (!enabled) return response(403, { error: 'Power-ups are turned off in this group.' });
   const limited = await firstLimit([user.userId, 'powerup', 20, 60]);
   if (limited) return limited;
+
+  // POST /power-ups/{groupId}/boost: free for Premium members, any group they're in
+  if (segments.length === 3 && segments[2] === 'boost') {
+    if (!user.isPremium) return response(403, { error: 'Boosting groups is a Premium feature.' });
+    const now = Date.now();
+    const level = await stat('LEVEL');
+    if ((level?.boosts?.[user.userId] ?? 0) > now) return response(409, { error: 'You\'re already boosting this group.' });
+    // The boosts map has to exist before one entry in it can be set
+    await dynamo.send(new UpdateCommand({
+      TableName: GROUP_STATS_TABLE, Key: { groupId, sk: 'LEVEL' },
+      UpdateExpression: 'SET #b = if_not_exists(#b, :empty)',
+      ExpressionAttributeNames: { '#b': 'boosts' },
+      ExpressionAttributeValues: { ':empty': {} },
+    }));
+    const until = now + BOOSTS.days * DAY_MS;
+    const failed = await commit([
+      { Update: {
+        TableName: GROUP_STATS_TABLE, Key: { groupId, sk: 'LEVEL' },
+        UpdateExpression: 'SET #b.#u = :until',
+        ConditionExpression: 'attribute_not_exists(#b.#u) OR #b.#u < :now',
+        ExpressionAttributeNames: { '#b': 'boosts', '#u': user.userId },
+        ExpressionAttributeValues: { ':until': until, ':now': now },
+      } },
+      { Update: {
+        TableName: 'aura-daily-budgets', Key: boostKey(user.userId),
+        UpdateExpression: 'ADD #n :one SET #exp = :ttl',
+        ConditionExpression: 'attribute_not_exists(#n) OR #n < :max',
+        ExpressionAttributeNames: { '#n': 'boosts', '#exp': 'expiresAt' },
+        ExpressionAttributeValues: { ':one': 1, ':max': BOOSTS.perMonth, ':ttl': ttl(70) },
+      } },
+    ], ['You\'re already boosting this group.', `You've used all ${BOOSTS.perMonth} boosts this month. They come back on the 1st.`]);
+    if (failed) return failed;
+    return response(200, { message: `Boosted! For ${BOOSTS.days} days this group earns ${Math.round(BOOSTS.bonus * 100)}% more XP from everything members do.`, until });
+  }
+
+  if (!enabled) return response(403, { error: 'Power-ups are turned off in this group.' });
   const spend = cost => balanceUpdate(user.userId, { auraSpendable: -cost, auraBalance: -cost }, 'auraSpendable >= :cost', { ':cost': cost });
 
   // POST /power-ups/{groupId}/spotlight

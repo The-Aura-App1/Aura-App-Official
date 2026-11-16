@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Palette, ChevronDown, Lock, AlignLeft, AlignCenter, AlignRight, Search, RotateCcw } from 'lucide-react';
 import {
   POST_FONTS, FONT_CATEGORIES, FONT_BY_ID, POST_BACKGROUNDS, BACKGROUND_KINDS, POST_FRAMES,
-  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, fontFamily, loadPostFont, cleanStyle,
+  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, fontFamily, loadPostFont, cleanStyle, groupBgCss,
 } from '../../utils/postStyle';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
 
@@ -51,7 +51,8 @@ function CustomColor({ value, onChange, label }) {
 
 const TABS = { text: ['Font', 'Background', 'Color', 'Size', 'Frame'], media: ['Font', 'Color', 'Frame'] };
 
-export default function StylePicker({ style, onChange, postType, caption, isPremium }) {
+// groupBackgrounds: a level-10 group's own backgrounds, when posting in it
+export default function StylePicker({ style, onChange, postType, caption, isPremium, groupBackgrounds = [] }) {
   const kind = postType === 'text' ? 'text' : 'media';
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('Font');
@@ -72,6 +73,7 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
   const changed = Object.keys(current).length;
   const sample = caption.trim() || (kind === 'text' ? 'Your words, your look.' : 'Your caption, your look.');
   const frame = frameProps(current);
+  const groupBg = current.bg?.startsWith('grp:') ? groupBackgrounds.find(b => `grp:${b.id}` === current.bg) : null;
 
   return (
     <section className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]/40">
@@ -95,7 +97,7 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
           {/* Live preview, drawn the way the feed draws it */}
           <div className={`card p-0 overflow-hidden ${frame.className}`} style={frame.style} aria-label="Preview">
             {kind === 'text'
-              ? <div className="py-3"><TextBody text={sample} style={current} className="!mx-3 !mb-0" /></div>
+              ? <div className="py-3"><TextBody text={sample} style={current} groupBg={groupBg} className="!mx-3 !mb-0" /></div>
               : <p className="px-4 py-3 text-sm text-[var(--text-primary)]"><span className="font-semibold mr-1">you</span><CaptionText text={sample} style={current} /></p>}
           </div>
 
@@ -143,6 +145,18 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
 
           {tab === 'Background' && (
             <div className="flex flex-col gap-2" role="tabpanel">
+              {groupBackgrounds.length > 0 && (
+                <div>
+                  <p className="text-[11px] text-[var(--text-muted)] mb-1">This group's</p>
+                  <div className="flex flex-wrap gap-2">
+                    {groupBackgrounds.map(b => (
+                      <Tile key={b.id} selected={current.bg === `grp:${b.id}`} label={b.name} onClick={() => set('bg', `grp:${b.id}`)} className="w-14 h-9">
+                        <span className="block w-full h-full rounded-lg border border-black/10" style={{ background: groupBgCss(b) }} />
+                      </Tile>
+                    ))}
+                  </div>
+                </div>
+              )}
               {BACKGROUND_KINDS.map(k => (
                 <div key={k}>
                   <p className="text-[11px] text-[var(--text-muted)] mb-1">{k}</p>

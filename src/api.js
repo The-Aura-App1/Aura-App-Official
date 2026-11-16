@@ -101,6 +101,8 @@ export const api = {
   setBanned:      (username, banned, reason) => request('POST', '/admin/ban', { username, banned, reason }),
   reportComment:  (commentId, reason)    => request('POST', `/comments/${id(commentId)}/report`, { reason }),
   reportPost:     (postId, reason)       => request('POST', `/posts/${id(postId)}/report`, { reason }),
+  // → { reactions, myReactions, reactionPins }
+  reactToPost:    (postId, reaction, on) => request('POST', `/posts/${id(postId)}/reactions`, { reaction, on }),
   reportUser:     (username, reason)     => request('POST', `/follows/user/${id(username)}/report`, { reason }),
   blockUser:      username               => request('POST',   `/follows/user/${id(username)}/block`),
   unblockUser:    username               => request('DELETE', `/follows/user/${id(username)}/block`),
@@ -119,6 +121,12 @@ export const api = {
   leaveGroup:     (groupId)              => request('POST', `/groups/${id(groupId)}/leave`),
   inviteToGroup:  (groupId, username)    => request('POST', `/groups/${id(groupId)}/invite`, { username }),
   muteGroup:      (groupId, muted)       => request('POST', `/groups/${id(groupId)}/mute`, { muted }),
+  // kind: 'picture' | 'pin' | 'background' → { id, key, url }
+  getGroupUploadUrl: (groupId, kind, contentType, size) => request('POST', `/groups/${id(groupId)}/upload-url`, { kind, contentType, size }),
+  // by: 'level' | 'aura'
+  getGroupLeaderboard: (by = 'level')    => request('GET',  `/groups/leaderboard?by=${by === 'aura' ? 'aura' : 'level'}`),
+  boostGroup:     groupId                => request('POST', `/power-ups/${id(groupId)}/boost`, {}),
+  getGameChampions: groupId              => request('GET',  `/games/group/${id(groupId)}/champions`),
   getGroupMembers:(groupId, status = 'active') => request('GET', `/groups/${id(groupId)}/members?status=${status}`),
   getGroupPosts:  (groupId, cursor = null) =>
     request('GET', `/groups/${id(groupId)}/posts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),

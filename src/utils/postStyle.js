@@ -128,17 +128,24 @@ export function inkFor(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#111827' : '#ffffff';
 }
 
-// Styles for a text post's card
-export function textCardStyle(style, length = 0) {
+const MEDIA_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com/';
+// A level-10 group's own background ('grp:<id>'): its picture, softly darkened, and the text color its owner picked
+export const groupBgCss = groupBg => (groupBg?.key
+  ? `linear-gradient(rgba(0,0,0,.16), rgba(0,0,0,.16)), url("${MEDIA_URL}${groupBg.key}") center / cover no-repeat` : undefined);
+
+// Styles for a text post's card (groupBg: the post's copy of its group background)
+export function textCardStyle(style, length = 0, groupBg = null) {
   if (!style) return null;
   const bg = style.bg;
-  const ink = style.color ?? (bg ? (BACKGROUND_BY_ID[bg]?.ink ?? (HEX.test(bg) ? inkFor(bg) : undefined)) : undefined);
+  const fromGroup = bg?.startsWith('grp:');
+  const ink = style.color ?? (fromGroup ? groupBg?.ink ?? '#ffffff'
+    : bg ? (BACKGROUND_BY_ID[bg]?.ink ?? (HEX.test(bg) ? inkFor(bg) : undefined)) : undefined);
   // Long text steps down so it still fits the card
   let size = SIZE_REM[style.size] ?? (bg ? SIZE_REM.m : undefined);
   if (size && length > 400) size = Math.min(size, SIZE_REM.s);
   else if (size && length > 200) size = Math.min(size, SIZE_REM.m);
   return {
-    background: bgCss(bg),
+    background: fromGroup ? groupBgCss(groupBg) ?? '#334155' : bgCss(bg),
     color: ink,
     fontFamily: fontFamily(style.font),
     fontSize: size ? `${size}rem` : undefined,

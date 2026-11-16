@@ -5,8 +5,12 @@
       "Sid": "Groups",
       "Effect": "Allow",
       "Action": [
-        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
-        "dynamodb:Scan", "dynamodb:Query", "dynamodb:BatchGetItem"
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan",
+        "dynamodb:Query",
+        "dynamodb:BatchGetItem"
       ],
       "Resource": [
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-groups",
@@ -17,8 +21,11 @@
       "Sid": "Memberships",
       "Effect": "Allow",
       "Action": [
-        "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem", "dynamodb:Query"
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query"
       ],
       "Resource": [
         "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-members",
@@ -28,8 +35,26 @@
     {
       "Sid": "MemberNamesAndInvites",
       "Effect": "Allow",
-      "Action": ["dynamodb:GetItem", "dynamodb:BatchGetItem"],
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem"
+      ],
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-users"
+    },
+    {
+      "Sid": "GroupLevelsAndLeaderboard",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:Scan"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-stats"
+    },
+    {
+      "Sid": "GroupPerkUploadUrls",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::aura-app-media-570934198135/groups/*"
     }
   ]
 }

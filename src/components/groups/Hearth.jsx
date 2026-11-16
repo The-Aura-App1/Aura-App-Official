@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CloudRain, Crown, Lock, Sparkles, Star, Trophy, Check } from 'lucide-react';
+import { CloudRain, Crown, Lock, Sparkles, Star, Trophy, Check, Rocket } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
-import { POWER_UPS, XP, XP_DAILY_CAP, LEVEL_UNLOCKS } from '../../utils/powerUps';
+import { POWER_UPS, XP, XP_DAILY_CAP, LEVEL_UNLOCKS, BOOSTS, MAX_LEVEL } from '../../utils/powerUps';
 import './powerups.css';
 
 // The Hearth tab on a group page (docs/group-power-ups.md, Stage A): the
@@ -25,8 +25,8 @@ function Card({ icon: Icon, title, children, aside }) {
 }
 
 function LevelRing({ level }) {
-  const span = Math.max(1, level.next - level.floor);
-  const progress = Math.min(1, (level.xp - level.floor) / span);
+  const span = Math.max(1, (level.next ?? level.floor) - level.floor);
+  const progress = level.max ? 1 : Math.min(1, (level.xp - level.floor) / span);
   const r = 34, c = 2 * Math.PI * r;
   return (
     <div className="relative w-24 h-24 flex-shrink-0">
@@ -56,7 +56,7 @@ function LevelCard({ level }) {
         <LevelRing level={level} />
         <div className="min-w-0 flex-1">
           <p className="text-sm text-[var(--text-primary)] font-semibold tabular-nums">
-            {level.xp.toLocaleString()} XP <span className="font-normal text-[var(--text-muted)]">· {(level.next - level.xp).toLocaleString()} to level {level.level + 1}</span>
+            {level.xp.toLocaleString()} XP <span className="font-normal text-[var(--text-muted)]">· {level.max ? `max level (${MAX_LEVEL})` : `${(level.next - level.xp).toLocaleString()} to level ${level.level + 1}`}</span>
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-1">
             The group levels up together: {XP.post} XP a post, {XP.comment} a comment, {XP.give} a give and {XP.game} a game, up to {XP_DAILY_CAP} XP per member a day.
@@ -65,17 +65,63 @@ function LevelCard({ level }) {
       </div>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
         {LEVEL_UNLOCKS.map(u => {
-          const reached = level.level >= u.level;
+          const reached = level.level >= u.level && !u.soon;
           return (
-            <li key={u.level} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs
+            <li key={u.label} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs
               ${reached ? 'border-aura-500/40 bg-aura-500/10 text-[var(--text-primary)]' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
-              {reached ? <Check size={13} className="text-aura-400" aria-hidden="true" /> : <Lock size={12} aria-hidden="true" />}
-              <span className="font-semibold">Lv {u.level}</span> {u.label}
+              {reached ? <Check size={13} className="text-aura-400 flex-shrink-0" aria-hidden="true" /> : <Lock size={12} className="flex-shrink-0" aria-hidden="true" />}
+              <span><span className="font-semibold">Lv {u.level}</span> {u.label}{u.soon && <span className="opacity-70"> (coming soon)</span>}</span>
             </li>
           );
         })}
       </ul>
-      <p className="text-[11px] text-[var(--text-muted)]">Level rewards switch on in a coming update; the XP you earn now counts toward them.</p>
+      <p className="text-[11px] text-[var(--text-muted)]">Owners and moderators set up the group picture, pins and backgrounds in Manage.</p>
+    </Card>
+  );
+}
+
+// Premium members boost groups for free: more XP from everything members do
+function BoostCard({ groupId, boost, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const daysLeft = boost.mine ? Math.max(1, Math.ceil((boost.mine - Date.now()) / 86400000)) : 0;
+  const bonus = Math.round((boost.multiplier - 1) * 100);
+
+  async function go() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setMsg({ ok: (await api.boostGroup(groupId)).message });
+      onChanged();
+    } catch (err) {
+      setMsg({ error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card icon={Rocket} title="Boosts" aside={boost.active > 0 && <span className="aura-badge">+{bonus}% XP</span>}>
+      <p className="text-sm text-[var(--text-secondary)]">
+        {boost.active > 0
+          ? `${boost.active} boost${boost.active === 1 ? '' : 's'} active: this group earns ${bonus}% more XP from everything members do.`
+          : 'No boosts yet. Each Premium boost adds ' + Math.round(BOOSTS.bonus * 100) + '% XP for ' + BOOSTS.days + ' days.'}
+      </p>
+      {boost.premium ? (
+        boost.mine ? (
+          <p className="text-xs text-[var(--text-muted)]">You're boosting this group for {daysLeft} more day{daysLeft === 1 ? '' : 's'}. You have {boost.left} of {BOOSTS.perMonth} boosts left this month.</p>
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={go} disabled={busy || boost.left < 1} className="btn-primary px-4 py-2">
+              <Rocket size={15} aria-hidden="true" /> {busy ? 'Boosting…' : 'Boost this group'}
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">{boost.left} of {BOOSTS.perMonth} boosts left this month. Free with Premium.</span>
+          </div>
+        )
+      ) : (
+        <p className="text-xs text-[var(--text-muted)]">Premium members can boost up to {BOOSTS.perMonth} groups a month, free. Up to {BOOSTS.maxStack} boosts count at once.</p>
+      )}
+      {msg && <p className={`text-sm ${msg.error ? 'text-red-400' : 'text-emerald-400'}`} role={msg.error ? 'alert' : 'status'}>{msg.error ?? msg.ok}</p>}
     </Card>
   );
 }
@@ -237,6 +283,7 @@ export default function Hearth({ groupId, powerUps }) {
         </p>
       )}
       <LevelCard level={data.level} />
+      {data.boost && <BoostCard groupId={groupId} boost={data.boost} onChanged={reload} />}
       <Supporters board={data.board} me={user?.userId} />
       <RainCard groupId={groupId} data={data} onChanged={reload} />
       <SpotlightCard groupId={groupId} data={data} onChanged={reload} />

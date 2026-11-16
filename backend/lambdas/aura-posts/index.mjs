@@ -7,7 +7,8 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
 import { canSeeAccount, hiddenAuthors, blockedBetween, eitherBlocked } from './privacy.mjs';
-import { addGroupXp, GROUP_STATS_TABLE } from './groupStats.mjs';
+import { addGroupXp, GROUP_STATS_TABLE, groupLevel, PERKS } from './groupStats.mjs';
+import { parseReaction, reactionKey, visibleCounts, MAX_PER_USER, MAX_KINDS } from './reactions.mjs';
 import { checkStyle } from './postStyle.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
@@ -292,9 +293,18 @@ async function createPost(userId, body) {
   if (userResult.Item.isBanned) return response(403, { error: 'Account banned.' });
 
   const author = userResult.Item;
+  // A level-10 group's own backgrounds can be used on text posts in it
+  let groupBgs = [];
+  if (group && typeof body.style?.bg === 'string' && body.style.bg.startsWith('grp:')) {
+    const level = (await groupLevel(dynamo, group.groupId))?.level ?? 1;
+    if (level >= PERKS.backgrounds) groupBgs = (group.backgrounds ?? []).map(b => `grp:${b.id}`);
+  }
   // Fonts, colors, backgrounds and frames (set once, at posting)
-  const styled = checkStyle(body.style, type, author);
+  const styled = checkStyle(body.style, type, author, groupBgs);
   if (styled.error) return response(styled.status ?? 400, { error: styled.error });
+  // The background's image and text color are copied onto the post, so it keeps its look
+  const groupBg = styled.style?.bg?.startsWith('grp:')
+    ? (group.backgrounds ?? []).find(b => `grp:${b.id}` === styled.style.bg) : null;
 
   const postId = generateId();
   const now    = new Date().toISOString();
@@ -322,6 +332,8 @@ async function createPost(userId, body) {
     createdAt:      now,
     updatedAt:      now,
     ...(styled.style && { style: styled.style }),
+    ...(groupBg && { groupBg: { key: groupBg.key, ink: groupBg.ink, name: groupBg.name } }),
+    reactions:      {},
     ...(group && { groupId: group.groupId, groupName: group.name }),
     ...(!group && embedding && { embedding, embeddingModel: EMBED_MODEL }),
   };
@@ -382,11 +394,23 @@ async function forViewer(posts, viewerId) {
     if (blocked.size) posts = posts.filter(p => !blocked.has(p.authorId));
   }
   const liked = new Set();
+  const mine = new Map();
   if (viewerId && posts.length) {
-    const likes = await batchGet(LIKES_TABLE, posts.map(p => ({ userId: viewerId, postId: likeKey('post', p.postId) })));
-    for (const like of likes) liked.add(like.targetId);
+    const rows = await batchGet(LIKES_TABLE, posts.flatMap(p => [
+      { userId: viewerId, postId: likeKey('post', p.postId) },
+      { userId: viewerId, postId: reactionKey(p.postId) },
+    ]));
+    for (const row of rows) {
+      if (row.postId.startsWith('react#')) mine.set(row.postId.slice(6), [...(row.reactions ?? [])]);
+      else liked.add(row.targetId);
+    }
   }
+  const pins = await pinInfo(posts);
   return posts.map(post => {
+    const reactions = visibleCounts(post.reactions);
+    post.reactions = reactions;
+    const used = Object.keys(reactions).filter(k => pins.has(k));
+    if (used.length) post.reactionPins = Object.fromEntries(used.map(k => [k, pins.get(k)]));
     // Report details are for moderation only, never for viewers
     delete post.reportCount;
     delete post.reportedBy;
@@ -402,7 +426,137 @@ async function forViewer(posts, viewerId) {
       // Posts from before likes existed have no counter yet
       post.likeCount = post.likeCount ?? 0;
     }
-    return { ...post, likedByMe: liked.has(post.postId) };
+    return { ...post, likedByMe: liked.has(post.postId), myReactions: mine.get(post.postId) ?? [] };
+  });
+}
+
+// The image and name of every group pin used on these posts (one read per group)
+async function pinInfo(posts) {
+  const wanted = new Map();
+  for (const post of posts) {
+    for (const k of Object.keys(post.reactions ?? {})) {
+      const r = parseReaction(k);
+      if (r?.kind === 'pin') wanted.set(r.groupId, true);
+    }
+  }
+  const out = new Map();
+  await Promise.all([...wanted.keys()].map(async groupId => {
+    try {
+      const group = (await dynamo.send(new GetCommand({ TableName: GROUPS_TABLE, Key: { groupId } }))).Item;
+      for (const pin of group?.status === 'active' ? group.pins ?? [] : []) out.set(`pin:${groupId}:${pin.id}`, { key: pin.key, name: pin.name });
+    } catch (err) {
+      console.warn(`Pins not read (${err.name}).`);
+    }
+  }));
+  return out;
+}
+
+// ─── Reactions ────────────────────────────────────────────────
+// POST /posts/{id}/reactions { reaction, on }: add or take back one reaction.
+// Doing what's already done is a no-op, so double taps can't double count.
+async function setReaction(userId, postId, body) {
+  const reaction = body?.reaction;
+  const on = body?.on !== false;
+  const parsed = parseReaction(reaction);
+  if (!parsed) return response(400, { error: 'That reaction isn\'t available.' });
+
+  const [postResult, userResult] = await Promise.all([
+    dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId } })),
+    dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId } })),
+  ]);
+  const post = postResult.Item;
+  const user = userResult.Item;
+  if (!user) return response(404, { error: 'User not found.' });
+  if (user.isBanned) return response(403, { error: 'Account banned.' });
+  if (!post || post.status !== 'active' || !(await visibleToViewer([post], userId)).length) return response(404, { error: 'Post not found.' });
+  // Only a group's members react to its posts
+  if (post.groupId && on && !(await groupAccess(post.groupId, userId)).isMember) return response(403, { error: 'Join the group to react to its posts.' });
+
+  // A group pin: the group has to be level 7 with that pin, and the reactor a
+  // member; outside the group, only Premium members may use it
+  if (parsed.kind === 'pin' && on) {
+    const access = await groupAccess(parsed.groupId, userId);
+    if (!access.group || !access.isMember) return response(403, { error: 'Only members can use this group\'s pins.' });
+    if (((await groupLevel(dynamo, parsed.groupId))?.level ?? 1) < PERKS.pins) return response(403, { error: `Group pins unlock at level ${PERKS.pins}.` });
+    if (!(access.group.pins ?? []).some(p => p.id === parsed.pinId)) return response(404, { error: 'That pin is gone.' });
+    if (post.groupId !== parsed.groupId && !user.isPremium) return response(403, { error: 'Using group pins outside the group is a Premium feature.' });
+  }
+
+  // The counts map has to exist before one count in it can change
+  if (!post.reactions) {
+    await dynamo.send(new UpdateCommand({
+      TableName: POSTS_TABLE, Key: { postId },
+      UpdateExpression: 'SET #rx = if_not_exists(#rx, :empty)',
+      ConditionExpression: 'attribute_exists(postId)',
+      ExpressionAttributeNames: { '#rx': 'reactions' },
+      ExpressionAttributeValues: { ':empty': {} },
+    }));
+  }
+
+  const key = { userId, postId: reactionKey(postId) };
+  const items = on
+    ? [
+        { Update: {
+          TableName: LIKES_TABLE, Key: key,
+          UpdateExpression: 'ADD #r :set SET targetType = :type, targetId = :pid, updatedAt = :now',
+          ConditionExpression: 'attribute_not_exists(#r) OR (NOT contains(#r, :one) AND size(#r) < :max)',
+          ExpressionAttributeNames: { '#r': 'reactions' },
+          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':max': MAX_PER_USER, ':type': 'reaction', ':pid': postId, ':now': new Date().toISOString() },
+        } },
+        { Update: {
+          TableName: POSTS_TABLE, Key: { postId },
+          UpdateExpression: 'SET #rx.#k = if_not_exists(#rx.#k, :zero) + :one',
+          ConditionExpression: '#status = :active AND (attribute_exists(#rx.#k) OR size(#rx) < :kinds)',
+          ExpressionAttributeNames: { '#rx': 'reactions', '#k': reaction, '#status': 'status' },
+          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':kinds': MAX_KINDS, ':active': 'active' },
+        } },
+      ]
+    : [
+        { Update: {
+          TableName: LIKES_TABLE, Key: key,
+          UpdateExpression: 'DELETE #r :set SET updatedAt = :now',
+          ConditionExpression: 'contains(#r, :one)',
+          ExpressionAttributeNames: { '#r': 'reactions' },
+          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':now': new Date().toISOString() },
+        } },
+        { Update: {
+          TableName: POSTS_TABLE, Key: { postId },
+          UpdateExpression: 'SET #rx.#k = #rx.#k - :one',
+          ConditionExpression: 'attribute_exists(#rx.#k) AND #rx.#k > :zero',
+          ExpressionAttributeNames: { '#rx': 'reactions', '#k': reaction },
+          ExpressionAttributeValues: { ':zero': 0, ':one': 1 },
+        } },
+      ];
+
+  try {
+    await dynamo.send(new TransactWriteCommand({ TransactItems: items }));
+  } catch (err) {
+    if (err.name === 'AccessDeniedException') return response(503, { error: 'Reactions aren\'t switched on yet. Try again later.' });
+    if (err.name !== 'TransactionCanceledException') throw err;
+    const [mineCheck, postCheck] = (err.CancellationReasons ?? []).map(r => r?.Code);
+    if (mineCheck === 'ConditionalCheckFailed') {
+      // Already done, or (adding) they're at their limit
+      const row = (await dynamo.send(new GetCommand({ TableName: LIKES_TABLE, Key: key }))).Item;
+      const have = [...(row?.reactions ?? [])];
+      if (on && !have.includes(reaction) && have.length >= MAX_PER_USER) {
+        return response(409, { error: `You can add up to ${MAX_PER_USER} reactions to a post. Take one back to add another.` });
+      }
+    } else if (postCheck === 'ConditionalCheckFailed') {
+      if (on) return response(409, { error: `This post already has ${MAX_KINDS} different reactions. Pick one that's already on it.` });
+    } else {
+      throw err;
+    }
+  }
+
+  const [after, row] = await Promise.all([
+    dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId }, ProjectionExpression: '#rx', ExpressionAttributeNames: { '#rx': 'reactions' } })),
+    dynamo.send(new GetCommand({ TableName: LIKES_TABLE, Key: key })),
+  ]);
+  const reactions = visibleCounts(after.Item?.reactions);
+  const pins = await pinInfo([{ reactions }]);
+  return response(200, {
+    reactions, myReactions: [...(row.Item?.reactions ?? [])],
+    reactionPins: Object.fromEntries([...pins].filter(([k]) => reactions[k])),
   });
 }
 
@@ -659,9 +813,12 @@ async function getGroupPosts(groupId, viewerId, cursor) {
   }
 
   const visible = await forViewer(posts, viewerId);
+  // Level-10 groups glow, unless the owner turned it off
+  const glow = access.group.glow !== false && ((await groupLevel(dynamo, groupId))?.level ?? 1) >= PERKS.glow;
   return response(200, {
-    posts: visible.map(post => ({ ...post, canRemove: access.canModerate || post.authorId === viewerId })),
+    posts: visible.map(post => ({ ...post, canRemove: access.canModerate || post.authorId === viewerId, ...(glow && { glow: true }) })),
     nextCursor,
+    glow,
   });
 }
 
@@ -851,6 +1008,14 @@ export const handler = async (event) => {
       const actionLimited = await firstLimit([userId, 'like', 60, 60]);
       if (actionLimited) return actionLimited;
       return await setLike(userId, segments[0], segments[1], method === 'POST');
+    }
+
+    // POST /posts/{id}/reactions { reaction, on }
+    if (method === 'POST' && segments[0] === 'posts' && segments.length === 3 && segments[2] === 'reactions') {
+      if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'react', 60, 60]);
+      if (actionLimited) return actionLimited;
+      return await setReaction(userId, segments[1], body);
     }
 
     // POST /posts/{id}/report

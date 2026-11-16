@@ -8,6 +8,7 @@ import { api } from '../api';
 
 jest.mock('../api', () => ({ api: {
   getGame: jest.fn(), gameMove: jest.fn(), gameAction: jest.fn(), getGroupGames: jest.fn(), createGame: jest.fn(),
+  getGameChampions: jest.fn(),
 } }));
 jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { userId: 'me' }, dbProfile: { auraSpendable: 300, auraEarned: 0 } }) }));
 

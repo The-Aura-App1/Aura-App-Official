@@ -10,6 +10,7 @@ import { embedTexts, warmUpModel } from '../utils/embedClient';
 import shrinkImage from '../utils/shrinkImage';
 import { prefersReducedMotion } from '../utils/motion';
 import StylePicker from '../components/post/StylePicker';
+import { PERKS } from '../utils/powerUps';
 import { cleanStyle } from '../utils/postStyle';
 
 // Where the little sparks rise from as a new post drifts away
@@ -29,11 +30,17 @@ export default function CreatePost() {
   const groupId  = searchParams.get('group');
   const doneUrl  = groupId ? `/groups/${encodeURIComponent(groupId)}` : '/';
   const [groupName, setGroupName] = useState('');
+  // A level-10 group's own post backgrounds
+  const [groupBackgrounds, setGroupBackgrounds] = useState([]);
 
   useEffect(() => {
     if (!groupId) return;
     api.getGroup(groupId)
-      .then(group => { setGroupName(group.name); setGroupTakesOff(group.allowTakes === false); })
+      .then(group => {
+        setGroupName(group.name);
+        setGroupTakesOff(group.allowTakes === false);
+        setGroupBackgrounds((group.level ?? 1) >= PERKS.backgrounds ? group.backgrounds ?? [] : []);
+      })
       .catch(() => setGroupName(''));
   }, [groupId]);
 
@@ -359,7 +366,7 @@ export default function CreatePost() {
         </p>
       </div>
 
-      <StylePicker style={look} onChange={setLook} postType={postType} caption={caption} isPremium={!!dbProfile?.isPremium} />
+      <StylePicker style={look} onChange={setLook} postType={postType} caption={caption} isPremium={!!dbProfile?.isPremium} groupBackgrounds={groupBackgrounds} />
 
       {!groupId && (
         <div className="mb-4" data-tour="post-topics">

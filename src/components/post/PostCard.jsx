@@ -12,6 +12,7 @@ import LikeHeart   from '../motion/LikeHeart';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
 import { topicLabel } from '../../utils/topics';
 import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
+import Reactions from './Reactions';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
@@ -83,7 +84,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
   // opens it, like Instagram. On the post page itself (onComment set) it doesn't.
   function openPost(e) {
     if (onComment) return;
-    if (e.target.closest('a, button, input, textarea, select, label, [data-video], [role="menu"], [role="slider"]')) return;
+    if (e.target.closest('a, button, input, textarea, select, label, [data-video], [role="menu"], [role="dialog"], [role="slider"]')) return;
     if (window.getSelection?.().toString()) return;   // selecting text isn't a tap
     navigate(`/post/${encodeURIComponent(post.postId)}`);
   }
@@ -107,7 +108,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
       <article
         onClick={openPost}
         style={frame.style}
-        className={`card p-0 overflow-hidden ${frame.className} ${onComment ? '' : 'cursor-pointer'} ${reaction ? `aura-card-${reaction.type}` : ''}`}
+        className={`card p-0 overflow-hidden ${frame.className} ${post.glow ? 'post-group-glow' : ''} ${onComment ? '' : 'cursor-pointer'} ${reaction ? `aura-card-${reaction.type}` : ''}`}
         onAnimationEnd={e => { if (e.target === e.currentTarget) setReaction(null); }}>
 
         {/* ── Header ── */}
@@ -204,7 +205,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         )}
 
         {/* ── Text post content ── */}
-        {post.type === 'text' && post.caption && <TextBody text={post.caption} style={post.style} />}
+        {post.type === 'text' && post.caption && <TextBody text={post.caption} style={post.style} groupBg={post.groupBg} />}
 
         {/* ── Action bar ── */}
         <div className="px-4 py-2 flex items-center justify-between">
@@ -293,6 +294,9 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
             </button>
           </div>
         </div>
+
+        {/* ── Emoji reactions and group pins ── */}
+        <Reactions post={post} />
 
         {/* ── Caption (for image/video posts) ── */}
         {post.type !== 'text' && post.caption && (

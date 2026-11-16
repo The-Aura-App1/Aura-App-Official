@@ -3,9 +3,28 @@ import {
   DynamoDBDocumentClient, GetCommand, UpdateCommand, QueryCommand,
   ScanCommand, TransactWriteCommand, BatchGetCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { randomBytes } from 'node:crypto';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
+import { GROUP_STATS_TABLE, PERKS, MAX_PINS, MAX_BACKGROUNDS, groupLevel, levelFor } from './groupStats.mjs';
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
+const s3     = new S3Client({ region: 'us-east-1' });
+const BUCKET_NAME = 'aura-app-media-570934198135';
+
+// Level perks (groupStats.mjs PERKS): a group picture at level 2, custom
+// reaction pins at 7, and post backgrounds and the glow at 10. Owners and
+// moderators upload the images; each kind lives under groups/<groupId>/<kind>/.
+const UPLOADS = {
+  picture:    { perk: 'picture',     maxBytes: 2 * 1024 * 1024, types: ['image/jpeg', 'image/png', 'image/webp'] },
+  pin:        { perk: 'pins',        maxBytes: 512 * 1024,      types: ['image/png', 'image/webp', 'image/gif'] },
+  background: { perk: 'backgrounds', maxBytes: 3 * 1024 * 1024, types: ['image/jpeg', 'image/png', 'image/webp'] },
+};
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+const ITEM_ID = /^[a-z0-9]{6,24}$/;
+const HEX = /^#[0-9a-f]{6}$/;
+const keyFor = (groupId, kind) => new RegExp(`^groups/${groupId.replace(/[^A-Za-z0-9-]/g, '')}/${kind}/[a-z0-9]{6,24}\\.(jpg|png|webp|gif)$`);
 
 const GROUPS_TABLE  = 'aura-groups';
 const MEMBERS_TABLE = 'aura-group-members';
@@ -380,12 +399,13 @@ async function getMyGroups(userId) {
   const groups = await batchGet(GROUPS_TABLE, memberships.map(m => ({ groupId: m.groupId })));
   const byId   = new Map(groups.filter(g => g.status === 'active').map(g => [g.groupId, g]));
 
-  const result = memberships
-    .filter(m => byId.has(m.groupId))
-    .map(m => {
+  const kept = memberships.filter(m => byId.has(m.groupId));
+  const levels = await Promise.all(kept.map(m => groupLevel(dynamo, m.groupId)));
+  const result = kept
+    .map((m, i) => {
       const group = byId.get(m.groupId);
       const perms = permissions(group, m);
-      return { ...publicGroup(group, perms), myStatus: m.status, myRole: perms.role, muted: !!m.muted };
+      return { ...publicGroup(group, perms), level: levels[i]?.level ?? 1, myStatus: m.status, myRole: perms.role, muted: !!m.muted };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -404,8 +424,10 @@ async function getGroup(groupId, userId) {
   }
 
   const perms = permissions(group, member);
+  const level = await groupLevel(dynamo, groupId);
   return response(200, {
     ...publicGroup(group, perms),
+    level:    level?.level ?? 1,
     myStatus: member?.status ?? null,
     muted:    !!member?.muted,
     ...perms,
@@ -419,11 +441,39 @@ async function updateGroup(groupId, userId, body) {
   const role = activeRole(group, await getMember(groupId, userId));
   if (role !== 'owner' && role !== 'moderator') return response(403, { error: 'Only owners and moderators can change settings.' });
 
-  const { joinType, hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled } = body;
+  const { joinType, hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled, showOnLeaderboard, glow } = body;
   const description = typeof body.description === 'string' ? cleanText(body.description) : body.description;
   const ownerOnly = description !== undefined || joinType !== undefined || hideMemberList !== undefined
-    || allowTakes !== undefined || powerUpsEnabled !== undefined;
+    || allowTakes !== undefined || powerUpsEnabled !== undefined || showOnLeaderboard !== undefined;
   if (ownerOnly && role !== 'owner') return response(403, { error: 'Only the owner can change these settings.' });
+
+  // Level perks, for owners and moderators
+  const perks = {};
+  const wantsPerk = body.picKey !== undefined || body.pins !== undefined || body.backgrounds !== undefined || glow !== undefined;
+  if (wantsPerk) {
+    const level = (await groupLevel(dynamo, groupId))?.level ?? 1;
+    const locked = perk => level < PERKS[perk] && response(403, { error: `That unlocks at group level ${PERKS[perk]}.` });
+    if (body.picKey !== undefined) {
+      const l = locked('picture'); if (l) return l;
+      if (body.picKey !== '' && !(typeof body.picKey === 'string' && keyFor(groupId, 'picture').test(body.picKey))) return response(400, { error: 'Invalid picture.' });
+      perks.picKey = body.picKey;
+    }
+    if (body.pins !== undefined) {
+      const l = locked('pins'); if (l) return l;
+      const pins = cleanItems(body.pins, MAX_PINS, groupId, 'pin', 24);
+      if (pins.error) return response(400, { error: pins.error });
+      perks.pins = pins.items;
+    }
+    if (body.backgrounds !== undefined) {
+      const l = locked('backgrounds'); if (l) return l;
+      const backgrounds = cleanItems(body.backgrounds, MAX_BACKGROUNDS, groupId, 'background', 30, true);
+      if (backgrounds.error) return response(400, { error: backgrounds.error });
+      perks.backgrounds = backgrounds.items;
+    }
+    if (glow !== undefined) {
+      const l = locked('glow'); if (l) return l;
+    }
+  }
 
   if (description !== undefined && (typeof description !== 'string' || description.length > MAX_DESCRIPTION)) {
     return response(400, { error: `Description must be under ${MAX_DESCRIPTION} characters.` });
@@ -431,7 +481,7 @@ async function updateGroup(groupId, userId, body) {
   if (joinType !== undefined && !JOIN_TYPES.includes(joinType)) {
     return response(400, { error: `joinType must be one of: ${JOIN_TYPES.join(', ')}.` });
   }
-  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled })) {
+  for (const [field, value] of Object.entries({ hideMemberList, momentsEnabled, allowTakes, powerUpsEnabled, showOnLeaderboard, glow })) {
     if (value !== undefined && typeof value !== 'boolean') return response(400, { error: `${field} must be true or false.` });
   }
 
@@ -442,6 +492,9 @@ async function updateGroup(groupId, userId, body) {
   if (momentsEnabled !== undefined) updates.momentsEnabled = momentsEnabled;
   if (allowTakes     !== undefined) updates.allowTakes     = allowTakes;
   if (powerUpsEnabled !== undefined) updates.powerUpsEnabled = powerUpsEnabled;
+  if (showOnLeaderboard !== undefined) updates.showOnLeaderboard = showOnLeaderboard;
+  if (glow           !== undefined) updates.glow           = glow;
+  Object.assign(updates, perks);
 
   const fields = Object.keys(updates);
   const result = await dynamo.send(new UpdateCommand({
@@ -454,7 +507,86 @@ async function updateGroup(groupId, userId, body) {
     ReturnValues:              'ALL_NEW',
   }));
 
+  if (body.pins !== undefined || body.backgrounds !== undefined || body.picKey !== undefined) leaderboardCache = { at: 0, list: null };
   return response(200, publicGroup(result.Attributes, { canModerate: true }));
+}
+
+// Pins and backgrounds: [{ id, name, key, ink? }], each image uploaded
+// through /groups/{id}/upload-url, names cleaned, ids unique
+function cleanItems(list, max, groupId, kind, nameMax, withInk = false) {
+  if (!Array.isArray(list) || list.length > max) return { error: `Up to ${max} ${kind}s.` };
+  const items = [];
+  const seen = new Set();
+  for (const item of list) {
+    if (!item || typeof item !== 'object') return { error: `Invalid ${kind}.` };
+    const name = cleanLine(String(item.name ?? '')).slice(0, nameMax);
+    if (!ITEM_ID.test(item.id ?? '') || seen.has(item.id)) return { error: `Invalid ${kind}.` };
+    if (typeof item.key !== 'string' || !keyFor(groupId, kind).test(item.key)) return { error: `Invalid ${kind} image.` };
+    if (!name || !hasVisibleText(name) || RESERVED_WORDS.test(name) || impersonatesStaff(name)) return { error: `Give each ${kind} a name (no "aura", "admin", "official" or "moderator").` };
+    if (withInk && !HEX.test(item.ink ?? '')) return { error: 'Pick the text color for each background.' };
+    seen.add(item.id);
+    items.push({ id: item.id, name, key: item.key, ...(withInk && { ink: item.ink }) });
+  }
+  return { items };
+}
+
+// ─── Uploads for level perks ──────────────────────────────────
+// POST /groups/{id}/upload-url { kind, contentType, size } → { key, url }.
+// The size is signed into the URL, so S3 refuses any other size.
+async function uploadUrl(groupId, userId, body) {
+  const group = await getGroupItem(groupId);
+  if (!group) return response(404, { error: 'Group not found.' });
+  const role = activeRole(group, await getMember(groupId, userId));
+  if (role !== 'owner' && role !== 'moderator') return response(403, { error: 'Only owners and moderators can do that.' });
+  const spec = UPLOADS[body.kind];
+  if (!spec) return response(400, { error: 'Unknown upload.' });
+  const level = (await groupLevel(dynamo, groupId))?.level ?? 1;
+  if (level < PERKS[spec.perk]) return response(403, { error: `That unlocks at group level ${PERKS[spec.perk]}.` });
+  if (!spec.types.includes(body.contentType)) return response(400, { error: `Use ${spec.types.map(t => t.split('/')[1].toUpperCase()).join(', ')}.` });
+  if (!Number.isInteger(body.size) || body.size < 1 || body.size > spec.maxBytes) {
+    return response(400, { error: `Images must be under ${Math.round(spec.maxBytes / 1024)} KB.` });
+  }
+  const id = randomBytes(8).toString('hex');
+  const key = `groups/${groupId.replace(/[^A-Za-z0-9-]/g, '')}/${body.kind}/${id}.${EXT[body.contentType]}`;
+  const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: BUCKET_NAME, Key: key, ContentType: body.contentType, ContentLength: body.size }), { expiresIn: 600 });
+  return response(200, { id, key, url });
+}
+
+// ─── Leaderboard ──────────────────────────────────────────────
+// GET /groups/leaderboard?by=level|aura: the top groups by level (then XP)
+// or by all the aura given inside them. Invite-only groups and groups whose
+// owner turned showOnLeaderboard off never appear. Cached for two minutes.
+const LEADERBOARD_SIZE = 50;
+let leaderboardCache = { at: 0, list: null };
+async function leaderboard(by) {
+  if (!leaderboardCache.list || Date.now() - leaderboardCache.at > 120_000) {
+    const levels = [];
+    let ExclusiveStartKey;
+    do {
+      const result = await dynamo.send(new ScanCommand({
+        TableName: GROUP_STATS_TABLE, FilterExpression: 'sk = :level', ExpressionAttributeValues: { ':level': 'LEVEL' }, ExclusiveStartKey,
+      }));
+      levels.push(...(result.Items ?? []));
+      ExclusiveStartKey = result.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    const groups = await batchGet(GROUPS_TABLE, levels.filter(l => !String(l.groupId).startsWith(NAME_PREFIX)).map(l => ({ groupId: l.groupId })));
+    const byId = new Map(groups.map(g => [g.groupId, g]));
+    leaderboardCache = {
+      at: Date.now(),
+      list: levels
+        .map(l => ({ l, g: byId.get(l.groupId) }))
+        .filter(({ g }) => g && g.status === 'active' && g.joinType !== 'invite' && g.showOnLeaderboard !== false)
+        .map(({ l, g }) => {
+          const xp = l.xp ?? 0;
+          return { groupId: g.groupId, name: g.name, picKey: g.picKey ?? '', joinType: g.joinType,
+            memberCount: g.hideMemberList ? null : g.memberCount ?? null, xp, level: levelFor(xp), aura: l.aura ?? 0 };
+        }),
+    };
+  }
+  const sorted = [...leaderboardCache.list].sort(by === 'aura'
+    ? (a, b) => b.aura - a.aura || b.xp - a.xp
+    : (a, b) => b.level - a.level || b.xp - a.xp || b.aura - a.aura);
+  return response(200, { by, groups: sorted.slice(0, LEADERBOARD_SIZE).map((g, i) => ({ rank: i + 1, ...g })) });
 }
 
 // ─── Delete group ─────────────────────────────────────────────
@@ -775,6 +907,10 @@ export const handler = async (event) => {
 
     // GET /groups/mine — my groups, requests and invites
     if (method === 'GET' && segments.length === 2 && segments[1] === 'mine') return await getMyGroups(userId);
+    // GET /groups/leaderboard?by=level|aura
+    if (method === 'GET' && segments.length === 2 && segments[1] === 'leaderboard') {
+      return await leaderboard(query.by === 'aura' ? 'aura' : 'level');
+    }
 
     const groupId = segments[1];
 
@@ -791,6 +927,11 @@ export const handler = async (event) => {
       if (method === 'POST' && action === 'leave')   return await leaveGroup(groupId, userId);
       if (method === 'POST' && action === 'invite')  return await inviteMember(groupId, userId, body);
       if (method === 'POST' && action === 'mute')    return await setMuted(groupId, userId, body);
+      if (method === 'POST' && action === 'upload-url') {
+        const uploadLimited = await firstLimit([userId, 'groupupload', 20, 3600]);
+        if (uploadLimited) return uploadLimited;
+        return await uploadUrl(groupId, userId, body);
+      }
     }
 
     // POST /groups/{id}/{action}/{userId}

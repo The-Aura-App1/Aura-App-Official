@@ -18,7 +18,8 @@ const TEXT_KEYS = ['font', 'color', 'bg', 'size', 'align', 'frame'];
 const MEDIA_KEYS = ['font', 'color', 'frame'];
 
 // Returns { style } (null when there's nothing to store) or { error }
-export function checkStyle(style, type, author) {
+// groupBgs: the 'grp:<id>' backgrounds this post may use (a level-10 group's own)
+export function checkStyle(style, type, author, groupBgs = []) {
   if (style === undefined || style === null) return { style: null };
   if (typeof style !== 'object' || Array.isArray(style)) return { error: 'Invalid style.' };
   const allowed = type === 'text' ? TEXT_KEYS : MEDIA_KEYS;
@@ -30,7 +31,7 @@ export function checkStyle(style, type, author) {
     const ok = {
       font:  () => FONT_IDS.has(value),
       color: () => HEX.test(value),
-      bg:    () => BACKGROUND_IDS.includes(value) || HEX.test(value),
+      bg:    () => BACKGROUND_IDS.includes(value) || HEX.test(value) || groupBgs.includes(value),
       size:  () => SIZES.includes(value),
       align: () => ALIGNS.includes(value),
       frame: () => FRAME_IDS.includes(value) || HEX.test(value),

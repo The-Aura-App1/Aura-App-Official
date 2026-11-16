@@ -10,6 +10,7 @@ import Hearth from '../components/groups/Hearth';
 import RainBanner from '../components/groups/RainBanner';
 import usePowerUps from '../components/groups/usePowerUps';
 import ConfirmButton from '../components/groups/ConfirmButton';
+import GroupPerks from '../components/groups/GroupPerks';
 import { JOIN_TYPES, JoinTypeBadge, GroupAvatar, memberCountText } from '../components/groups/GroupBits';
 
 const S3_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com';
@@ -218,6 +219,8 @@ function Manage({ group, onChanged }) {
         )}
       </section>
 
+      <GroupPerks group={group} onChanged={onChanged} />
+
       <section className="card flex items-center justify-between gap-4">
         <div>
           <h3 className="font-semibold text-[var(--text-primary)]">Moments</h3>
@@ -381,7 +384,7 @@ export default function GroupPage() {
 
       <section className="card flex flex-col gap-4">
         <div className="flex items-start gap-4">
-          <GroupAvatar name={group.name} size="lg" />
+          <GroupAvatar name={group.name} picKey={group.picKey} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-[var(--text-primary)] break-words">{group.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">

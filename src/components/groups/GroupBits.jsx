@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Globe, Lock, Mail } from 'lucide-react';
 
 export const JOIN_TYPES = {
@@ -18,12 +18,18 @@ export function JoinTypeBadge({ joinType }) {
   );
 }
 
-export function GroupAvatar({ name, size = 'md' }) {
-  const sizes = { sm: 'w-10 h-10 text-base', md: 'w-12 h-12 text-lg', lg: 'w-16 h-16 text-2xl' };
+const MEDIA_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com/';
+
+// The group's picture (a level-2 perk), or its first letter
+export function GroupAvatar({ name, picKey, size = 'md' }) {
+  const [broken, setBroken] = useState(false);
+  const sizes = { xs: 'w-8 h-8 text-sm', sm: 'w-10 h-10 text-base', md: 'w-12 h-12 text-lg', lg: 'w-16 h-16 text-2xl' };
   return (
-    <div className={`${sizes[size]} rounded-2xl bg-aura-500/15 border border-aura-500/30 flex-shrink-0
+    <div className={`${sizes[size]} rounded-2xl bg-aura-500/15 border border-aura-500/30 flex-shrink-0 overflow-hidden
                      flex items-center justify-center font-bold text-aura-400`}>
-      {name?.[0]?.toUpperCase() ?? '?'}
+      {picKey && !broken
+        ? <img src={MEDIA_URL + picKey} alt="" className="w-full h-full object-cover" onError={() => setBroken(true)} />
+        : name?.[0]?.toUpperCase() ?? '?'}
     </div>
   );
 }

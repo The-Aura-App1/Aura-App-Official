@@ -4,6 +4,7 @@ import { Users, Plus, Search, X, BellOff } from 'lucide-react';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { JOIN_TYPES, JoinTypeBadge, GroupAvatar, memberCountText } from '../components/groups/GroupBits';
+import GroupLeaderboard from '../components/groups/GroupLeaderboard';
 
 function Message({ error, success }) {
   if (!error && !success) return null;
@@ -21,7 +22,7 @@ function GroupRow({ group, children }) {
   return (
     <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
       <Link to={`/groups/${encodeURIComponent(group.groupId)}`} className="flex items-center gap-3 flex-1 min-w-0 group">
-        <GroupAvatar name={group.name} />
+        <GroupAvatar name={group.name} picKey={group.picKey} />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-aura-400 truncate flex items-center gap-1.5">
             {group.name}
@@ -242,6 +243,8 @@ export default function Groups() {
           </section>
         </>
       )}
+
+      <GroupLeaderboard />
 
       <section className="card flex flex-col gap-3" data-tour="group-discover">
         <h2 className="font-semibold text-[var(--text-primary)]">Discover</h2>

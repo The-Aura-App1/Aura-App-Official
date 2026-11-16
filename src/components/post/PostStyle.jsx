@@ -11,9 +11,9 @@ export function usePostFont(style) {
 
 // The body of a text post: a designed card when it has a background, plain
 // text in the chosen font/color/size otherwise
-export function TextBody({ text, style, className = '' }) {
+export function TextBody({ text, style, groupBg = null, className = '' }) {
   usePostFont(style);
-  const css = textCardStyle(style, text.length);
+  const css = textCardStyle(style, text.length, groupBg);
   if (style?.bg) {
     return (
       <div className={`mx-4 mb-1 rounded-xl px-6 py-8 min-h-[13rem] flex flex-col justify-center ${className}`} style={css}>

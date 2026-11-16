@@ -4,6 +4,7 @@ import { Swords, Sparkles, X } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
+import Champions from './Champions';
 import { GAME_LIST, GAME_BY_ID, STAKE_CAP, TIME_CHOICES, CLOCK_GAMES, defaultTime, statusText, gameTile, seatsOf } from './gameInfo';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
@@ -328,6 +329,8 @@ export default function GroupGames({ groupId }) {
           </ul>
         </section>
       ))}
+
+      <Champions groupId={groupId} viewerId={viewerId} />
     </div>
   );
 }

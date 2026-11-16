@@ -62,6 +62,7 @@
       "Sid": "GroupLevels",
       "Effect": "Allow",
       "Action": [
+        "dynamodb:GetItem",
         "dynamodb:UpdateItem"
       ],
       "Resource": "arn:aws:dynamodb:us-east-1:570934198135:table/aura-group-stats"
