@@ -149,7 +149,7 @@ function chessBot(level, { state, rand }) {
     return out(caps.length && chance(0.4, rand) ? pick(caps, rand) : pick(promoQ, rand));
   }
   const depth = level === 'medium' ? 2 : 4;
-  const deadline = Date.now() + (level === 'medium' ? 800 : 2500);
+  const deadline = Date.now() + (level === 'medium' ? 600 : 1500);
   let best = [], bestV = -Infinity;
   for (let d = 1; d <= depth && Date.now() < deadline; d++) {
     let roundBest = [], roundV = -Infinity;
@@ -227,7 +227,7 @@ function poolBot(level, { state, seat, rand }) {
   }
   const wobble = level === 'medium' ? 0.025 : 0.004;
   const tries = level === 'medium' ? 10 : 36;
-  const deadline = Date.now() + (level === 'medium' ? 700 : 2200);
+  const deadline = Date.now() + (level === 'medium' ? 500 : 1200);
   let best = null;
   for (let k = 0; k < tries && Date.now() < deadline; k++) {
     const a = aims[k % Math.min(aims.length, level === 'medium' ? 5 : 12)];

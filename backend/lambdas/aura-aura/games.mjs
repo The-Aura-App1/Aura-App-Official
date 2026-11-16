@@ -558,6 +558,12 @@ export async function handleGames(ctx, user, method, segments, body) {
 
   if (action === 'move') {
     if (match.state.turn !== seat) return response(409, { error: 'It\'s not your turn.' });
+    // Each move against a bot makes the bot think (up to a second or so of
+    // server time), so those moves have a tighter limit of their own
+    if (match.bot) {
+      const botLimited = await firstLimit([user.userId, 'botmove', 30, 60], [user.userId, 'botmove', 600, 3600]);
+      if (botLimited) return botLimited;
+    }
     // A chess clock: charge the time this turn took; a flag that fell loses
     const timing = timingOf(match);
     let clocks = match.clocks;
