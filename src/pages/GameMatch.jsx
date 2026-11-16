@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Flag, Timer, Trophy, Swords } from 'lucide-react';
+import { ROLL_MS } from '../components/games/DiceTray';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/common/Avatar';
@@ -46,21 +47,111 @@ function resultText(match, seat, players) {
   return `${players[winnerSeat]?.displayName ?? 'Someone'} won${how}.`;
 }
 
-// A short shower of confetti in the theme's colors when you win
-const CONFETTI = Array.from({ length: 26 }, (_, i) => ({
-  left: `${(i * 37) % 100}%`, delay: `${(i % 7) * 0.12}s`, drift: `${((i * 53) % 80) - 40}px`,
-  spin: `${360 + ((i * 97) % 540)}deg`, time: `${2 + (i % 5) * 0.25}s`,
-  color: ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', '#fcd34d', '#ffffff'][i % 5],
+// Confetti in the theme's colors when you win: a short shower over the
+// result, or a full-screen burst when the game has just ended
+const CONFETTI = Array.from({ length: 70 }, (_, i) => ({
+  left: `${(i * 37) % 100}%`, delay: `${(i % 9) * 0.11}s`, drift: `${((i * 53) % 120) - 60}px`,
+  spin: `${360 + ((i * 97) % 720)}deg`, time: `${2.2 + (i % 6) * 0.3}s`, wide: i % 3 === 0,
+  color: ['var(--brand-1)', 'var(--brand-2)', 'var(--brand-3)', '#fcd34d', '#ffffff', '#f472b6'][i % 6],
 }));
-function Confetti() {
+function Confetti({ full = false }) {
   return (
-    <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-      {CONFETTI.map((c, i) => (
-        <span key={i} className="game-confetti"
-          style={{ left: c.left, background: c.color, '--delay': c.delay, '--drift': c.drift, '--spin': c.spin, '--fall-time': c.time }} />
+    <div className={`${full ? 'fixed' : 'absolute'} inset-0 pointer-events-none overflow-hidden z-[60]`} aria-hidden="true">
+      {CONFETTI.slice(0, full ? 70 : 26).map((c, i) => (
+        <span key={i} className={`game-confetti ${full ? 'game-confetti-full' : ''}`}
+          style={{ left: c.left, background: c.color, width: c.wide ? 12 : 8, '--delay': c.delay, '--drift': c.drift, '--spin': c.spin, '--fall-time': c.time }} />
       ))}
     </div>
   );
+}
+
+// Counts up to a number over about a second
+function useCountUp(target, active) {
+  const [value, setValue] = useState(active ? 0 : target);
+  useEffect(() => {
+    if (!active) { setValue(target); return undefined; }
+    const start = performance.now();
+    let raf;
+    const tick = now => {
+      const f = Math.min(1, (now - start) / 1100);
+      setValue(Math.round(target * (1 - (1 - f) ** 3)));
+      if (f < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, active]);
+  return value;
+}
+
+// How the game ended, for the viewer: a headline, a line under it, and the aura change
+function outcome(match, seat, players) {
+  const pot = match.stake * players.length;
+  const me = seat === null ? null : players[seat]?.userId;
+  const split = match.winnerUserIds?.length > 1 ? match.winnerUserIds : null;
+  const how = match.endReason === 'resign' ? 'by resignation' : match.endReason === 'timeout' ? 'on time' : '';
+  if (split) {
+    const share = Math.floor(pot / split.length);
+    const mine = me && split.includes(me);
+    const names = split.map(id => (id === me ? 'You' : players.find(p => p.userId === id)?.displayName)).join(' and ');
+    return { kind: mine ? 'win' : 'loss', title: mine ? 'You tied for the win!' : 'A tie at the top', line: `${names} share the pot.`, aura: mine && pot ? share : match.stake && me ? -match.stake : 0 };
+  }
+  if (!match.winnerUserId) return { kind: 'draw', title: 'It\'s a draw', line: match.stake ? 'Every stake went back.' : '', aura: 0 };
+  const winner = players.find(p => p.userId === match.winnerUserId);
+  if (match.winnerUserId === me) return { kind: 'win', title: 'You won!', line: how ? `You won ${how}.` : players.length > 2 ? `You beat ${players.length - 1} players.` : `You beat ${players.find(p => p.userId !== me)?.displayName}.`, aura: pot };
+  if (me) return { kind: 'loss', title: `${winner?.displayName ?? 'They'} won`, line: how ? `They won ${how}.` : 'Better luck next game.', aura: match.stake ? -match.stake : 0 };
+  return { kind: 'watch', title: `${winner?.displayName ?? 'Someone'} won`, line: how ? `Won ${how}.` : '', aura: 0 };
+}
+
+function AuraChange({ amount, animate }) {
+  const shown = useCountUp(Math.abs(amount), animate);
+  if (!amount) return null;
+  return (
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-base font-bold tabular-nums
+      ${amount > 0 ? 'bg-amber-400/15 text-amber-300 border border-amber-400/40' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border)]'}`}>
+      {amount > 0 ? '+' : '−'}{shown} aura
+    </span>
+  );
+}
+
+// The big card when a game ends while you're watching: hard to miss, with the
+// way back to the group's games right there
+function ResultCard({ result, gamesLink, onClose }) {
+  const close = useRef(null);
+  useEffect(() => {
+    close.current?.focus();
+    const key = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [onClose]);
+  const win = result.kind === 'win';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm game-result-backdrop"
+      role="dialog" aria-modal="true" aria-labelledby="game-result-title" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      {win && <Confetti full />}
+      <div className={`card relative w-full max-w-sm flex flex-col items-center gap-3 text-center py-8 game-result-card ${win ? 'game-result-win' : ''}`}>
+        <div className={`relative w-24 h-24 rounded-full flex items-center justify-center ${win ? 'game-result-medal' : 'bg-[var(--bg-elevated)]'}`}>
+          {win && <span className="game-result-rays" aria-hidden="true" />}
+          <Trophy size={win ? 48 : 36} className={`relative ${win ? 'text-amber-300 game-trophy' : 'text-[var(--text-muted)]'}`} aria-hidden="true" />
+        </div>
+        <h2 id="game-result-title" className={`font-extrabold text-[var(--text-primary)] ${win ? 'text-3xl' : 'text-2xl'}`}>{result.title}</h2>
+        {result.line && <p className="text-sm text-[var(--text-secondary)]">{result.line}</p>}
+        <AuraChange amount={result.aura} animate />
+        <div className="flex flex-col gap-2 w-full mt-3">
+          <Link ref={close} to={gamesLink} className="btn-primary justify-center">Back to games</Link>
+          <button type="button" onClick={onClose} className="btn-ghost justify-center">See the board</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// How long to hold the result back so the last move plays out first
+function revealDelay(game, view) {
+  if (game === 'dice') return ROLL_MS + 400;
+  if (game === 'pool') return (view?.shot?.frames?.length ?? 0) * 50 + 500;
+  if (game === 'coinflip') return 2300;
+  if (game === 'poker') return 1400;
+  return 900;
 }
 
 export default function GameMatch() {
@@ -73,6 +164,24 @@ export default function GameMatch() {
   const [confirmResign, setConfirmResign] = useState(false);
   const offset = useRef(0);   // server clock minus ours, for the turn timer
   const shotNo = useRef(null); // pool: the shot whose recording we already have
+  // When a game ends while the page is open, the result waits for the last
+  // move to play out, then shows as a big card
+  const lastStatus = useRef(null);
+  const revealTimer = useRef(0);
+  const [revealing, setRevealing] = useState(false);
+  const [showCard, setShowCard] = useState(false);
+  useEffect(() => () => clearTimeout(revealTimer.current), []);
+  useEffect(() => {
+    const status = data?.match?.status;
+    if (!status) return;
+    const was = lastStatus.current;
+    lastStatus.current = status;
+    if (status === 'finished' && (was === 'active' || was === 'open')) {
+      setRevealing(true);
+      clearTimeout(revealTimer.current);
+      revealTimer.current = setTimeout(() => { setRevealing(false); setShowCard(true); }, revealDelay(data.match.game, data.view));
+    }
+  }, [data]);
 
   const apply = useCallback(result => {
     offset.current = (result.now ?? Date.now()) - Date.now();
@@ -141,19 +250,25 @@ export default function GameMatch() {
   const canClaim = match.status === 'active' && seat !== null && !imOut && !myTurn && left !== null && left <= 0;
   const invitedMe = match.status === 'open' && match.invited?.userId === user?.userId;
   const canAccept = match.status === 'open' && seat === null && players.length < seats && (!match.invited || invitedMe);
-  const won = match.status === 'finished' && seat !== null && (match.winnerUserIds ?? [match.winnerUserId]).includes(user?.userId);
   const turnName = players.find(p => p.userId === match.turnUserId)?.displayName ?? 'Someone';
   const playerName = s => (s === seat ? 'You' : players[s]?.displayName ?? 'Someone');
+  const gamesLink = `/groups/${encodeURIComponent(match.groupId)}?tab=games`;
+  const finished = match.status === 'finished' && !revealing;
+  const ended = finished || match.status === 'cancelled' || match.status === 'declined';
+  const result = finished ? outcome(match, seat, players) : null;
+  const won = result?.kind === 'win';
 
   return (
     <div className="flex flex-col gap-4 pb-8 max-w-xl mx-auto w-full">
-      <Link to={`/groups/${encodeURIComponent(match.groupId)}`}
+      <Link to={gamesLink}
         className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--accent)] w-fit">
-        <ArrowLeft size={16} /> Back to the group
+        <ArrowLeft size={16} /> Back to games
       </Link>
 
-      <section className="card relative overflow-hidden flex flex-col gap-3">
-        {won && <Confetti />}
+      {showCard && result && <ResultCard result={result} gamesLink={gamesLink} onClose={() => setShowCard(false)} />}
+
+      <section className={`card relative overflow-hidden flex flex-col gap-3 ${won ? 'game-result-win' : ''}`}>
+        {won && !showCard && <Confetti />}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={gameTile(match.game)}>
             <Icon size={20} className="text-white" aria-hidden="true" />
@@ -224,11 +339,25 @@ export default function GameMatch() {
             {left !== null && <span className="tabular-nums font-normal text-[var(--text-muted)]">· {left > 0 ? clock(left) : 'time\'s up'}</span>}
           </p>
         )}
-        {(match.status === 'finished' || match.status === 'cancelled' || match.status === 'declined') && (
-          <p className="flex items-center justify-center gap-2 text-base font-bold text-[var(--text-primary)]" role="status">
-            {match.status === 'finished' && <Trophy size={won ? 22 : 18} className={`text-amber-400 ${won ? 'game-trophy' : ''}`} aria-hidden="true" />}
-            {resultText(match, seat, players)}
-          </p>
+        {match.status === 'finished' && revealing && (
+          <p className="text-center text-sm font-semibold text-[var(--text-secondary)] animate-pulse" aria-live="polite">And the result is…</p>
+        )}
+        {ended && (
+          <div className={`flex flex-col items-center gap-2 rounded-2xl px-4 py-4 text-center ${won ? 'bg-amber-400/10 border border-amber-400/40' : 'bg-[var(--bg-elevated)] border border-[var(--border)]'}`} role="status">
+            {result ? (
+              <>
+                <p className={`flex items-center gap-2 font-extrabold text-[var(--text-primary)] ${won ? 'text-2xl' : 'text-xl'}`}>
+                  <Trophy size={won ? 26 : 20} className={won ? 'text-amber-300 game-trophy' : 'text-[var(--text-muted)]'} aria-hidden="true" />
+                  {result.title}
+                </p>
+                {result.line && <p className="text-sm text-[var(--text-secondary)]">{result.line}</p>}
+                <AuraChange amount={result.aura} animate={false} />
+              </>
+            ) : (
+              <p className="text-base font-bold text-[var(--text-primary)]">{resultText(match, seat, players)}</p>
+            )}
+            <Link to={gamesLink} className="btn-primary mt-1">Back to games</Link>
+          </div>
         )}
       </section>
 

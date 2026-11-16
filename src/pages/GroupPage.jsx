@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Bell, BellOff, Plus, UserPlus } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -320,7 +320,10 @@ export default function GroupPage() {
 
   const [group, setGroup]     = useState(null);
   const [loadError, setLoadError] = useState('');
-  const [tab, setTab]         = useState('posts');
+  // ?tab=games (from a finished game's Back to games) opens that tab
+  const [params] = useSearchParams();
+  const startTab = params.get('tab') || 'posts';
+  const [tab, setTab]         = useState(startTab);
   const [busy, setBusy]       = useState(false);
   const [message, setMessage] = useState({});
 
@@ -331,7 +334,7 @@ export default function GroupPage() {
       setLoadError(err.message);
     }
   }, [groupId]);
-  useEffect(() => { setGroup(null); setLoadError(''); setTab('posts'); load(); }, [load]);
+  useEffect(() => { setGroup(null); setLoadError(''); setTab(startTab); load(); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
   const isMember = group?.myStatus === 'active';
   const powerUps = usePowerUps(groupId, isMember);
 

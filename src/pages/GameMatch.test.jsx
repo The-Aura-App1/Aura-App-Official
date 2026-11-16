@@ -48,7 +48,26 @@ test('when their timer runs out you can claim the win, and the result shows the 
   await open();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: /claim the win/i })); });
   expect(api.gameAction).toHaveBeenCalledWith('m1', 'claim');
-  expect(screen.getByRole('status')).toHaveTextContent('You won on time! +100 aura');
+  // the result waits a moment for the last move to play out, then shows big
+  expect(screen.getByText('And the result is…')).toBeInTheDocument();
+  await act(async () => { await new Promise(r => setTimeout(r, 950)); });
+  const card = screen.getByRole('dialog', { name: 'You won!' });
+  expect(card).toHaveTextContent('You won on time.');
+  expect(screen.getAllByRole('link', { name: 'Back to games' }).map(a => a.getAttribute('href'))).toContain('/groups/g1?tab=games');
+  fireEvent.click(screen.getByRole('button', { name: 'See the board' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('You won!');
+  expect(screen.getByRole('status')).toHaveTextContent('+100 aura');
+});
+
+test('opening a game that already ended shows the result and the way back, without the big card', async () => {
+  api.getGame.mockResolvedValue({ match: { ...base, status: 'finished', winnerUserId: 'ann', endReason: 'game' }, seat: 0, view: c4([[], [], [], [], [], [], []], { turn: null, over: true, winner: 1 }), now: Date.now() });
+  await open();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Ann won');
+  expect(screen.getByRole('status')).toHaveTextContent('−50 aura');
+  // one at the top, and a big one with the result
+  expect(screen.getAllByRole('link', { name: 'Back to games' })).toHaveLength(2);
 });
 
 test('resigning asks first', async () => {

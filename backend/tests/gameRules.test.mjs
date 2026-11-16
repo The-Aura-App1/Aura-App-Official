@@ -36,6 +36,8 @@ function randomMove(game, view, seat) {
       const targets = view.balls.map((b, n) => (n && b ? b : null)).filter(Boolean);
       const t = pick(targets);
       move.angle = Math.atan2(t[1] - cue[1], t[0] - cue[0]) + (rand(201) - 100) / 2000;
+      // half the shots with spin somewhere on the cue ball
+      if (rand(2)) { const a = rand(628) / 100, m = rand(101) / 100; move.spin = [Math.cos(a) * m, Math.sin(a) * m]; }
       return move;
     }
     case 'gofish': {
@@ -143,7 +145,8 @@ const c4 = GAMES.connect4.init(rand);
 for (const bad of [null, {}, { col: 9 }, { col: '1' }, { col: -1 }]) refused('connect4', c4, c4.turn, bad);
 const pl = GAMES.pool.init(rand);
 for (const bad of [null, 'x', {}, { angle: 1 }, { angle: NaN, power: 0.5 }, { angle: 1, power: 2 }, { angle: 1, power: 0.5, cue: [500, 400] },
-  { angle: 1, power: 0.5, cue: [5, 1800] }, { angle: 1, power: 0.5, cue: 'x' }]) refused('pool', pl, pl.turn, bad);
+  { angle: 1, power: 0.5, cue: [5, 1800] }, { angle: 1, power: 0.5, cue: 'x' },
+  { angle: 1, power: 0.5, spin: [1, 1] }, { angle: 1, power: 0.5, spin: [0.2] }, { angle: 1, power: 0.5, spin: [NaN, 0] }, { angle: 1, power: 0.5, spin: 'top' }]) refused('pool', pl, pl.turn, bad);
 // Go Fish at a bigger table: you must say who you're asking, and it can't be you or someone who left
 const gf = GAMES.gofish.init(rand, {}, 4);
 const gfRank = viewFor('gofish', gf, gf.turn).askable[0];

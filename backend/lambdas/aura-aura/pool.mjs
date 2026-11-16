@@ -12,21 +12,51 @@ export const R = 22;                  // ball radius
 export const HEAD_LINE = 1500;        // break and kitchen: the cue ball sits below this line
 export const FOOT_SPOT = [W / 2, 500];
 
+// ─── Physics ──────────────────────────────────────────────────
+// Real pool, scaled: the table is a 9-foot one (2.54 m long = 2000 units, so
+// about 787 units a metre) and gravity is 9.81 m/s² in those units. Every
+// ball has a velocity and a spin. Spin is kept as the speed its surface
+// turns at (top/back spin as a vector on the cloth, side spin as a signed
+// number), so a ball rolling naturally has spin equal to its velocity.
+//
+// A ball whose spin doesn't match its velocity is sliding: cloth friction
+// pulls the two together (fast), and once they match it rolls (slow). That
+// is what makes the cue ball stop dead on a straight centre hit, follow
+// through with top spin, and come back with draw. Balls are frictionless
+// against each other, so a collision swaps the velocity along the line
+// between centres and leaves spin alone. Cushions take the speed into them
+// and give most of it back, and side spin pushes the ball along the rail as
+// it comes off. The points where the cushions end at each pocket are hard
+// corners a ball can rattle off.
+
+const G           = 7720;             // gravity, units/s²
+const SLIDE       = 0.15 * G;         // sliding friction (cloth), units/s²
+const ROLL        = 0.012 * G;        // rolling resistance, units/s²
+const DRAG        = 0.32;             // plus this much of the speed every second (keeps shots short, as in most pool games)
+const SIDE_DECAY  = 0.1 * G;          // side spin wearing off on the cloth
 const DT          = 1 / 500;          // seconds per physics step
 const FRAME_EVERY = 25;               // steps per recorded frame (20 frames a second)
-const MAX_STEPS   = 14 * 500;         // a shot never runs past 14 seconds
-const FRICTION    = 700;              // rolling slowdown, units/s²
-const MIN_SPEED   = 300;
-const MAX_SPEED   = 5200;
-const BALL_BOUNCE = 0.96;
-const RAIL_BOUNCE = 0.78;
-const STOP        = 4;                // slower than this counts as stopped
+const MAX_STEPS   = 16 * 500;         // a shot never runs past 16 seconds
+const MIN_SPEED   = 140;
+const MAX_SPEED   = 6200;             // a hard break, about 8 m/s
+const BALL_BOUNCE = 0.94;
+const RAIL_BOUNCE = 0.8;
+const RAIL_GRIP   = 0.25;             // how much side spin turns into speed along the rail
+const JAW_BOUNCE  = 0.6;
+const TIP_SPIN    = 1.5;              // a full-offset tip hit gives spin 1.5× the ball's speed (about 0.67 is a natural roll)
+const STOP        = 3;                // slower than this counts as stopped
 
 // Pockets: four corners and the middle of each long side
 export const POCKETS = [[0, 0], [W, 0], [0, H / 2], [W, H / 2], [0, H], [W, H]];
-const CORNER_MOUTH = 64;              // along a rail, this close to a corner there's no cushion
-const SIDE_MOUTH   = 46;              // same for the side pockets
-const CAPTURE      = 38;              // a ball's center this close to a pocket drops
+const CORNER_MOUTH = 62;              // along a rail, this close to a corner there's no cushion
+const SIDE_MOUTH   = 48;              // same for the side pockets
+const CAPTURE      = 40;              // a ball's centre this close to a pocket drops
+// Where each cushion ends at a pocket: the jaws
+const JAWS = [
+  [0, CORNER_MOUTH], [CORNER_MOUTH, 0], [W - CORNER_MOUTH, 0], [W, CORNER_MOUTH],
+  [0, H - CORNER_MOUTH], [CORNER_MOUTH, H], [W - CORNER_MOUTH, H], [W, H - CORNER_MOUTH],
+  [0, H / 2 - SIDE_MOUTH], [0, H / 2 + SIDE_MOUTH], [W, H / 2 - SIDE_MOUTH], [W, H / 2 + SIDE_MOUTH],
+];
 
 export const SOLIDS  = [1, 2, 3, 4, 5, 6, 7];
 export const STRIPES = [9, 10, 11, 12, 13, 14, 15];
@@ -34,8 +64,6 @@ const GROUP_BALLS = { solids: SOLIDS, stripes: STRIPES };
 const groupOf = n => (n >= 1 && n <= 7 ? 'solids' : n >= 9 && n <= 15 ? 'stripes' : null);
 const otherGroup = g => (g === 'solids' ? 'stripes' : 'solids');
 export const MAX_SHOTS = 300;         // after this many shots the game is a draw
-
-// ─── Physics ──────────────────────────────────────────────────
 
 // True when a ball at (x, y) is in a pocket's mouth on the rail it's crossing
 function inMouth(x, y, rail) {
@@ -48,53 +76,117 @@ function inMouth(x, y, rail) {
 function pocketed(x, y) {
   for (const [px, py] of POCKETS) if (Math.hypot(x - px, y - py) < CAPTURE) return true;
   // A ball that slipped past the cushion line through a mouth has dropped
-  return x < -R * 0.6 || x > W + R * 0.6 || y < -R * 0.6 || y > H + R * 0.6;
+  return x < -R * 0.7 || x > W + R * 0.7 || y < -R * 0.7 || y > H + R * 0.7;
 }
 
-// Runs one shot. balls: 16 entries of [x, y] or null (potted); ball 0 is the cue.
-// Returns the final positions, the recording, which ball the cue touched first,
-// and the balls that dropped, in order.
-export function simulate(balls, angle, power) {
+// The speed a power (0..1) gives the cue ball: a gentle curve, so the low end
+// has room for touch shots
+export const speedFor = power => MIN_SPEED + (MAX_SPEED - MIN_SPEED) * power ** 1.5;
+
+// Runs one shot. balls: 16 entries of [x, y] or null (potted); ball 0 is the
+// cue. spin: [side, top] each -1..1, where the tip hits the cue ball (side +
+// is right english, top + is follow, − is draw). Returns the final
+// positions, the recording, which ball the cue touched first, and the balls
+// that dropped, in order.
+export function simulate(balls, angle, power, spin = [0, 0]) {
   const pos = balls.map(b => (b ? [b[0], b[1]] : null));
   const vel = balls.map(() => [0, 0]);
-  const speed = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * power;
-  vel[0] = [Math.cos(angle) * speed, Math.sin(angle) * speed];
+  const top = balls.map(() => [0, 0]);   // top/back spin, as surface speed on the cloth
+  const side = balls.map(() => 0);        // side spin, + turns the ball to the right off a rail
+  const speed = speedFor(power);
+  const d = [Math.cos(angle), Math.sin(angle)];
+  vel[0] = [d[0] * speed, d[1] * speed];
+  top[0] = [d[0] * speed * TIP_SPIN * spin[1], d[1] * speed * TIP_SPIN * spin[1]];
+  side[0] = speed * TIP_SPIN * spin[0];
   const potted = [];
   let firstHit = null;
   let rails = 0;
   const frames = [snapshot(pos)];
+  const drop = i => { pos[i] = null; vel[i] = [0, 0]; top[i] = [0, 0]; side[i] = 0; potted.push(i); };
+
+  // A cushion along one axis: the speed into it comes back smaller, side spin
+  // pushes the ball along it, and the top spin into it is mostly turned round
+  const cushion = (i, axis, into) => {
+    const n = axis === 0 ? [into, 0] : [0, into];          // normal pointing back into the table
+    const v = vel[i];
+    v[axis] = -v[axis] * RAIL_BOUNCE;
+    const along = 1 - axis;
+    v[along] *= 0.97;
+    // side spin: rotate the inward normal a quarter turn anticlockwise (as seen on screen)
+    v[0] += RAIL_GRIP * side[i] * n[1];
+    v[1] += RAIL_GRIP * side[i] * -n[0];
+    side[i] *= 0.5;
+    top[i][axis] = -top[i][axis] * 0.5;
+    rails++;
+  };
 
   for (let step = 1; step <= MAX_STEPS; step++) {
     let moving = false;
     for (let i = 0; i < 16; i++) {
       const p = pos[i];
       if (!p) continue;
-      const v = vel[i];
+      const v = vel[i], s = top[i];
+      const slip = [v[0] - s[0], v[1] - s[1]];
+      const slipSpeed = Math.hypot(slip[0], slip[1]);
       const sp = Math.hypot(v[0], v[1]);
-      if (sp < STOP) { v[0] = 0; v[1] = 0; continue; }
-      moving = true;
-      const slow = Math.max(0, sp - FRICTION * DT) / sp;
-      v[0] *= slow; v[1] *= slow;
+      if (slipSpeed > STOP) {
+        // Sliding: friction acts against the slip, slowing the ball and
+        // winding its spin toward a natural roll
+        moving = true;
+        const ux = slip[0] / slipSpeed, uy = slip[1] / slipSpeed;
+        if (slipSpeed <= 3.5 * SLIDE * DT) {
+          // it catches up this step and starts to roll
+          v[0] -= ux * slipSpeed / 3.5; v[1] -= uy * slipSpeed / 3.5;
+          s[0] = v[0]; s[1] = v[1];
+        } else {
+          v[0] -= ux * SLIDE * DT; v[1] -= uy * SLIDE * DT;
+          s[0] += ux * 2.5 * SLIDE * DT; s[1] += uy * 2.5 * SLIDE * DT;
+        }
+      } else if (sp > STOP) {
+        // Rolling: a slow, steady slowdown
+        moving = true;
+        const next = Math.max(0, sp - (ROLL + DRAG * sp) * DT);
+        v[0] *= next / sp; v[1] *= next / sp;
+        s[0] = v[0]; s[1] = v[1];
+      } else {
+        v[0] = v[1] = s[0] = s[1] = 0;
+      }
+      if (side[i]) side[i] = Math.sign(side[i]) * Math.max(0, Math.abs(side[i]) - SIDE_DECAY * DT);
+      if (v[0] === 0 && v[1] === 0) continue;
       p[0] += v[0] * DT; p[1] += v[1] * DT;
       // Cushions, except across a pocket's mouth
       if ((p[0] < R && v[0] < 0) || (p[0] > W - R && v[0] > 0)) {
-        if (!inMouth(p[0], p[1], 'x')) { v[0] = -v[0] * RAIL_BOUNCE; v[1] *= 0.97; p[0] = p[0] < R ? R : W - R; rails++; }
+        if (!inMouth(p[0], p[1], 'x')) { const into = p[0] < R ? 1 : -1; p[0] = into > 0 ? R : W - R; cushion(i, 0, into); }
       }
       if ((p[1] < R && v[1] < 0) || (p[1] > H - R && v[1] > 0)) {
-        if (!inMouth(p[0], p[1], 'y')) { v[1] = -v[1] * RAIL_BOUNCE; v[0] *= 0.97; p[1] = p[1] < R ? R : H - R; rails++; }
+        if (!inMouth(p[0], p[1], 'y')) { const into = p[1] < R ? 1 : -1; p[1] = into > 0 ? R : H - R; cushion(i, 1, into); }
       }
-      if (pocketed(p[0], p[1])) { pos[i] = null; vel[i] = [0, 0]; potted.push(i); }
+      // The jaws: hard corners where the cushions end
+      for (const [jx, jy] of JAWS) {
+        const dx = p[0] - jx, dy = p[1] - jy;
+        const dist = Math.hypot(dx, dy);
+        if (dist >= R || dist === 0) continue;
+        const nx = dx / dist, ny = dy / dist;
+        const vn = v[0] * nx + v[1] * ny;
+        if (vn < 0) {
+          v[0] -= (1 + JAW_BOUNCE) * vn * nx; v[1] -= (1 + JAW_BOUNCE) * vn * ny;
+          s[0] *= 0.5; s[1] *= 0.5;
+        }
+        p[0] = jx + nx * R; p[1] = jy + ny * R;
+      }
+      if (pocketed(p[0], p[1])) drop(i);
     }
-    // Ball on ball: equal masses, so they trade the speed along the line between them
+    // Ball on ball: equal masses, so they trade the velocity along the line
+    // between their centres; spin carries on
     for (let i = 0; i < 16; i++) {
       if (!pos[i]) continue;
       for (let j = i + 1; j < 16; j++) {
         if (!pos[j]) continue;
         const dx = pos[j][0] - pos[i][0];
         const dy = pos[j][1] - pos[i][1];
-        const d = Math.hypot(dx, dy);
-        if (d >= 2 * R || d === 0) continue;
-        const nx = dx / d, ny = dy / d;
+        const dist = Math.hypot(dx, dy);
+        if (dist >= 2 * R || dist === 0) continue;
+        const nx = dx / dist, ny = dy / dist;
         const closing = (vel[i][0] - vel[j][0]) * nx + (vel[i][1] - vel[j][1]) * ny;
         if (closing > 0) {
           const impulse = closing * (1 + BALL_BOUNCE) / 2;
@@ -104,7 +196,7 @@ export function simulate(balls, angle, power) {
           moving = true;
         }
         // Push them apart so they never overlap
-        const push = (2 * R - d) / 2 + 0.01;
+        const push = (2 * R - dist) / 2 + 0.01;
         pos[i][0] -= nx * push; pos[i][1] -= ny * push;
         pos[j][0] += nx * push; pos[j][1] += ny * push;
       }
@@ -115,7 +207,7 @@ export function simulate(balls, angle, power) {
       if (!p) continue;
       if (!inMouth(p[0], p[1], 'x')) p[0] = Math.min(W - R, Math.max(R, p[0]));
       if (!inMouth(p[0], p[1], 'y')) p[1] = Math.min(H - R, Math.max(R, p[1]));
-      if (pocketed(p[0], p[1])) { pos[i] = null; vel[i] = [0, 0]; potted.push(i); }
+      if (pocketed(p[0], p[1])) drop(i);
     }
     if (step % FRAME_EVERY === 0) frames.push(snapshot(pos));
     if (!moving) break;
@@ -123,11 +215,12 @@ export function simulate(balls, angle, power) {
   // Anything still sitting in a mouth when the table stops drops in
   for (let i = 0; i < 16; i++) {
     const p = pos[i];
-    if (p && (p[0] < R - 0.005 || p[0] > W - R + 0.005 || p[1] < R - 0.005 || p[1] > H - R + 0.005)) { pos[i] = null; potted.push(i); }
+    if (p && (p[0] < R - 0.005 || p[0] > W - R + 0.005 || p[1] < R - 0.005 || p[1] > H - R + 0.005)) drop(i);
   }
   frames.push(snapshot(pos));
   return { balls: pos.map(p => (p ? [round(p[0]), round(p[1])] : null)), frames, firstHit, potted, rails };
 }
+
 
 const round = v => Math.round(v * 100) / 100;
 // One recorded frame: x, y for each ball as whole numbers, -1, -1 once it's gone
@@ -193,6 +286,9 @@ export function makePool({ fail, other, clone, log, finish }) {
       const { angle, power } = move;
       if (typeof angle !== 'number' || !Number.isFinite(angle)) fail('Aim first.');
       if (typeof power !== 'number' || !(power >= 0 && power <= 1)) fail('Pick a power between 0 and 1.');
+      // Where the tip hits the cue ball: [side, top], inside the ball
+      const spin = move.spin ?? [0, 0];
+      if (!Array.isArray(spin) || spin.length !== 2 || !spin.every(Number.isFinite) || Math.hypot(spin[0], spin[1]) > 1.0001) fail('Pick where to hit the cue ball.');
 
       // Ball in hand: they may place the cue ball (and must, if it went in)
       if (move.cue !== undefined) {
@@ -208,7 +304,7 @@ export function makePool({ fail, other, clone, log, finish }) {
 
       const before = s.balls;
       const aim = target(s, seat);
-      const shot = simulate(before, angle, power);
+      const shot = simulate(before, angle, power, spin);
       s.balls = shot.balls;
       s.shots += 1;
       const opp = other(seat);
