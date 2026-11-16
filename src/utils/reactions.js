@@ -18,10 +18,26 @@ export const MAX_KINDS = 20;
 // The same check runs in the app (src/utils/reactions.js) and on the server
 // (aura-posts reactions.mjs); a test keeps the two equal.
 const LETTERLIKE = /[A-Za-z0-9#*\u00A9\u00AE\u2122\u2139\u24B6-\u24E9\u24C2\u3297\u3299\u{1F170}-\u{1F1FF}\u20E3]/u;
+// Emoji that never work as reactions, however they're written (skin tones
+// included). Kept short and in one place; the app's copy must match.
+export const REACTION_DENY = ['🖕'];
+const bare = value => value.replace(/[\u{1F3FB}-\u{1F3FF}︎️]/gu, '');
+
+// ❤ and ❤️ are one reaction: a lone symbol is stored with the emoji marker
+// (U+FE0F) when it would otherwise be drawn as text, and without it when it's
+// an emoji anyway. Longer sequences (skin tones, ❤️‍🔥, families) stay as sent.
+export function normalizeReaction(value) {
+  if (typeof value !== 'string') return value;
+  const base = value.replace(/[︎️]/g, '');
+  if ([...base].length !== 1) return value;
+  return /\p{Emoji_Presentation}/u.test(base) ? base : `${base}️`;
+}
+
 let segmenter = null;
 export function isReactionEmoji(value) {
   if (typeof value !== 'string' || !value || value.length > 32) return false;
   if (!/\p{Extended_Pictographic}/u.test(value) || LETTERLIKE.test(value)) return false;
+  if (REACTION_DENY.some(d => bare(d) === bare(value))) return false;
   if (typeof Intl !== 'undefined' && Intl.Segmenter) {
     segmenter = segmenter ?? new Intl.Segmenter('en', { granularity: 'grapheme' });
     return [...segmenter.segment(value)].length === 1;

@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import useMyGroups from '../groups/useMyGroups';
 import { PERKS } from '../../utils/powerUps';
-import { REACTION_EMOJIS, EMOJI_GROUPS, MAX_PER_USER, isPin, pinReaction, isReactionEmoji } from '../../utils/reactions';
+import { REACTION_EMOJIS, EMOJI_GROUPS, MAX_PER_USER, isPin, pinReaction, isReactionEmoji, normalizeReaction } from '../../utils/reactions';
 
 const MEDIA_URL = 'https://aura-app-media-570934198135.s3.amazonaws.com/';
 
@@ -14,14 +14,25 @@ function PinImage({ pin, size = 20 }) {
   return <img src={MEDIA_URL + pin.key} alt="" width={size} height={size} className="object-contain inline-block" style={{ width: size, height: size }} onError={() => setBroken(true)} />;
 }
 
-// The reactions on a post, and the picker to add yours: up to MAX_PER_USER
-// each, from the emoji list or a group's reaction pins (members use their
-// group's pins on its posts; Premium members can use them anywhere).
-export default function Reactions({ post }) {
+// Emoji this person used lately, first in the picker (this device only)
+const RECENT_KEY = 'aura.recentReactions';
+function loadRecent() {
+  try { return (JSON.parse(localStorage.getItem(RECENT_KEY)) ?? []).filter(isReactionEmoji).slice(0, 8); } catch { return []; }
+}
+function rememberRecent(emoji) {
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([emoji, ...loadRecent().filter(e => e !== emoji)].slice(0, 8))); } catch { /* storage blocked */ }
+}
+
+// The reactions on a post or a comment, and the picker to add yours: up to
+// MAX_PER_USER each, from any emoji or (posts only) a group's reaction pins
+// (members use their group's pins on its posts; Premium members anywhere).
+export default function Reactions({ post, comment = null }) {
+  const target = comment ?? post;
+  const noun = comment ? 'comment' : 'post';
   const { user, dbProfile } = useAuth();
-  const [counts, setCounts] = useState(post.reactions ?? {});
-  const [mine, setMine] = useState(post.myReactions ?? []);
-  const [pins, setPins] = useState(post.reactionPins ?? {});
+  const [counts, setCounts] = useState(target.reactions ?? {});
+  const [mine, setMine] = useState(target.myReactions ?? []);
+  const [pins, setPins] = useState(comment ? {} : post.reactionPins ?? {});
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +41,8 @@ export default function Reactions({ post }) {
   const box = useRef(null);
   const premium = !!dbProfile?.isPremium;
   // Group pins only matter once the picker opens
-  const myGroups = useMyGroups(open && !!user);
+  const myGroups = useMyGroups(open && !!user && !comment);
+  const [recent, setRecent] = useState(loadRecent);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -43,13 +55,14 @@ export default function Reactions({ post }) {
   useEffect(() => { if (!error) return undefined; const t = setTimeout(() => setError(''), 3500); return () => clearTimeout(t); }, [error]);
 
   // The pin sets this person may use here
-  const pinSets = (myGroups ?? [])
+  const pinSets = comment ? [] : (myGroups ?? [])
     .filter(g => (g.level ?? 1) >= PERKS.pins && g.pins?.length && (g.groupId === post.groupId || premium))
     .sort((a, b) => (a.groupId === post.groupId ? -1 : b.groupId === post.groupId ? 1 : a.name.localeCompare(b.name)));
-  const lockedOutside = !premium && (myGroups ?? []).some(g => (g.level ?? 1) >= PERKS.pins && g.pins?.length && g.groupId !== post.groupId);
+  const lockedOutside = !comment && !premium && (myGroups ?? []).some(g => (g.level ?? 1) >= PERKS.pins && g.pins?.length && g.groupId !== post.groupId);
 
-  async function toggle(reaction, pinInfo) {
+  async function toggle(picked, pinInfo) {
     if (busy || !user) return;
+    const reaction = isPin(picked) ? picked : normalizeReaction(picked);
     const on = !mine.includes(reaction);
     if (on && mine.length >= MAX_PER_USER) { setError(`You can add up to ${MAX_PER_USER} reactions. Take one back first.`); return; }
     const before = { counts, mine, pins };
@@ -60,7 +73,10 @@ export default function Reactions({ post }) {
     setOpen(false);
     setBusy(true);
     try {
-      const result = await api.reactToPost(post.postId, reaction, on);
+      if (on && !isPin(reaction)) { rememberRecent(reaction); setRecent(loadRecent()); }
+      const result = comment
+        ? await api.reactToComment(comment.commentId, reaction, on)
+        : await api.reactToPost(post.postId, reaction, on);
       setCounts(result.reactions ?? {});
       setMine(result.myReactions ?? []);
       setPins(p => ({ ...p, ...(result.reactionPins ?? {}) }));
@@ -76,14 +92,14 @@ export default function Reactions({ post }) {
   if (!user && !shown.length) return null;
 
   return (
-    <div className="px-4 pb-2 flex flex-wrap items-center gap-1.5" ref={box}>
+    <div className={`${comment ? 'pt-1' : 'px-4 pb-2'} flex flex-wrap items-center gap-1.5`} ref={box}>
       {shown.map(([reaction, n]) => {
         const me = mine.includes(reaction);
         const label = isPin(reaction) ? pins[reaction]?.name ?? 'a group pin' : reaction;
         return (
           <button key={reaction} type="button" onClick={() => toggle(reaction)} disabled={!user}
             aria-pressed={me} aria-label={`${label}: ${n}. ${me ? 'Tap to take yours back' : 'Tap to add yours'}`}
-            className={`flex items-center gap-1 h-7 px-2 rounded-full text-xs font-semibold border transition-colors tabular-nums
+            className={`flex items-center gap-1 ${comment ? 'h-6 px-1.5 text-[11px]' : 'h-7 px-2 text-xs'} rounded-full font-semibold border transition-colors tabular-nums
               ${me ? 'border-aura-500/60 bg-aura-500/15 text-[var(--text-primary)]' : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-aura-500/40'}`}>
             <span className="text-sm leading-none flex items-center">{isPin(reaction) ? <PinImage pin={pins[reaction]} size={18} /> : reaction}</span>
             {n}
@@ -91,9 +107,9 @@ export default function Reactions({ post }) {
         );
       })}
       {user && (
-        <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Add a reaction"
-          className="flex items-center h-7 px-2 rounded-full border border-dashed border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-aura-500/40">
-          <SmilePlus size={15} />
+        <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`Add a reaction to this ${noun}`}
+          className={`flex items-center ${comment ? 'h-6 px-1.5' : 'h-7 px-2'} rounded-full border border-dashed border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-aura-500/40`}>
+          <SmilePlus size={comment ? 13 : 15} />
         </button>
       )}
       {error && <span className="text-[11px] text-red-400" role="alert">{error}</span>}
@@ -122,10 +138,21 @@ export default function Reactions({ post }) {
               </button>
             ))}
           </div>
+          {!group && recent.length > 0 && (
+            <>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)] px-1 mb-0.5">Recent</p>
+              <div className="grid grid-cols-8 gap-0.5 mb-1.5">
+                {recent.map(e => (
+                  <button key={e} type="button" onClick={() => toggle(e)} aria-label={`React ${e}`} aria-pressed={mine.includes(e)}
+                    className={`h-10 rounded-lg text-xl leading-none hover:bg-[var(--accent-subtle)] ${mine.includes(e) ? 'bg-aura-500/15' : ''}`}>{e}</button>
+                ))}
+              </div>
+            </>
+          )}
           <div className="grid grid-cols-8 gap-0.5">
             {(group ? EMOJI_GROUPS.find(([name]) => name === group)[1] : REACTION_EMOJIS).map(e => (
               <button key={e} type="button" onClick={() => toggle(e)} aria-label={`React ${e}`} aria-pressed={mine.includes(e)}
-                className={`h-9 rounded-lg text-xl leading-none hover:bg-[var(--accent-subtle)] ${mine.includes(e) ? 'bg-aura-500/15' : ''}`}>{e}</button>
+                className={`h-10 rounded-lg text-xl leading-none hover:bg-[var(--accent-subtle)] ${mine.includes(e) ? 'bg-aura-500/15' : ''}`}>{e}</button>
             ))}
           </div>
           {pinSets.map(g => (
@@ -148,7 +175,7 @@ export default function Reactions({ post }) {
           {lockedOutside && (
             <p className="text-[11px] text-[var(--text-muted)] px-1 mt-2">With Premium you can use your groups' pins on any post.</p>
           )}
-          <p className="text-[10px] text-[var(--text-muted)] px-1 mt-2">Up to {MAX_PER_USER} reactions per post.</p>
+          <p className="text-[10px] text-[var(--text-muted)] px-1 mt-2">Up to {MAX_PER_USER} reactions per {noun}.</p>
         </div>
       )}
     </div>

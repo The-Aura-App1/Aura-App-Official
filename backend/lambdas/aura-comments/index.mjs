@@ -123,8 +123,11 @@ function decodeSegment(value) {
 // `author` is the author's current profile when known, so a comment always
 // shows the name and picture they have now. (Names copied onto old comments
 // could otherwise point at whoever later takes a freed-up username.)
-function publicComment(comment, viewerId, likedIds, author = null) {
+function publicComment(comment, viewerId, likedIds, author = null, myReactions = null) {
   const isAuthor = !!viewerId && comment.authorId === viewerId;
+  // Emoji reactions (set through aura-posts, POST /comments/{id}/reactions):
+  // counts anyone can see, and the viewer's own
+  const reactions = Object.fromEntries(Object.entries(comment.reactions ?? {}).filter(([, n]) => n > 0));
   return {
     commentId:       comment.commentId,
     postId:          comment.postId,
@@ -137,6 +140,8 @@ function publicComment(comment, viewerId, likedIds, author = null) {
     auraScore:       comment.auraScore ?? 0,
     createdAt:       comment.createdAt,
     likedByMe:       likedIds.has(comment.commentId),
+    reactions,
+    myReactions:     myReactions?.get(comment.commentId) ?? [],
     canDelete:       isAuthor || ADMIN_IDS.has(viewerId),
     ...(isAuthor && { likeCount: comment.likeCount ?? 0 }),
   };
@@ -162,20 +167,28 @@ async function authorsOf(comments) {
   return authors;
 }
 
-// The comment ids, out of `comments`, that the viewer has liked
+// Out of `comments`: the ids the viewer has liked, and their own reactions
+// on each (aura-likes `comment#<id>` and `react#comment#<id>`)
 async function likedByViewer(comments, viewerId) {
   const liked = new Set();
-  if (!viewerId || !comments.length) return liked;
-  const keys = comments.map(c => ({ userId: viewerId, postId: `comment#${c.commentId}` }));
+  const mine = new Map();
+  if (!viewerId || !comments.length) return { liked, mine };
+  const keys = comments.flatMap(c => [
+    { userId: viewerId, postId: `comment#${c.commentId}` },
+    { userId: viewerId, postId: `react#comment#${c.commentId}` },
+  ]);
   for (let i = 0; i < keys.length; i += 100) {
-    let request = { [LIKES_TABLE]: { Keys: keys.slice(i, i + 100), ProjectionExpression: 'targetId' } };
+    let request = { [LIKES_TABLE]: { Keys: keys.slice(i, i + 100), ProjectionExpression: 'postId, targetId, reactions' } };
     while (request && Object.keys(request).length) {
       const result = await dynamo.send(new BatchGetCommand({ RequestItems: request }));
-      for (const like of result.Responses?.[LIKES_TABLE] ?? []) liked.add(like.targetId);
+      for (const row of result.Responses?.[LIKES_TABLE] ?? []) {
+        if (row.postId.startsWith('react#comment#')) mine.set(row.postId.slice('react#comment#'.length), [...(row.reactions ?? [])]);
+        else liked.add(row.targetId);
+      }
       request = result.UnprocessedKeys;
     }
   }
-  return liked;
+  return { liked, mine };
 }
 
 // Same rules as aura-posts: open groups are readable by anyone logged in
@@ -450,8 +463,8 @@ async function getComments(postId, viewerId, limit = 50) {
   }
 
   const shown = [...topLevel, ...[...repliesByParent.values()].flat()];
-  const [liked, authors] = await Promise.all([likedByViewer(shown, viewerId), authorsOf(shown)]);
-  const view = c => publicComment(c, viewerId, liked, authors.get(c.authorId));
+  const [{ liked, mine }, authors] = await Promise.all([likedByViewer(shown, viewerId), authorsOf(shown)]);
+  const view = c => publicComment(c, viewerId, liked, authors.get(c.authorId), mine);
   const threaded = topLevel.map(comment => ({
     ...view(comment),
     replies: repliesByParent.get(comment.commentId).map(view),

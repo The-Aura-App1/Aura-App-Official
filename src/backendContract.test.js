@@ -159,6 +159,17 @@ test('the app offers exactly the reactions aura-posts accepts', () => {
   expect(check(server.replace(/\r\n/g, '\n'))).toBe(check(appSource.replace(/\r\n/g, '\n')));
   for (const ok of ['🔥', '👍🏽', '👨‍👩‍👧', '❤️‍🔥', '🫠', '🏳️‍🌈']) expect(app.isReactionEmoji(ok)).toBe(true);
   for (const bad of ['A', '🅰️', 'Ⓜ️', '🇺🇸', '1️⃣', '#️⃣', '™️', '🆗', '🔥🔥', 'a🔥', '', '㊗️']) expect(app.isReactionEmoji(bad)).toBe(false);
+  // the deny list, skin tones included
+  for (const bad of ['🖕', '🖕🏽', '🖕🏿']) expect(app.isReactionEmoji(bad)).toBe(false);
+  expect(app.isReactionEmoji('pin:abc:def123')).toBe(false);
+  // ❤ and ❤️ are one reaction; the original quick picks are already in stored form
+  expect(app.normalizeReaction('❤')).toBe('❤️');
+  expect(app.normalizeReaction('❤️')).toBe('❤️');
+  expect(app.normalizeReaction('☀')).toBe('☀️');
+  expect(app.normalizeReaction('🔥️')).toBe('🔥');
+  expect(app.normalizeReaction('👍🏽')).toBe('👍🏽');
+  expect(app.normalizeReaction('❤️‍🔥')).toBe('❤️‍🔥');
+  for (const e of app.REACTION_EMOJIS) expect(app.normalizeReaction(e)).toBe(e);
   expect(Number(server.match(/MAX_PER_USER = (\d+)/)[1])).toBe(app.MAX_PER_USER);
   expect(Number(server.match(/MAX_KINDS = (\d+)/)[1])).toBe(app.MAX_KINDS);
 });

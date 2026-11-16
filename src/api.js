@@ -103,6 +103,8 @@ export const api = {
   reportPost:     (postId, reason)       => request('POST', `/posts/${id(postId)}/report`, { reason }),
   // → { reactions, myReactions, reactionPins }
   reactToPost:    (postId, reaction, on) => request('POST', `/posts/${id(postId)}/reactions`, { reaction, on }),
+  // → { reactions, myReactions } (served by aura-posts)
+  reactToComment: (commentId, reaction, on) => request('POST', `/comments/${id(commentId)}/reactions`, { reaction, on }),
   reportUser:     (username, reason)     => request('POST', `/follows/user/${id(username)}/report`, { reason }),
   blockUser:      username               => request('POST',   `/follows/user/${id(username)}/block`),
   unblockUser:    username               => request('DELETE', `/follows/user/${id(username)}/block`),

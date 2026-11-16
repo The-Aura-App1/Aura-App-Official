@@ -8,7 +8,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { cleanText } from './text.mjs';
 import { canSeeAccount, hiddenAuthors, blockedBetween, eitherBlocked } from './privacy.mjs';
 import { addGroupXp, GROUP_STATS_TABLE, groupLevel, PERKS } from './groupStats.mjs';
-import { parseReaction, reactionKey, visibleCounts, MAX_PER_USER, MAX_KINDS } from './reactions.mjs';
+import { parseReaction, reactionKey, commentReactionKey, normalizeReaction, visibleCounts, MAX_PER_USER, MAX_KINDS } from './reactions.mjs';
 import { checkOverlays } from './overlays.mjs';
 import { checkStyle } from './postStyle.mjs';
 
@@ -464,7 +464,7 @@ async function pinInfo(posts) {
 // POST /posts/{id}/reactions { reaction, on }: add or take back one reaction.
 // Doing what's already done is a no-op, so double taps can't double count.
 async function setReaction(userId, postId, body) {
-  const reaction = body?.reaction;
+  const reaction = normalizeReaction(body?.reaction);
   const on = body?.on !== false;
   const parsed = parseReaction(reaction);
   if (!parsed) return response(400, { error: 'That reaction isn\'t available.' });
@@ -491,29 +491,50 @@ async function setReaction(userId, postId, body) {
     if (post.groupId !== parsed.groupId && !user.isPremium) return response(403, { error: 'Using group pins outside the group is a Premium feature.' });
   }
 
+  const done = await applyReaction(REACT_TARGETS.post, postId, reactionKey(postId), userId, reaction, on, post.reactions);
+  if (done.error) return done.error;
+  const pins = await pinInfo([{ reactions: done.reactions }]);
+  return response(200, {
+    reactions: done.reactions, myReactions: done.mine,
+    reactionPins: Object.fromEntries([...pins].filter(([k]) => done.reactions[k])),
+  });
+}
+
+// Posts and comments keep reactions the same way: each person's choices in
+// aura-likes, the counts in a `reactions` map on the item, both changed in
+// one transaction so they can't drift.
+const REACT_TARGETS = {
+  post:    { table: POSTS_TABLE,    keyName: 'postId',    noun: 'post' },
+  comment: { table: COMMENTS_TABLE, keyName: 'commentId', noun: 'comment' },
+};
+
+// → { reactions, mine } or { error: response }
+async function applyReaction(target, id, likesKey, userId, reaction, on, existing) {
+  const itemKey = { [target.keyName]: id };
   // The counts map has to exist before one count in it can change
-  if (!post.reactions) {
+  if (!existing) {
     await dynamo.send(new UpdateCommand({
-      TableName: POSTS_TABLE, Key: { postId },
+      TableName: target.table, Key: itemKey,
       UpdateExpression: 'SET #rx = if_not_exists(#rx, :empty)',
-      ConditionExpression: 'attribute_exists(postId)',
-      ExpressionAttributeNames: { '#rx': 'reactions' },
+      ConditionExpression: 'attribute_exists(#id)',
+      ExpressionAttributeNames: { '#rx': 'reactions', '#id': target.keyName },
       ExpressionAttributeValues: { ':empty': {} },
     }));
   }
 
-  const key = { userId, postId: reactionKey(postId) };
+  const key = { userId, postId: likesKey };
+  const now = new Date().toISOString();
   const items = on
     ? [
         { Update: {
           TableName: LIKES_TABLE, Key: key,
-          UpdateExpression: 'ADD #r :set SET targetType = :type, targetId = :pid, updatedAt = :now',
+          UpdateExpression: 'ADD #r :set SET targetType = :type, targetId = :tid, updatedAt = :now',
           ConditionExpression: 'attribute_not_exists(#r) OR (NOT contains(#r, :one) AND size(#r) < :max)',
           ExpressionAttributeNames: { '#r': 'reactions' },
-          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':max': MAX_PER_USER, ':type': 'reaction', ':pid': postId, ':now': new Date().toISOString() },
+          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':max': MAX_PER_USER, ':type': target.noun === 'post' ? 'reaction' : 'comment-reaction', ':tid': id, ':now': now },
         } },
         { Update: {
-          TableName: POSTS_TABLE, Key: { postId },
+          TableName: target.table, Key: itemKey,
           UpdateExpression: 'SET #rx.#k = if_not_exists(#rx.#k, :zero) + :one',
           ConditionExpression: '#status = :active AND (attribute_exists(#rx.#k) OR size(#rx) < :kinds)',
           ExpressionAttributeNames: { '#rx': 'reactions', '#k': reaction, '#status': 'status' },
@@ -526,10 +547,10 @@ async function setReaction(userId, postId, body) {
           UpdateExpression: 'DELETE #r :set SET updatedAt = :now',
           ConditionExpression: 'contains(#r, :one)',
           ExpressionAttributeNames: { '#r': 'reactions' },
-          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':now': new Date().toISOString() },
+          ExpressionAttributeValues: { ':set': new Set([reaction]), ':one': reaction, ':now': now },
         } },
         { Update: {
-          TableName: POSTS_TABLE, Key: { postId },
+          TableName: target.table, Key: itemKey,
           UpdateExpression: 'SET #rx.#k = #rx.#k - :one',
           ConditionExpression: 'attribute_exists(#rx.#k) AND #rx.#k > :zero',
           ExpressionAttributeNames: { '#rx': 'reactions', '#k': reaction },
@@ -540,33 +561,59 @@ async function setReaction(userId, postId, body) {
   try {
     await dynamo.send(new TransactWriteCommand({ TransactItems: items }));
   } catch (err) {
-    if (err.name === 'AccessDeniedException') return response(503, { error: 'Reactions aren\'t switched on yet. Try again later.' });
+    if (err.name === 'AccessDeniedException') return { error: response(503, { error: 'Reactions aren\'t switched on yet. Try again later.' }) };
     if (err.name !== 'TransactionCanceledException') throw err;
-    const [mineCheck, postCheck] = (err.CancellationReasons ?? []).map(r => r?.Code);
+    const [mineCheck, itemCheck] = (err.CancellationReasons ?? []).map(r => r?.Code);
     if (mineCheck === 'ConditionalCheckFailed') {
       // Already done, or (adding) they're at their limit
       const row = (await dynamo.send(new GetCommand({ TableName: LIKES_TABLE, Key: key }))).Item;
       const have = [...(row?.reactions ?? [])];
       if (on && !have.includes(reaction) && have.length >= MAX_PER_USER) {
-        return response(409, { error: `You can add up to ${MAX_PER_USER} reactions to a post. Take one back to add another.` });
+        return { error: response(409, { error: `You can add up to ${MAX_PER_USER} reactions to a ${target.noun}. Take one back to add another.` }) };
       }
-    } else if (postCheck === 'ConditionalCheckFailed') {
-      if (on) return response(409, { error: `This post already has ${MAX_KINDS} different reactions. Pick one that's already on it.` });
+    } else if (itemCheck === 'ConditionalCheckFailed') {
+      if (on) return { error: response(409, { error: `This ${target.noun} already has ${MAX_KINDS} different reactions. Pick one that's already on it.` }) };
     } else {
       throw err;
     }
   }
 
   const [after, row] = await Promise.all([
-    dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId }, ProjectionExpression: '#rx', ExpressionAttributeNames: { '#rx': 'reactions' } })),
+    dynamo.send(new GetCommand({ TableName: target.table, Key: itemKey, ProjectionExpression: '#rx', ExpressionAttributeNames: { '#rx': 'reactions' } })),
     dynamo.send(new GetCommand({ TableName: LIKES_TABLE, Key: key })),
   ]);
-  const reactions = visibleCounts(after.Item?.reactions);
-  const pins = await pinInfo([{ reactions }]);
-  return response(200, {
-    reactions, myReactions: [...(row.Item?.reactions ?? [])],
-    reactionPins: Object.fromEntries([...pins].filter(([k]) => reactions[k])),
-  });
+  return { reactions: visibleCounts(after.Item?.reactions), mine: [...(row.Item?.reactions ?? [])] };
+}
+
+// Reactions on a comment: the same emoji rules and limits as posts (no group
+// pins). Only someone who can see the comment can react: its post must be
+// visible to them (private accounts, followers-only, groups), neither of
+// them may have blocked the other, banned accounts can't, and a removed or
+// hidden comment takes none.
+async function setCommentReaction(userId, commentId, body) {
+  const reaction = normalizeReaction(body?.reaction);
+  const on = body?.on !== false;
+  const parsed = parseReaction(reaction);
+  if (!parsed || parsed.kind !== 'emoji') return response(400, { error: 'That reaction isn\'t available on comments.' });
+
+  const [commentResult, userResult] = await Promise.all([
+    dynamo.send(new GetCommand({ TableName: COMMENTS_TABLE, Key: { commentId } })),
+    dynamo.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId } })),
+  ]);
+  const comment = commentResult.Item;
+  const user = userResult.Item;
+  if (!user) return response(404, { error: 'User not found.' });
+  if (user.isBanned) return response(403, { error: 'Account banned.' });
+  const notFound = response(404, { error: 'Comment not found.' });
+  if (!comment || (on && comment.status !== 'active')) return notFound;
+  const post = (await dynamo.send(new GetCommand({ TableName: POSTS_TABLE, Key: { postId: comment.postId } }))).Item;
+  if (!post || post.status !== 'active' || !(await visibleToViewer([post], userId)).length) return notFound;
+  if (!ADMIN_IDS.has(userId) && comment.authorId !== userId && await eitherBlocked(dynamo, userId, comment.authorId)) return notFound;
+  if (post.groupId && on && !(await groupAccess(post.groupId, userId)).isMember) return response(403, { error: 'Join the group to react to its comments.' });
+
+  const done = await applyReaction(REACT_TARGETS.comment, commentId, commentReactionKey(commentId), userId, reaction, on, comment.reactions);
+  if (done.error) return done.error;
+  return response(200, { reactions: done.reactions, myReactions: done.mine });
 }
 
 // Every viewer gets the same posts: the overall top list plus the top of each
@@ -1020,6 +1067,14 @@ export const handler = async (event) => {
     }
 
     // POST /posts/{id}/reactions { reaction, on }
+    // POST /comments/{id}/reactions { reaction, on }
+    if (method === 'POST' && segments[0] === 'comments' && segments.length === 3 && segments[2] === 'reactions') {
+      if (!userId) return response(401, { error: 'Unauthorized' });
+      const actionLimited = await firstLimit([userId, 'react', 60, 60]);
+      if (actionLimited) return actionLimited;
+      return await setCommentReaction(userId, segments[1], body);
+    }
+
     if (method === 'POST' && segments[0] === 'posts' && segments.length === 3 && segments[2] === 'reactions') {
       if (!userId) return response(401, { error: 'Unauthorized' });
       const actionLimited = await firstLimit([userId, 'react', 60, 60]);

@@ -6,6 +6,7 @@ import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
 import { api } from '../../api';
 import PostMedia from './PostMedia';
 import PostCard from './PostCard';
+import Reactions from './Reactions';
 import AuraModal from './AuraModal';
 import { timeAgo } from '../../utils/format';
 import AuraScore from '../motion/AuraScore';
@@ -325,6 +326,8 @@ function Comment({ comment, post, isReply, onReply, onDeleted, onAura, isAccount
             </button>
           )}
         </div>
+        {/* Emoji reactions: public counts, separate from the private like */}
+        <Reactions post={post} comment={comment} />
         {notice && <p className="mt-1 text-xs text-[var(--text-muted)]">{notice}</p>}
       </div>
     </div>
