@@ -37,7 +37,7 @@ customHeaders:
           img-src 'self' data: blob: https://*.googlesyndication.com https://*.doubleclick.net https://*.gstatic.com https://*.google.com https://*.adtrafficquality.google https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           media-src 'self' blob: https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           font-src 'self' data:;
-          connect-src 'self' https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
+          connect-src 'self' https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google https://7uob369et4.execute-api.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://*.auth.us-east-1.amazoncognito.com https://aura-app-media-570934198135.s3.amazonaws.com https://aura-app-media-570934198135.s3.us-east-1.amazonaws.com;
           frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.safeframe.googlesyndication.com https://*.google.com https://*.adtrafficquality.google;
           worker-src 'self' blob:;
           object-src 'none';

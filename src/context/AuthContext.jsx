@@ -4,6 +4,7 @@ import {
   getCurrentUser, fetchUserAttributes, resendSignUpCode,
   fetchAuthSession,
 } from 'aws-amplify/auth';
+import { Hub } from 'aws-amplify/utils';
 import { resetTourOnSignIn } from '../utils/tour';
 
 const AuthContext = createContext(null);
@@ -15,6 +16,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => { loadUser(); }, []);
+  // Back from Google (Cognito's hosted sign-in): load the account
+  useEffect(() => Hub.listen('auth', ({ payload }) => {
+    if (payload.event === 'signInWithRedirect' || payload.event === 'signedIn') loadUser();
+  }), []);
 
   async function loadUser() {
     // The phone audit signs in as a made-up account (or stays signed out when

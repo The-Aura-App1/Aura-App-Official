@@ -1,14 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
+import { updateUserAttributes } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { useTheme } from '../context/ThemeContext';
 
-const STEPS = ['welcome', 'username', 'avatar', 'banner', 'bio', 'done'];
+const BASE_STEPS = ['welcome', 'username', 'avatar', 'banner', 'bio', 'done'];
+// Accounts from Google skip the sign-up form, so they confirm their age here
+const GOOGLE_STEPS = ['welcome', 'age', 'username', 'avatar', 'banner', 'bio', 'done'];
+const MIN_AGE = 13;
 
 export default function Onboarding() {
-  const { user, attrs, refreshUser, dbProfile } = useAuth();
+  const { user, attrs, refreshUser, dbProfile, logout } = useAuth();
+  // Signed in through Google (Cognito adds `identities` for outside providers)
+  const federated = !!attrs?.identities;
+  const STEPS = federated ? GOOGLE_STEPS : BASE_STEPS;
+  const [birthYear, setBirthYear] = useState('');
+  const thisYear = new Date().getFullYear();
+  const yearOk = /^\d{4}$/.test(birthYear) && Number(birthYear) > thisYear - 120 && Number(birthYear) <= thisYear;
+  const oldEnough = yearOk && thisYear - Number(birthYear) >= MIN_AGE;
   // New accounts start on the Light theme; the tour then has them pick one
   const { setThemeId } = useTheme();
   useEffect(() => { if (!dbProfile?.theme) setThemeId('light'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -28,11 +39,13 @@ export default function Onboarding() {
     setError('');
     try {
       // Create/update user record in DynamoDB with correct username
-      await api.createUser(
-        user.userId,
-        attrs?.email ?? '',
-        username.trim() || (attrs?.email?.split('@')[0] ?? user.userId)
-      );
+      const name = username.trim() || (attrs?.email?.split('@')[0] ?? user.userId);
+      await api.createUser(user.userId, attrs?.email ?? '', name);
+      // Google accounts didn't get a display name at sign-up; without one the
+      // app would keep sending them back here
+      if (federated && !attrs?.['custom:displayName']) {
+        await updateUserAttributes({ userAttributes: { 'custom:displayName': name } });
+      }
       await refreshUser();
       navigate('/');
     } catch (err) {
@@ -88,6 +101,23 @@ export default function Onboarding() {
               Let's set up your profile so the community knows who you are.
               This only takes a minute.
             </p>
+          </div>
+        )}
+
+        {currentStep === 'age' && (
+          <div className="flex flex-col gap-4">
+            <div className="text-center mb-2">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">What year were you born?</h2>
+              <p className="text-[var(--text-muted)] text-sm mt-1">Aura is for people {MIN_AGE} and older. We only use this to check that.</p>
+            </div>
+            <input value={birthYear} onChange={e => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric"
+              placeholder="e.g. 2004" aria-label="Birth year" className="input text-center text-lg" />
+            {yearOk && !oldEnough && (
+              <div className="text-center flex flex-col gap-3">
+                <p className="text-red-400 text-sm">Sorry, you need to be {MIN_AGE} or older to use Aura.</p>
+                <button type="button" onClick={async () => { await logout?.(); navigate('/welcome'); }} className="btn-secondary self-center">Sign out</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -213,7 +243,7 @@ export default function Onboarding() {
 
           <div className="flex items-center gap-2 ml-auto">
             {/* Skip button — not on welcome or done */}
-            {currentStep !== 'welcome' && currentStep !== 'done' && (
+            {currentStep !== 'welcome' && currentStep !== 'done' && currentStep !== 'age' && (
               <button
                 onClick={handleSkip}
                 className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] px-3 py-2 transition-colors"
@@ -224,7 +254,7 @@ export default function Onboarding() {
 
             <button
               onClick={next}
-              disabled={currentStep === 'username' && !username.trim()}
+              disabled={(currentStep === 'username' && !username.trim()) || (currentStep === 'age' && !oldEnough)}
               className="btn-primary"
             >
               {isLast ? (loading ? 'Setting up...' : 'Go to Feed') : (

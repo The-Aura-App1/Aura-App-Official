@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import AuthBackdrop, { SiteHeader, Wordmark } from '../../components/auth/AuthBackdrop';
+import GoogleButton from '../../components/auth/GoogleButton';
 
 export default function SignUp() {
   const { register } = useAuth();
@@ -100,6 +101,7 @@ export default function SignUp() {
             {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
+        <div className="mt-4"><GoogleButton label="Sign up with Google" /></div>
         <p className="text-center text-sm text-[var(--text-muted)] mt-6">
           Already have an account?{' '}
           <Link to="/signin" className="text-aura-600 dark:text-aura-300 font-semibold hover:underline">Sign in</Link>
