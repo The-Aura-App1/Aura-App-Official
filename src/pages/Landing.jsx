@@ -197,8 +197,8 @@ export default function Landing() {
             <div className="flex flex-col items-center">
               <p className="aura-rise max-w-lg text-base sm:text-lg text-aura-800/80 dark:text-aura-100/80 leading-relaxed"
                 style={{ animationDelay: '0.35s' }}>
-                Your feed follows the choices you make, not what you click on.
-                Give aura to the posts you love and earn it on the ones you make.
+                You decide what fills your feed, not an algorithm that watches what you click.
+                Give aura to posts you love, and earn it when others love yours.
               </p>
               <div className="aura-rise mt-9 sm:mt-11 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full max-w-xs sm:max-w-none sm:w-auto"
                 style={{ animationDelay: '0.45s' }}>
