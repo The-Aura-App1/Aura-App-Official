@@ -14,6 +14,8 @@ Work down the 🔲 and ⚠️ items; each says what to do.
 
 ## The API
 - ✅ Throttling on the whole API: 50 requests a second, bursts of 100, plus per-person rate limits inside each Lambda (posting, reacting, giving aura, suggestions, support, custom topics).
+- ✅ **Per-route limits (2026-11-17)** on the routes that create things or cost money, on top of the whole-API limit: sign-up profile `POST /users` and reports 3/s (bursts of 6); posting, post upload URLs and the daily bonus 10/s (20); group creation, other upload URLs, feedback/support and ad rewards 5/s (10); `POST /posts/fix-author` 3/s (6). These are shared by everyone, so raise them when real traffic grows (API Gateway > Stages > $default > Throttling, or `aws apigatewayv2 update-stage --route-settings`).
+- ℹ️ **Firewall (AWS WAF):** it can't attach to Aura's API directly, because WAF supports API Gateway REST APIs, not HTTP APIs. Options when the budget allows: WAF on the Cognito user pool (bot sign-ups, password guessing; about $6-8 a month), WAF on the website through Amplify ($15 a month per app plus WAF fees; doesn't cover the API), or CloudFront with WAF in front of the API. Corey chose the free steps for now (2026-11-17).
 - ⚠️ **CORS allows any website** (`AllowOrigins: *`) on the API. It's safe today because the app sends a bearer token, not cookies, so another site can't act as a signed-in person. Tightening it to your real domain(s) is still good hygiene: API Gateway > CORS > Access-Control-Allow-Origin.
 - ✅ Every limit is enforced on the server, not only in the app (aura, reactions, suggestions, Theme Studio Premium, custom topics, tags, locations, fonts).
 - ✅ Bodies must be JSON objects; ids in paths are URL-encoded and checked; unknown fields are dropped.
@@ -41,6 +43,11 @@ Work down the 🔲 and ⚠️ items; each says what to do.
 - ✅ The phone audit's sample data is left out of real builds (checked in the built files).
 - ⚠️ **Dependencies** (`npm audit`): most findings are build tools inside react-scripts and never reach users. One that does: **react-router** has an open-redirect issue in links built from a backslash path; Aura's links are built from encoded ids and usernames, so it isn't reachable today, but the fix is upgrading to react-router 7 (a bigger change; after the contest).
 - ✅ **Security headers** are set in `customHttp.yml` (Amplify Hosting): an enforced Content-Security-Policy (since 2026-11-16, commit 8aa4651), Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy and Cross-Origin-Opener-Policy. Re-check the CSP whenever a new outside script or domain is added.
+
+## Account-level (free, needs you: Claude Code's AWS user has no access)
+- 🔲 **Billing alert:** Billing > Budgets > Create budget > "Monthly cost budget" (zero-spend or e.g. $10), email alerts at 80% and 100%. Catches abuse or a runaway bill early.
+- 🔲 **IAM Access Analyzer:** IAM > Access analyzer > Create analyzer (zone of trust: this account). Free; flags anything shared outside the account (like the public media bucket).
+- 🔲 **Domain:** Route 53 won't register domains on this free-plan account, so buy it at a registrar (Cloudflare, Porkbun, Namecheap), then add it in Amplify > Domain management; Amplify shows the DNS records to add at the registrar.
 
 ## IAM
 - ✅ Each Lambda has its own role with only the tables and actions it uses (`backend/iam/`, checked against the live roles on 2026-11-16).
