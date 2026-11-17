@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import Galaxy from './Galaxy';
+import NightMoon from './NightMoon';
 import placeInSky from './placeInSky';
 
 // The night sky's constellations and the distant galaxy.
@@ -193,8 +194,12 @@ function layoutSky({ width, height, obstacles }) {
     return { w, h: Math.round((w * c.viewBox[1]) / c.viewBox[0]) };
   };
   // On phones it's small enough to tuck in beside the halo or logo
-  const galaxyW = Math.round(wide ? 300 * scale : Math.min(120, width * 0.25));
+  // Bigger since 2026-11-16 (Corey: "make the galaxy a little bigger")
+  const galaxyW = Math.round(wide ? 390 * scale : Math.min(150, width * 0.3));
+  const moonW = Math.round(wide ? 92 * scale : 56);
   const items = [
+    { id: 'moon', w: moonW, h: moonW, gap: wide ? 40 : 12,
+      prefer: wide ? { x: width * 0.78, y: firstScreen * 0.16 } : { x: width * 0.84, y: 96 } },
     { id: 'galaxy', w: galaxyW, h: Math.round(galaxyW * 0.52), gap: wide ? undefined : 10,
       prefer: wide ? { x: width * 0.14, y: firstScreen * 0.42 } : { x: width * 0.16, y: 140 } },
   ];
@@ -242,6 +247,7 @@ export function SkyField() {
     <div ref={fieldRef} className="aura-night-only aura-sky-field absolute inset-x-0 top-0">
       {placed.map(({ id, x, y, w }, i) => {
         const style = { left: x, top: y, width: w };
+        if (id === 'moon') return <NightMoon key={id} style={style} />;
         return id === 'galaxy'
           ? <Galaxy key={id} style={style} />
           : <Constellation key={id} id={id} style={style} delay={i * 0.35} />;
@@ -257,7 +263,7 @@ export function AppSkyConstellations() {
     <div className="aura-night-only absolute inset-0">
       <Constellation id="aura" className="top-[96px] right-[3%] w-52" />
       <Constellation id="bigDipper" className="top-[9%] left-[3%] w-48" delay={0.4} />
-      <Galaxy className="aura-app-galaxy top-[34%] right-[2%] w-56" />
+      <Galaxy className="aura-app-galaxy top-[34%] right-[2%] w-72" />
       <Constellation id="lyra" className="top-[33%] left-[9%] w-16" delay={0.8} />
       <Constellation id="orion" className="top-[47%] left-[3%] w-24" delay={1.2} />
       <Constellation id="cassiopeia" className="top-[55%] right-[5%] w-36" delay={1.6} />

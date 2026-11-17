@@ -17,6 +17,7 @@ import { CloudBank, FloatingCloud } from '../scenes/Clouds';
 import ShootingStars from '../scenes/ShootingStars';
 import BirdFlock from '../scenes/Birds';
 import Balloon from '../scenes/Balloon';
+import NightMoon from '../scenes/NightMoon';
 import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
 import '../scenes/scenes.css';
 import BrandWordmark from '../brand/Wordmark';
@@ -135,6 +136,8 @@ export function SkyDecor({ variant = 'page' }) {
       </div>
       <ShootingStars />
       {page ? <SkyField /> : <AppSkyConstellations />}
+      {/* Night's moon: on the public pages SkyField places it clear of the text */}
+      {!page && <NightMoon className="top-[12%] right-[6%] lg:right-auto lg:left-[4%] lg:top-[22%] w-12 lg:w-20" />}
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}

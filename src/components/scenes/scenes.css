@@ -454,3 +454,13 @@
 
 .aura-app-sky .aura-city { transform: translateY(8%); }
 .aura-app-sky .aura-city-sky { opacity: 0.85; }
+
+/* The balloon's burner: off most of the time, with a short flicker now and then */
+.aura-balloon-flame { opacity: 0; transform-box: fill-box; transform-origin: 50% 100%; animation: balloonBurn 7s ease-in-out infinite; }
+@keyframes balloonBurn {
+  0%, 62%, 100% { opacity: 0; transform: scaleY(0.6); }
+  66% { opacity: 1; transform: scaleY(1.1); }
+  70% { opacity: 0.75; transform: scaleY(0.9); }
+  74% { opacity: 1; transform: scaleY(1.15); }
+  80% { opacity: 0; transform: scaleY(0.7); }
+}

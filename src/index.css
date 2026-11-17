@@ -1197,3 +1197,16 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
 
 /* The Premium card on /premium: a soft gold edge */
 .premium-card { border-color: rgb(251 191 36 / 0.45); box-shadow: 0 0 0 1px rgb(251 191 36 / 0.15), 0 18px 40px -28px rgb(251 191 36 / 0.6); }
+
+/* Night's moon (NightMoon.jsx): a soft glow around the disk and a wide pale
+   halo that breathes very slowly. */
+.aura-night-moon { aspect-ratio: 1; filter: drop-shadow(0 0 14px rgba(255, 248, 225, 0.55)) drop-shadow(0 0 40px rgba(214, 205, 255, 0.35)); }
+.aura-night-moon-halo {
+  position: absolute;
+  inset: -70%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 246, 222, 0.2) 0 22%, rgba(196, 181, 253, 0.1) 38%, transparent 66%);
+  animation: nightMoonHalo 14s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes nightMoonHalo { 0%, 100% { opacity: 0.75; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
