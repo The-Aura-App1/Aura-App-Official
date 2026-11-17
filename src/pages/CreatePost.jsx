@@ -17,7 +17,7 @@ import OverlayEditor, { readyOverlays } from '../components/post/OverlayEditor';
 import PostMedia from '../components/post/PostMedia';
 import { TextBody, CaptionText, frameProps } from '../components/post/PostStyle';
 import { PERKS } from '../utils/powerUps';
-import { cleanStyle } from '../utils/postStyle';
+import { cleanStyle, hasCard } from '../utils/postStyle';
 
 // Posting goes step by step, like Instagram: make it (write, or pick photos or
 // a video), edit it (place text, links, @mentions, #hashtags and emoji on it,
@@ -92,7 +92,7 @@ export default function CreatePost() {
   const style   = cleanStyle(look, postType) ?? {};
   const groupBg = style.bg?.startsWith('grp:') ? groupBackgrounds.find(b => `grp:${b.id}` === style.bg) : null;
   // A text post only has a card to place things on once it has a background
-  const canPlace = postType !== 'text' || !!style.bg;
+  const canPlace = postType !== 'text' || hasCard(style);
   const placed   = canPlace ? overlays : [];
 
   // Start loading the on-device model once there's something to read, so it's

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { textCardStyle, captionStyle, frameStyle, loadPostFont } from '../../utils/postStyle';
+import { textCardStyle, captionStyle, frameStyle, loadPostFont, hasCard } from '../../utils/postStyle';
 import PostOverlays from './PostOverlays';
 
 // How a post's `style` shows up. PostCard and the composer's live preview
@@ -15,7 +15,7 @@ export function usePostFont(style) {
 export function TextBody({ text, style, groupBg = null, overlays = null, className = '' }) {
   usePostFont(style);
   const css = textCardStyle(style, text.length, groupBg);
-  if (style?.bg) {
+  if (hasCard(style)) {
     // A text post with a background wears its frame on the card itself (the
     // part people look at), not on the outer post card around it
     const frame = frameProps(style);
@@ -43,7 +43,8 @@ export function CaptionText({ text, style }) {
 // Props for the card around a post with a frame. With postType, a text post
 // that has a background gets none here, because TextBody frames its card.
 export function frameProps(style, postType) {
-  const css = postType === 'text' && style?.bg ? null : frameStyle(style);
+  const css = postType === 'text' && hasCard(style) ? null : frameStyle(style);
   if (!css) return { className: '', style: undefined };
-  return { className: `post-frame${css['--frame-glow'] ? ' post-frame-glow' : ''}`, style: css };
+  const line = css['--frame-line'] && css['--frame-line'] !== 'solid';
+  return { className: `post-frame${css['--frame-glow'] ? ' post-frame-glow' : ''}${line ? ' post-frame-line' : ''}`, style: css };
 }

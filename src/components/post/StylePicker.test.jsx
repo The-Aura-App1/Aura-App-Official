@@ -80,3 +80,30 @@ test('a text post with a background wears its frame on the card itself', () => {
   // without a background the frame stays on the post card
   expect(frameProps({ frame: 'glow' }, 'text').className).toMatch(/post-frame/);
 });
+
+test('patterns, a built gradient and a built frame; one background at a time', () => {
+  const onStyle = jest.fn();
+  render(<Harness onStyle={onStyle} />);
+  fireEvent.click(screen.getByRole('button', { name: /customize the look/i }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Background' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Hexagons' }));
+  expect(onStyle.mock.lastCall[0].pat).toMatchObject({ id: 'hexagons' });
+  fireEvent.click(screen.getByRole('radio', { name: 'Large' }));
+  expect(onStyle.mock.lastCall[0].pat.s).toBe('l');
+  // a preset background replaces the pattern
+  fireEvent.click(screen.getByRole('button', { name: 'Sunset' }));
+  expect(onStyle.mock.lastCall[0]).toMatchObject({ bg: 'sunset' });
+  expect(onStyle.mock.lastCall[0].pat).toBeUndefined();
+  // building a gradient applies it straight away, then edits it
+  fireEvent.click(screen.getAllByRole('button', { name: 'Build your own' })[0]);
+  expect(onStyle.mock.lastCall[0].grad).toBeTruthy();
+  expect(onStyle.mock.lastCall[0].bg).toBeUndefined();
+  fireEvent.click(screen.getByRole('radio', { name: 'Soft blobs' }));
+  expect(onStyle.mock.lastCall[0].grad.t).toBe('mesh');
+  // a built frame
+  fireEvent.click(screen.getByRole('tab', { name: 'Frame' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Build your own' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Dashed' }));
+  expect(onStyle.mock.lastCall[0].fr).toMatchObject({ line: 'dashed' });
+  expect(screen.getByLabelText('Preview').querySelector('.post-frame-line')).toBeTruthy();
+});

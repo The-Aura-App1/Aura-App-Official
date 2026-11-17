@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Palette, ChevronDown, Lock, AlignLeft, AlignCenter, AlignRight, RotateCcw } from 'lucide-react';
 import {
   POST_BACKGROUNDS, BACKGROUND_KINDS, POST_FRAMES,
-  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, cleanStyle, groupBgCss,
+  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, cleanStyle, hasCard, groupBgCss,
 } from '../../utils/postStyle';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
 import FontPicker from '../common/FontPicker';
+import { PatternPicker, GradientBuilder, FrameBuilder, GRADIENT_PRESETS } from './DesignBuilders';
+import { surfaceColors, inkReads } from '../../utils/postDesign';
 
 // The "Customize the look" panel in CreatePost: fonts, text color, background,
 // size and alignment (text posts), and a frame (any post), with a live preview.
@@ -43,6 +45,11 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
   const tabs = TABS[kind];
   const current = cleanStyle(style, postType) ?? {};
   const set = (key, value) => onChange(cleanStyle({ ...style, [key]: value }, postType) ?? {});
+  // One background (preset, color, pattern or gradient) and one frame (preset or built)
+  const choose = changes => onChange(cleanStyle({ ...style, ...changes }, postType) ?? {});
+  const pickBg = bg => choose({ bg, pat: null, grad: null });
+  const [building, setBuilding] = useState(null);   // 'grad' | 'frame' while a builder is open
+  const noBg = !current.bg && !current.pat && !current.grad;
 
   useEffect(() => { if (!tabs.includes(tab)) setTab('Font'); }, [tabs, tab]);
 
@@ -112,23 +119,38 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
                   </div>
                 </div>
               )}
-              {BACKGROUND_KINDS.map(k => (
+              {BACKGROUND_KINDS.filter(k => k !== 'Pattern').map(k => (
                 <div key={k}>
                   <p className="text-[11px] text-[var(--text-muted)] mb-1">{k}</p>
                   <div className="flex flex-wrap gap-2">
                     {k === 'Solid' && (
-                      <Tile selected={!current.bg} label="No background" onClick={() => set('bg', null)}
+                      <Tile selected={noBg} label="No background" onClick={() => pickBg(null)}
                         className="w-9 h-9 border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">None</Tile>
                     )}
                     {POST_BACKGROUNDS.filter(b => b.kind === k).map(b => (
-                      <Tile key={b.id} selected={current.bg === b.id} label={b.name} onClick={() => set('bg', b.id)} className="w-9 h-9">
+                      <Tile key={b.id} selected={current.bg === b.id} label={b.name} onClick={() => pickBg(b.id)} className="w-9 h-9">
                         <span className="block w-full h-full rounded-lg border border-black/10" style={{ background: b.css }} />
                       </Tile>
                     ))}
-                    {k === 'Solid' && <CustomColor value={HEX.test(current.bg ?? '') ? current.bg : null} onChange={v => set('bg', v)} label="Custom background color" />}
+                    {k === 'Solid' && <CustomColor value={HEX.test(current.bg ?? '') ? current.bg : null} onChange={v => pickBg(v)} label="Custom background color" />}
+                    {k === 'Gradient' && (
+                      <button type="button" onClick={() => { setBuilding(b => (b === 'grad' ? null : 'grad')); if (!current.grad) choose({ grad: GRADIENT_PRESETS[1][1], bg: null, pat: null }); }}
+                        aria-expanded={building === 'grad'} className={`h-9 px-3 rounded-lg border text-xs font-semibold ${current.grad ? 'border-aura-400 bg-aura-500/15 text-[var(--text-primary)]' : 'border-dashed border-[var(--border)] text-[var(--text-muted)]'}`}>
+                        Build your own
+                      </button>
+                    )}
                   </div>
+                  {k === 'Gradient' && building === 'grad' && (
+                    <div className="mt-2 p-3 rounded-xl border border-[var(--border)]">
+                      <GradientBuilder value={current.grad} onChange={grad => choose({ grad, bg: null, pat: null })} />
+                    </div>
+                  )}
                 </div>
               ))}
+              <div>
+                <p className="text-[11px] text-[var(--text-muted)] mb-1">Pattern</p>
+                <PatternPicker value={current.pat} onChange={pat => choose({ pat, bg: null, grad: null })} />
+              </div>
             </div>
           )}
 
@@ -137,7 +159,7 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
               <div className="flex flex-wrap gap-2">
                 <Tile selected={!current.color} label="Automatic" onClick={() => set('color', null)}
                   className="w-9 h-9 border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">Auto</Tile>
-                {(current.bg ? CARD_COLORS : SAFE_COLORS).map(c => (
+                {(hasCard(current) ? CARD_COLORS.filter(c => !surfaceColors(current).length || inkReads(c, surfaceColors(current))) : SAFE_COLORS).map(c => (
                   <Tile key={c} selected={current.color === c} label={c} onClick={() => set('color', c)} className="w-9 h-9">
                     <span className="block w-full h-full rounded-lg border border-black/15" style={{ background: c }} />
                   </Tile>
@@ -180,17 +202,26 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
 
           {tab === 'Frame' && (
             <div className="flex flex-wrap gap-2.5" role="tabpanel">
-              <Tile selected={!current.frame} label="No frame" onClick={() => set('frame', null)}
+              <Tile selected={!current.frame && !current.fr} label="No frame" onClick={() => choose({ frame: null, fr: null })}
                 className="w-12 h-12 border border-dashed border-[var(--border)] text-[10px] text-[var(--text-muted)]">None</Tile>
               {POST_FRAMES.map(f => {
                 const p = frameProps({ frame: f.id });
                 return (
-                  <Tile key={f.id} selected={current.frame === f.id} label={f.name} onClick={() => set('frame', f.id)} className="w-12 h-12 p-1">
+                  <Tile key={f.id} selected={current.frame === f.id} label={f.name} onClick={() => choose({ frame: f.id, fr: null })} className="w-12 h-12 p-1">
                     <span className={`block w-full h-full rounded-md bg-[var(--bg-card)] border border-[var(--border)] ${p.className}`} style={p.style} />
                   </Tile>
                 );
               })}
-              <CustomColor value={HEX.test(current.frame ?? '') ? current.frame : null} onChange={v => set('frame', v)} label="Custom frame color" />
+              <CustomColor value={HEX.test(current.frame ?? '') ? current.frame : null} onChange={v => choose({ frame: v, fr: null })} label="Custom frame color" />
+              <button type="button" onClick={() => { setBuilding(b => (b === 'frame' ? null : 'frame')); if (!current.fr) choose({ fr: { w: 4, c: ['#a855f7', '#22d3ee'], line: 'solid', corner: 'round', glow: 1 }, frame: null }); }} aria-expanded={building === 'frame'}
+                className={`h-12 px-3 rounded-lg border text-xs font-semibold ${current.fr ? 'border-aura-400 bg-aura-500/15 text-[var(--text-primary)]' : 'border-dashed border-[var(--border)] text-[var(--text-muted)]'}`}>
+                Build your own
+              </button>
+              {building === 'frame' && (
+                <div className="w-full mt-1 p-3 rounded-xl border border-[var(--border)]">
+                  <FrameBuilder value={current.fr} onChange={fr => choose({ fr, frame: null })} />
+                </div>
+              )}
             </div>
           )}
         </div>

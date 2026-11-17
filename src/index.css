@@ -1228,3 +1228,13 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
 }
 /* The Aura mark catches the light when its button is hovered or pressed */
 button:hover > .aura-mark, a:hover > .aura-mark { filter: drop-shadow(0 0 3px rgb(var(--aura-400) / 0.7)); }
+
+/* Frames drawn as a line style (double, dashed, dotted) from a custom frame
+   or a preset with `line`: a real border in the frame's first color */
+.post-frame.post-frame-line::before {
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  padding: 0;
+  border: var(--frame-w, 3px) var(--frame-line, solid) var(--frame-line-color, currentColor);
+}

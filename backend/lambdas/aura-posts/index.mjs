@@ -335,7 +335,7 @@ async function createPost(userId, body) {
     ? (group.backgrounds ?? []).find(b => `grp:${b.id}` === styled.style.bg) : null;
   // Text, links, mentions, hashtags and emoji placed on the photos, the video,
   // or a text post's card (only one with a background has a card to place them on)
-  if (body.overlays !== undefined && type === 'text' && !styled.style?.bg) {
+  if (body.overlays !== undefined && type === 'text' && !styled.style?.bg && !styled.style?.pat && !styled.style?.grad) {
     return response(400, { error: 'Pick a background for your text post to put things on it.' });
   }
   const placed = checkOverlays(body.overlays, type === 'image' ? (mediaKeys?.length ?? 0) : 1, cleanText);

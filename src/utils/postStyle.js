@@ -1,4 +1,5 @@
 import FONT_LIST from './postFonts.json';
+import { cleanPattern, cleanGradient, cleanFrame, patternCss, gradientCss, customFrameVars, surfaceColors, autoInk, inkReads } from './postDesign';
 
 // Post customization: fonts, text colors, backgrounds (text posts), and frames
 // (any post). A post stores only what its author changed, as `style`:
@@ -100,6 +101,23 @@ export const POST_FRAMES = [
   { id: 'ember',   name: 'Ember',     paint: 'linear-gradient(135deg, #facc15, #dc2626)', width: 3, glow: '0 0 16px rgba(239,68,68,.35)' },
   { id: 'mint',    name: 'Mint',      paint: 'linear-gradient(135deg, #6ee7b7, #0d9488)', width: 3 },
   { id: 'thick',   name: 'Bold',      paint: 'var(--text-primary)', width: 4 },
+  // 2026-11-16: metals, gems, glass, holographic and line styles
+  { id: 'bronze',   name: 'Bronze',      paint: 'linear-gradient(135deg, #f3c08a, #8a4b1f, #e8a86a, #5c3110)', width: 3 },
+  { id: 'rosegold', name: 'Rose gold',   paint: 'linear-gradient(135deg, #ffd6cc, #c97b6b, #f5c0b0, #8f4d43)', width: 3 },
+  { id: 'platinum', name: 'Platinum',    paint: 'linear-gradient(135deg, #ffffff, #b8c2cc, #eef2f5, #7d8893)', width: 3, glow: '0 0 12px rgba(220,230,240,.35)' },
+  { id: 'holo',     name: 'Holographic', paint: 'conic-gradient(from 30deg, #ff9ad5, #a6f0ff, #c8ffb0, #fff3a6, #ffb3a7, #d3a6ff, #ff9ad5)', width: 3, glow: '0 0 16px rgba(200,170,255,.4)' },
+  { id: 'glass',    name: 'Glass',       paint: 'linear-gradient(160deg, rgba(255,255,255,.85), rgba(255,255,255,.15) 45%, rgba(255,255,255,.6))', width: 3, glow: '0 8px 24px rgba(255,255,255,.12)' },
+  { id: 'neontube', name: 'Neon tube',   paint: '#38f2ff', width: 3, glow: '0 0 6px #38f2ff, 0 0 18px rgba(56,242,255,.7), 0 0 40px rgba(56,242,255,.35)' },
+  { id: 'emerald',  name: 'Emerald',     paint: 'linear-gradient(135deg, #a7f3d0, #047857, #34d399, #064e3b)', width: 3, glow: '0 0 14px rgba(16,185,129,.35)' },
+  { id: 'sapphire', name: 'Sapphire',    paint: 'linear-gradient(135deg, #bfdbfe, #1d4ed8, #60a5fa, #1e3a8a)', width: 3, glow: '0 0 14px rgba(59,130,246,.35)' },
+  { id: 'ruby',     name: 'Ruby',        paint: 'linear-gradient(135deg, #fecdd3, #be123c, #fb7185, #881337)', width: 3, glow: '0 0 14px rgba(225,29,72,.35)' },
+  { id: 'amethyst', name: 'Amethyst',    paint: 'linear-gradient(135deg, #e9d5ff, #7e22ce, #c084fc, #581c87)', width: 3, glow: '0 0 14px rgba(147,51,234,.35)' },
+  { id: 'opal',     name: 'Opal',        paint: 'linear-gradient(135deg, #f0fdff, #fbcfe8, #c7d2fe, #bbf7d0, #fef9c3)', width: 4 },
+  { id: 'double',   name: 'Double line', paint: 'var(--text-primary)', lineColor: 'var(--text-primary)', line: 'double', width: 6 },
+  { id: 'dashed',   name: 'Dashed',      paint: '#a855f7', lineColor: '#a855f7', line: 'dashed', width: 3 },
+  { id: 'dotted',   name: 'Dotted',      paint: '#f472b6', lineColor: '#f472b6', line: 'dotted', width: 4 },
+  { id: 'film',     name: 'Film strip',  paint: '#111827', lineColor: '#111827', line: 'dashed', width: 9 },
+  { id: 'ticket',   name: 'Ticket',      paint: '#f59e0b', lineColor: '#f59e0b', line: 'dotted', width: 6 },
 ];
 export const FRAME_BY_ID = Object.fromEntries(POST_FRAMES.map(f => [f.id, f]));
 
@@ -108,14 +126,27 @@ export const ALIGNS = ['left', 'center', 'right'];
 const SIZE_REM = { s: 1, m: 1.3, l: 1.7, xl: 2.2 };
 
 // Only the keys a post type may carry: backgrounds, size and alignment are for text posts
-export const STYLE_KEYS = { text: ['font', 'color', 'bg', 'size', 'align', 'frame'], media: ['font', 'color', 'frame'] };
+export const STYLE_KEYS = { text: ['font', 'color', 'bg', 'size', 'align', 'frame', 'pat', 'grad', 'fr'], media: ['font', 'color', 'frame', 'fr'] };
+const DESIGN = { pat: cleanPattern, grad: cleanGradient, fr: cleanFrame };
+
+// Whether a text post is drawn as a designed card: any background, a tinted
+// pattern (pat) or a custom gradient (grad)
+export const hasCard = style => !!(style?.bg || style?.pat || style?.grad);
 
 // Drops empty values and anything the post type can't use; null when nothing is left
 export function cleanStyle(style, type) {
   const keys = STYLE_KEYS[type === 'text' ? 'text' : 'media'];
   const out = {};
-  for (const k of keys) if (style?.[k]) out[k] = style[k];
-  if (out.color && !out.bg && !SAFE_COLORS.includes(out.color)) delete out.color;
+  for (const k of keys) {
+    if (!style?.[k]) continue;
+    if (DESIGN[k]) { const clean = DESIGN[k](style[k]); if (clean) out[k] = clean; } else out[k] = style[k];
+  }
+  // one background and one frame (the newest choice wins)
+  if (out.pat) { delete out.grad; delete out.bg; } else if (out.grad) delete out.bg;
+  if (out.fr) delete out.frame;
+  const under = surfaceColors(out);
+  if (out.color && under.length && !inkReads(out.color, under)) delete out.color;
+  if (out.color && !hasCard(out) && !SAFE_COLORS.includes(out.color)) delete out.color;
   return Object.keys(out).length ? out : null;
 }
 
@@ -137,19 +168,21 @@ export const groupBgCss = groupBg => (groupBg?.key
 export function textCardStyle(style, length = 0, groupBg = null) {
   if (!style) return null;
   const bg = style.bg;
+  const card = hasCard(style);
   const fromGroup = bg?.startsWith('grp:');
-  const ink = style.color ?? (fromGroup ? groupBg?.ink ?? '#ffffff'
+  const designed = style.pat ? patternCss(style.pat) : style.grad ? gradientCss(style.grad) : undefined;
+  const ink = style.color ?? (designed ? autoInk(surfaceColors(style)) : fromGroup ? groupBg?.ink ?? '#ffffff'
     : bg ? (BACKGROUND_BY_ID[bg]?.ink ?? (HEX.test(bg) ? inkFor(bg) : undefined)) : undefined);
   // Long text steps down so it still fits the card
-  let size = SIZE_REM[style.size] ?? (bg ? SIZE_REM.m : undefined);
+  let size = SIZE_REM[style.size] ?? (card ? SIZE_REM.m : undefined);
   if (size && length > 400) size = Math.min(size, SIZE_REM.s);
   else if (size && length > 200) size = Math.min(size, SIZE_REM.m);
   return {
-    background: fromGroup ? groupBgCss(groupBg) ?? '#334155' : bgCss(bg),
+    background: designed ?? (fromGroup ? groupBgCss(groupBg) ?? '#334155' : bgCss(bg)),
     color: ink,
     fontFamily: fontFamily(style.font),
     fontSize: size ? `${size}rem` : undefined,
-    textAlign: style.align ?? (bg ? 'center' : undefined),
+    textAlign: style.align ?? (card ? 'center' : undefined),
   };
 }
 
@@ -160,9 +193,11 @@ export function captionStyle(style) {
 
 // CSS variables read by .post-frame in index.css
 export function frameStyle(style) {
+  if (style?.fr) return customFrameVars(style.fr);
   const frame = style?.frame;
   if (!frame) return null;
   const f = FRAME_BY_ID[frame] ?? (HEX.test(frame) ? { paint: frame, width: 3 } : null);
   if (!f) return null;
-  return { '--frame-paint': f.paint, '--frame-w': `${f.width}px`, ...(f.glow && { '--frame-glow': f.glow }) };
+  return { '--frame-paint': f.paint, '--frame-w': `${f.width}px`, ...(f.glow && { '--frame-glow': f.glow }),
+    ...(f.line && { '--frame-line': f.line, '--frame-line-color': f.lineColor ?? f.paint }) };
 }
