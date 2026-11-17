@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Swords, Sparkles, X, Bot } from 'lucide-react';
+import { Swords, X, Bot } from 'lucide-react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
 import Champions from './Champions';
 import BotForm from './BotForm';
 import { GAME_LIST, GAME_BY_ID, STAKE_CAP, TIME_CHOICES, CLOCK_GAMES, defaultTime, statusText, gameTile, seatsOf } from './gameInfo';
+import AuraMark from '../brand/AuraMark';
 
 const QUICK_STAKES = [0, 25, 50, 100, 250];
 const REFRESH_MS = 10000;
 
 export function StakeBadge({ stake }) {
   return stake
-    ? <span className="aura-badge whitespace-nowrap"><Sparkles size={11} aria-hidden="true" />{stake} each</span>
+    ? <span className="aura-badge whitespace-nowrap"><AuraMark size={11} aria-hidden="true" />{stake} each</span>
     : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-[var(--text-muted)] border border-[var(--border)]">Friendly</span>;
 }
 

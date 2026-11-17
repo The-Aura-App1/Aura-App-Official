@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Image as ImageIcon, Video, AlignLeft, MessageCircle, Sparkles, Search, X, LayoutList, Rows3 } from 'lucide-react';
+import { Image as ImageIcon, Video, AlignLeft, MessageCircle, Search, X, LayoutList, Rows3 } from 'lucide-react';
 import Avatar from '../common/Avatar';
 import { timeAgo } from '../../utils/format';
 import { fold, queryWords } from '../../utils/searchRanking';
+import AuraMark from '../brand/AuraMark';
 
 // The feed's two looks: full posts, or Reddit-style captions first (tap one to
 // open the post). The choice is remembered on this device only.
@@ -101,7 +102,7 @@ export function CaptionRow({ post }) {
       </Link>
 
       <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center gap-1"><Sparkles size={13} className="text-aura-400" aria-hidden="true" />{post.auraScore ?? 0}<span className="sr-only"> aura</span></span>
+        <span className="flex items-center gap-1"><AuraMark size={13} className="text-aura-400" aria-hidden="true" />{post.auraScore ?? 0}<span className="sr-only"> aura</span></span>
         <span className="flex items-center gap-1"><MessageCircle size={13} aria-hidden="true" />{post.commentCount ?? 0}<span className="sr-only"> comments</span></span>
         {(post.hashtags ?? []).slice(0, 3).map(tag => (
           <span key={tag} className="text-aura-400/80 truncate">#{tag}</span>

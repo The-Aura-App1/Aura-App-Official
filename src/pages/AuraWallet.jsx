@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Gift, Tv, Clock, Coins, Wallet, LineChart } from 'lucide-react';
+import { Gift, Tv, Clock, Coins, Wallet, LineChart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { watchRewardedAd } from '../ads/rewarded';
 import { api } from '../api';
@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import OrbBurst from '../components/motion/OrbBurst';
 import useCountUp from '../hooks/useCountUp';
 import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
+import AuraMark from '../components/brand/AuraMark';
 
 // Ad rewards stay off until a real ad network verifies views. aura-aura
 // enforces this (its own ADS_ENABLED); this only hides the button. The ad
@@ -153,7 +154,7 @@ export default function AuraWallet() {
   return (
     <div className="flex flex-col gap-6 pb-8">
       <div className="flex items-center gap-3">
-        <Sparkles size={24} className="text-aura-400" />
+        <AuraMark size={24} className="text-aura-400" />
         <h1 className="text-xl font-bold text-[var(--text-primary)]">Aura Wallet</h1>
         <span className="aura-badge">{isPremium ? 'Premium' : 'Regular'}</span>
       </div>

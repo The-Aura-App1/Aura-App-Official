@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell, Sparkles, MessageCircle, UserPlus,
+  Bell, MessageCircle, UserPlus,
   TrendingDown, Check, CheckCheck, Trash2, AtSign, Swords, Star, Circle,
 } from 'lucide-react';
 import { api } from '../api';
@@ -9,10 +9,11 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { timeAgo } from '../utils/format';
 import { FollowRequests } from '../components/profile/FollowBits';
 import { GAME_BY_ID } from '../components/games/gameInfo';
+import AuraMark from '../components/brand/AuraMark';
 
 function notificationIcon(type) {
   switch (type) {
-    case 'aura_given':    return <Sparkles size={16} className="text-aura-400" />;
+    case 'aura_given':    return <AuraMark size={16} className="text-aura-400" />;
     case 'aura_taken':    return <TrendingDown size={16} className="text-red-400" />;
     case 'comment':       return <MessageCircle size={16} className="text-blue-400" />;
     case 'reply':         return <MessageCircle size={16} className="text-blue-400" />;
@@ -25,7 +26,7 @@ function notificationIcon(type) {
     case 'group_join':    return <UserPlus size={16} className="text-green-400" />;
     case 'group_request': return <UserPlus size={16} className="text-yellow-400" />;
     case 'group_approved':return <Check size={16} className="text-green-400" />;
-    case 'cashout_ready': return <Sparkles size={16} className="text-yellow-400" />;
+    case 'cashout_ready': return <AuraMark size={16} className="text-yellow-400" />;
     default:              return <Bell size={16} className="text-[var(--text-muted)]" />;
   }
 }

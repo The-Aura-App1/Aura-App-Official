@@ -1210,3 +1210,21 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
    light themes so they still read on white, paler on dark ones. */
 :root { --star: #cfa968; }
 .dark { --star: #e6cc96; }
+
+/* Buttons answer a press: a quick dip and a tighter glow, so a tap feels like
+   it landed (not just a colour change). Faster in than out. */
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 4px 10px -8px rgb(var(--aura-500) / 0.8), inset 0 2px 4px rgba(0, 0, 0, 0.18);
+  transition-duration: 0.06s;
+}
+.btn-secondary:active:not(:disabled), .btn-ghost:active:not(:disabled), .aura-press:active:not(:disabled) {
+  transform: scale(0.96);
+  transition: transform 0.06s ease;
+}
+.btn-secondary, .btn-ghost, .aura-press { transition-property: color, background-color, border-color, box-shadow, transform; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled), .btn-ghost:active:not(:disabled), .aura-press:active:not(:disabled) { transform: none; filter: brightness(0.92); }
+}
+/* The Aura mark catches the light when its button is hovered or pressed */
+button:hover > .aura-mark, a:hover > .aura-mark { filter: drop-shadow(0 0 3px rgb(var(--aura-400) / 0.7)); }

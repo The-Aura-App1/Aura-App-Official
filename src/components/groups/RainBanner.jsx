@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { CloudRain, Sparkles } from 'lucide-react';
+import { CloudRain } from 'lucide-react';
 import { api } from '../../api';
 import './powerups.css';
+import AuraMark from '../brand/AuraMark';
 
 // Drops of light falling through the banner, placed once
 const DROPS = Array.from({ length: 18 }, (_, i) => ({
@@ -62,7 +63,7 @@ export default function RainBanner({ groupId, rain, serverNow, onCaught }) {
         </div>
         {caught !== null ? (
           <span key={caught} className="aura-rain-caught inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 font-bold">
-            <Sparkles size={15} aria-hidden="true" /> +{caught} caught
+            <AuraMark size={15} aria-hidden="true" /> +{caught} caught
           </span>
         ) : notEligible ? (
           <span className="text-xs text-white/85 max-w-[14rem]">{notEligible}</span>

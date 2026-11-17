@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SlidersHorizontal, ShieldCheck, Sparkles, ArrowRight, ChevronDown, Heart, MessageCircle, Lightbulb, Star } from 'lucide-react';
+import { SlidersHorizontal, ShieldCheck, ArrowRight, ChevronDown, Heart, MessageCircle, Lightbulb, Star } from 'lucide-react';
 import { api } from '../api';
 import Avatar from '../components/common/Avatar';
 import Stars from '../components/common/Stars';
 import AuthBackdrop, { SiteHeader, Wordmark } from '../components/auth/AuthBackdrop';
+import AuraMark from '../components/brand/AuraMark';
 
 const FEATURES = [
   {
@@ -18,7 +19,7 @@ const FEATURES = [
     body: 'Your feed settings are saved in your browser and never sent to our servers. Even keyword matching runs right on your device.',
   },
   {
-    icon: Sparkles,
+    icon: AuraMark,
     title: 'Get rewarded for what you share',
     body: 'When people give aura to your posts, you earn it, and your best work rises to the top for everyone.',
   },
@@ -51,7 +52,7 @@ function PreviewPost({ className = '', style }) {
         </div>
         <div className="mt-3 flex items-center justify-between">
           <span className="aura-chip inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-white">
-            <Sparkles size={12} /> 1,284 aura
+            <AuraMark size={12} /> 1,284 aura
           </span>
           <span className="flex items-center gap-3 text-aura-800/60 dark:text-aura-100/60">
             <Heart size={14} /> <MessageCircle size={14} />

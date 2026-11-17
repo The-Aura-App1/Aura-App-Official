@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle, Share2, MoreHorizontal, Sparkles, MapPin, Users } from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, MapPin, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import AuraModal   from './AuraModal';
@@ -13,6 +13,7 @@ import { TextBody, CaptionText, frameProps } from './PostStyle';
 import { topicLabel, postTopicIds } from '../../utils/topics';
 import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
 import Reactions from './Reactions';
+import AuraMark from '../brand/AuraMark';
 
 // onRemove, when given, adds Delete/Remove to the ⋯ menu (own profile, and group moderation).
 // onPrefer(post, 'more' | 'less'), when given, adds "more/less like this" for tagged posts.
@@ -227,7 +228,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
                          text-aura-400 text-xs font-semibold
                          transition-all duration-200"
             >
-              <Sparkles size={13} />
+              <AuraMark size={13} />
               Give
             </button>
 
