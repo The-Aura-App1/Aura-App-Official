@@ -222,18 +222,54 @@ function SignHill() {
 
 // ── The sky ───────────────────────────────────────────────────────────
 
+// An airship drifting over the city by night: a moonlit envelope (lit from
+// the right, where the moon is) with curved panel seams and three tail fins,
+// a faint neon AURA on its side to match the sign on the hill, and a little
+// gondola with warm windows and a turning propeller.
 function Airship() {
+  const body = 'M 112 24 C 112 14 96 8 70 8 C 44 8 22 13 12 20 C 9 22 9 26 12 28 C 22 35 44 40 70 40 C 96 40 112 34 112 24 Z';
   return (
     <div className="aura-city-airship absolute" aria-hidden="true">
-      <svg className="aura-city-airship-bob block" viewBox="0 0 120 50" width="96" height="40">
-        <ellipse cx="60" cy="20" rx="46" ry="15" fill="#2a1f55" />
-        <path d="M 14 20 A 46 15 0 0 1 106 20" fill="none" stroke="#c7b5ff" strokeOpacity="0.45" strokeWidth="1.4" />
-        <path d="M 10 20 L 2 10 L 2 30 Z" fill="#221a48" />
-        <rect x="48" y="34" width="24" height="7" rx="3" fill="#1d1640" />
-        <rect x="52" y="36" width="3" height="3" fill="#ffd894" />
-        <rect x="58" y="36" width="3" height="3" fill="#ffd894" />
-        <rect x="64" y="36" width="3" height="3" fill="#ffd894" />
-        <circle className="aura-city-beacon" cx="106" cy="20" r="1.8" fill="#ff5d7a" />
+      <svg className="aura-city-airship-bob block" viewBox="0 0 124 60" width="124" height="60">
+        <defs>
+          <linearGradient id="as-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#5b4a9e" />
+            <stop offset="0.45" stopColor="#33276b" />
+            <stop offset="1" stopColor="#170f35" />
+          </linearGradient>
+          <linearGradient id="as-moon" x1="1" y1="0" x2="0" y2="0">
+            <stop offset="0" stopColor="#efe6ff" stopOpacity="0.55" />
+            <stop offset="0.35" stopColor="#efe6ff" stopOpacity="0" />
+          </linearGradient>
+          <clipPath id="as-clip"><path d={body} /></clipPath>
+        </defs>
+        {/* tail fins: upper, lower and the near side */}
+        <path d="M 16 21 L 3 9 L 9 9 L 24 18 Z" fill="#2a1f5c" stroke="#7d6bc4" strokeOpacity="0.5" strokeWidth="0.6" />
+        <path d="M 16 27 L 3 39 L 9 39 L 24 30 Z" fill="#1d1545" stroke="#7d6bc4" strokeOpacity="0.4" strokeWidth="0.6" />
+        <path d="M 18 24 L 4 22.5 L 4 25.5 Z" fill="#ff5d9e" opacity="0.8" />
+        {/* the envelope */}
+        <path d={body} fill="url(#as-body)" />
+        <g clipPath="url(#as-clip)">
+          {[0.3, 0.6].map(f => <path key={f} d={`M 10 ${24 - 16 * f} Q 62 ${24 - 19 * f} 112 ${24 - 10 * f}`} fill="none" stroke="#a593e8" strokeOpacity="0.28" strokeWidth="0.7" />)}
+          {[0.3, 0.6].map(f => <path key={`b${f}`} d={`M 10 ${24 + 16 * f} Q 62 ${24 + 19 * f} 112 ${24 + 10 * f}`} fill="none" stroke="#a593e8" strokeOpacity="0.18" strokeWidth="0.7" />)}
+          {[34, 52, 70, 88].map(x => <path key={x} d={`M ${x} 6 Q ${x + 3} 24 ${x} 42`} fill="none" stroke="#a593e8" strokeOpacity="0.16" strokeWidth="0.6" />)}
+          <path d={body} fill="url(#as-moon)" />
+          <path d="M 30 12 C 50 9 80 9 104 15" fill="none" stroke="#f4eeff" strokeOpacity="0.5" strokeWidth="1.3" strokeLinecap="round" />
+        </g>
+        {/* the nose cap */}
+        <path d="M 108 18 C 113 21 113 27 108 30" fill="none" stroke="#d9cdfa" strokeOpacity="0.6" strokeWidth="1.2" />
+        {/* a faint neon AURA on the side */}
+        <text x="64" y="27.5" textAnchor="middle" fontSize="8.5" fontStyle="italic" fontWeight="700" letterSpacing="1.6"
+          fill="#ff8fc4" fillOpacity="0.85" fontFamily="Fraunces, Georgia, serif" style={{ filter: 'drop-shadow(0 0 2px #ff5d9e)' }}>AURA</text>
+        {/* gondola: struts, cabin, warm windows, and the propeller turning at the back */}
+        <path d="M 54 39 L 52 44 M 76 39 L 78 44" stroke="#4a3b86" strokeWidth="0.9" />
+        <path d="M 49 44 L 83 44 Q 82 51 74 51 L 56 51 Q 49 51 49 44 Z" fill="#1d1640" stroke="#5c4b9e" strokeWidth="0.6" />
+        {[55, 61, 67, 73].map(x => <rect key={x} x={x} y="45.6" width="3.6" height="2.8" rx="0.8" fill="#ffd894" opacity="0.92" />)}
+        <ellipse cx="65" cy="47" rx="18" ry="3.5" fill="#ffd894" opacity="0.08" />
+        <line x1="49" y1="47.5" x2="45.5" y2="47.5" stroke="#4a3b86" strokeWidth="0.9" />
+        <ellipse className="aura-city-airship-prop" cx="44.5" cy="47.5" rx="1" ry="4.2" fill="#c7b5ff" opacity="0.55" />
+        <circle className="aura-city-beacon" cx="112" cy="24" r="1.9" fill="#ff5d7a" />
+        <circle className="aura-city-beacon" cx="3.5" cy="9" r="1.3" fill="#7dd3fc" style={{ animationDelay: '0.9s' }} />
       </svg>
     </div>
   );

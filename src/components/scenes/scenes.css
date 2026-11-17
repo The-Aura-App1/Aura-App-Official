@@ -387,13 +387,16 @@
   animation: airshipDrift 240s linear -50s infinite;
 }
 @keyframes airshipDrift {
-  0%           { opacity: 0;   transform: translateX(-120px); }
+  0%           { opacity: 0;   transform: translateX(-140px); }
   2%           { opacity: 0.9; }
   58%          { opacity: 0.9; }
   60%          { opacity: 0;   transform: translateX(calc(100vw + 20px)); }
   60.01%, 100% { opacity: 0;   transform: translateX(calc(100vw + 20px)); }
 }
 .aura-city-airship-bob { animation: balloonBob 8s ease-in-out infinite alternate; }
+/* the airship's propeller, turning (a blade squashing flat and back) */
+.aura-city-airship-prop { transform-box: fill-box; transform-origin: center; animation: airshipProp 0.22s linear infinite; }
+@keyframes airshipProp { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.15); } }
 
 /* The hill with the AURA sign: its ridge and sign at the top, its slope
    carrying on down behind the city (fading at the right edge). */
