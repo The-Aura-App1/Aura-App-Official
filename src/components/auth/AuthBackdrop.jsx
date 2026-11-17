@@ -137,7 +137,8 @@ export function SkyDecor({ variant = 'page' }) {
       <ShootingStars />
       {page ? <SkyField /> : <AppSkyConstellations />}
       {/* Night's moon: on the public pages SkyField places it clear of the text */}
-      {!page && <NightMoon className="top-[12%] right-[6%] lg:right-auto lg:left-[7%] lg:top-[63%] w-12 lg:w-16" />}
+      {/* behind the app only where there's a margin (on phones it sat behind the top buttons) */}
+      {!page && <div className="hidden lg:block"><NightMoon className="left-[7%] top-[63%] w-16" /></div>}
       {page
         ? <CrescentMoon className="aura-moon-page top-[84px] left-[22%] w-14" />
         : <CrescentMoon className="top-[9%] left-[6%] w-12" />}

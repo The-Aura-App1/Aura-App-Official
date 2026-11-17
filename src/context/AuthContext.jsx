@@ -17,6 +17,19 @@ export function AuthProvider({ children }) {
   useEffect(() => { loadUser(); }, []);
 
   async function loadUser() {
+    // The phone audit signs in as a made-up account (or stays signed out when
+    // the audit asks), without Cognito. Fixed at build time; real builds skip it.
+    if (process.env.REACT_APP_PHONE_AUDIT === '1') {
+      // eslint-disable-next-line global-require
+      const { ME } = require('../audit/fixtures');
+      let out = false;
+      try { out = localStorage.getItem('aura-audit-signed-out') === '1'; } catch { /* storage blocked */ }
+      setUser(out ? null : { userId: ME.userId, username: ME.username });
+      setAttrs(out ? null : { preferred_username: ME.username, 'custom:displayName': ME.displayName, 'custom:isPremium': 'true', 'custom:isCreator': 'true' });
+      setDbProfile(out ? null : ME);
+      setLoading(false);
+      return;
+    }
     try {
       const currentUser = await getCurrentUser();
       const userAttrs   = await fetchUserAttributes();

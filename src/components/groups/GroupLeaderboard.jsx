@@ -48,7 +48,7 @@ export default function GroupLeaderboard() {
                 <GroupAvatar name={g.name} picKey={g.picKey} size="xs" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold text-[var(--text-primary)] truncate group-hover:text-aura-400">{g.name}</span>
-                  {g.memberCount !== null && <span className="block text-[11px] text-[var(--text-muted)]">{g.memberCount.toLocaleString()} member{g.memberCount === 1 ? '' : 's'}</span>}
+                  {g.memberCount != null && <span className="block text-[11px] text-[var(--text-muted)]">{g.memberCount.toLocaleString()} member{g.memberCount === 1 ? '' : 's'}</span>}
                 </span>
                 <span className="text-right flex-shrink-0">
                   {by === 'level' ? (

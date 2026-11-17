@@ -19,8 +19,10 @@
 }
 
 /* A deleted comment folds away instead of vanishing. */
-.aura-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.32s ease, opacity 0.25s ease, transform 0.32s ease; }
-.aura-fold > * { min-height: 0; }
+/* minmax(0, 1fr) and min-width: 0 keep the column to its box: without them a
+   long name that won't wrap made the fold (and the page) wider than the screen */
+.aura-fold { display: grid; grid-template-rows: 1fr; grid-template-columns: minmax(0, 1fr); transition: grid-template-rows 0.32s ease, opacity 0.25s ease, transform 0.32s ease; }
+.aura-fold > * { min-height: 0; min-width: 0; }
 .aura-fold.is-leaving { grid-template-rows: 0fr; opacity: 0; transform: scale(0.98); }
 .aura-fold.is-leaving > * { overflow: hidden; }
 

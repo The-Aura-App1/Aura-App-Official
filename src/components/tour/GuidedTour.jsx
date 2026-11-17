@@ -215,12 +215,16 @@ export default function GuidedTour({ onClose }) {
     else go(1);
   }
 
-  const width = Math.min(CARD_WIDTH, view.width - 24);
+  // The screen as it is now (a phone can report a stale size while it settles)
+  const screenW = Math.min(view.width, document.documentElement.clientWidth || view.width);
+  const width = Math.min(CARD_WIDTH, screenW - 24);
   const spot  = step.target ? rect : null;
   const compact = step.handsOn && engaged;
-  const place = compact
-    ? { side: 'docked', arrow: null, top: view.width >= 1024 ? 16 : 64, left: Math.max(12, (view.width - width) / 2) }
-    : placeCard(spot, { width, height: cardSize.height }, view);
+  const placed = compact
+    ? { side: 'docked', arrow: null, top: view.width >= 1024 ? 16 : 64, left: Math.max(12, (screenW - width) / 2) }
+    : placeCard(spot, { width, height: cardSize.height }, { ...view, width: screenW });
+  // Never off the side of the screen, whatever the measurements said
+  const place = { ...placed, left: Math.min(Math.max(12, placed.left), Math.max(12, screenW - width - 12)) };
   const counter = `${index + 1} of ${steps.length}`;
 
   return (

@@ -1198,3 +1198,10 @@ html.is-scrolling .aura-scenery > [aria-hidden] * {
 /* The Premium card on /premium: a soft gold edge */
 .premium-card { border-color: rgb(251 191 36 / 0.45); box-shadow: 0 0 0 1px rgb(251 191 36 / 0.15), 0 18px 40px -28px rgb(251 191 36 / 0.6); }
 
+
+/* iPhones zoom the page in when a text box under 16px gets focus. On phones
+   every text box, select and text area uses 16px (the phone audit checks). */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select, textarea { font-size: 16px !important; }
+}

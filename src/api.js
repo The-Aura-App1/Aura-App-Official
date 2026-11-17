@@ -8,6 +8,12 @@ async function getToken() {
 }
 
 async function request(method, path, body = null, requiresAuth = true) {
+  // The phone audit (scripts/phone-audit.mjs) answers from sample data. The
+  // switch is fixed at build time, so real builds leave this out entirely.
+  if (process.env.REACT_APP_PHONE_AUDIT === '1') {
+    // eslint-disable-next-line global-require
+    return JSON.parse(JSON.stringify(require('./audit/fixtures').respond(method, path, body)));
+  }
   const headers = { 'Content-Type': 'application/json' };
 
   if (requiresAuth) {
