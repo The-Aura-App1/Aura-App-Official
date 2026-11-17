@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import { formatAura } from '../../utils/format';
 import { recordEngagement } from '../../utils/tasteProfile';
-import AuraMark from '../brand/AuraMark';
 
 const GIVE_PRESETS_REGULAR = [5, 10, 25, 50, 100, 250, 500];
 const GIVE_PRESETS_PREMIUM = [5, 10, 25, 50, 100, 250, 500, 1000, 2000];
@@ -68,7 +67,7 @@ export default function AuraModal({ post, comment = null, type, onSuccess, onClo
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <AuraMark
+            <Sparkles
               size={20}
               className={isGive ? 'text-aura-400' : 'text-red-400'}
             />

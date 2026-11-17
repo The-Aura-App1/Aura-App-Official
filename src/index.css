@@ -1238,3 +1238,27 @@ button:hover > .aura-mark, a:hover > .aura-mark { filter: drop-shadow(0 0 3px rg
   padding: 0;
   border: var(--frame-w, 3px) var(--frame-line, solid) var(--frame-line-color, currentColor);
 }
+
+/* ── Logo trial (2026-11-16, Corey asked to see Sacramento) ──────────────
+   Sacramento for "Aura App", with a slight outline so it holds up at small
+   sizes, a touch larger because the face runs small, and the halo centred
+   on the A's tip (measured: 0.92em across, 0.73em above the baseline) with
+   its back behind the letter and its front half over it (Wordmark.jsx).
+   To go back to Fraunces, delete this block and the `wrap` halos. */
+.aura-wordmark {
+  position: relative;
+  display: inline-block;
+  font-family: 'aura-post-sacramento', cursive;   /* loaded by Wordmark.jsx (loadPostFont) */
+  font-style: normal;
+  font-weight: 400;
+  font-variation-settings: normal;
+  font-size: 1.3em;
+  letter-spacing: 0.01em;
+  -webkit-text-stroke: 0.035em currentColor;
+  paint-order: stroke fill;
+  padding: 0.12em 0.1em 0.18em 0.04em;
+}
+.aura-wordmark .aura-wordmark-app { font-weight: 400; letter-spacing: 0.01em; }
+.aura-wordmark .aura-wordmark-text { position: relative; z-index: 1; }
+.aura-wordmark .aura-wordmark-halo { left: 0.66em; top: -0.14em; width: 0.6em; z-index: 0; }
+.aura-wordmark .aura-wordmark-halo.is-front { z-index: 2; clip-path: inset(48% 0 0 0); }
