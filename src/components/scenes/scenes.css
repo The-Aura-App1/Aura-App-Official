@@ -342,11 +342,15 @@
   -webkit-mask-image: linear-gradient(180deg, black 0%, black 30%, transparent 62%);
 }
 
-/* A big soft moon with faint maria, and a glow around it (no ring). */
+/* A big soft moon with faint maria, and a glow around it (no ring).
+   .aura-moon-face is the moon itself, shared by City Skies and Night so the
+   night skies have the same moon; each scene only places and sizes it. */
 .aura-city-moon {
   top: 9vh;
   right: 13%;
   width: clamp(4.5rem, 8vw, 7.5rem);
+}
+.aura-moon-face {
   aspect-ratio: 1;
   border-radius: 9999px;
   background:

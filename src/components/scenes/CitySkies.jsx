@@ -255,7 +255,7 @@ export default function CitySkies({ variant = 'page' }) {
         <div className="absolute inset-0 aura-stars-2 opacity-50" />
         <TwinklingStars seed={31} count={50} />
       </div>
-      <div className="aura-city-moon absolute" aria-hidden="true" />
+      <div className="aura-city-moon aura-moon-face absolute" aria-hidden="true" />
       {CLOUDS.map((c, i) => (
         <div key={i} className="aura-city-cloud absolute" aria-hidden="true"
           style={{ top: c.top, left: c.left, width: c.w, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }} />

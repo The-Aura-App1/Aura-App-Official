@@ -198,8 +198,10 @@ function layoutSky({ width, height, obstacles }) {
   const galaxyW = Math.round(wide ? 390 * scale : Math.min(150, width * 0.3));
   const moonW = Math.round(wide ? 92 * scale : 56);
   const items = [
-    { id: 'moon', w: moonW, h: moonW, gap: wide ? 40 : 12,
-      prefer: wide ? { x: width * 0.78, y: firstScreen * 0.16 } : { x: width * 0.84, y: 96 } },
+    // In open sky, away from the halo, the scene picker and the other stars
+    // (Corey, 2026-11-16: "move the moon to a less populated area")
+    { id: 'moon', w: moonW, h: moonW, gap: wide ? 80 : 16,
+      prefer: wide ? { x: width * 0.92, y: firstScreen * 0.47 } : { x: width * 0.86, y: 150 } },
     { id: 'galaxy', w: galaxyW, h: Math.round(galaxyW * 0.52), gap: wide ? undefined : 10,
       prefer: wide ? { x: width * 0.14, y: firstScreen * 0.42 } : { x: width * 0.16, y: 140 } },
   ];
