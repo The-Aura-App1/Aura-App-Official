@@ -8,7 +8,7 @@ export default function Stars({ value = 0, onChange, size = 16 }) {
 
   if (!onChange) {
     return (
-      <span className="inline-flex text-amber-400" aria-label={`${value} out of 5 stars`} role="img">
+      <span className="inline-flex text-[var(--star)]" aria-label={`${value} out of 5 stars`} role="img">
         {[1, 2, 3, 4, 5].map(n => (
           <Star key={n} size={size} fill={n <= Math.round(value) ? 'currentColor' : 'none'} strokeWidth={1.6} />
         ))}
@@ -21,7 +21,7 @@ export default function Stars({ value = 0, onChange, size = 16 }) {
       {[1, 2, 3, 4, 5].map(n => (
         <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} star${n > 1 ? 's' : ''}`}
           onClick={() => onChange(n)} onMouseEnter={() => setHover(n)}
-          className={`p-0.5 rounded-md transition-transform duration-150 hover:scale-110 ${n <= shown ? 'text-amber-400' : 'text-[var(--text-muted)]'}`}>
+          className={`p-0.5 rounded-md transition-transform duration-150 hover:scale-110 ${n <= shown ? 'text-[var(--star)]' : 'text-[var(--text-muted)]'}`}>
           <Star size={size} fill={n <= shown ? 'currentColor' : 'none'} strokeWidth={1.6} />
         </button>
       ))}

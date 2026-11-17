@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle, Share2, MoreHorizontal, Sparkles } from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, Sparkles, MapPin, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api }     from '../../api';
 import AuraModal   from './AuraModal';
@@ -115,7 +115,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
         <div className="flex items-center justify-between px-4 py-3">
           <Link
             to={`/profile/${encodeURIComponent(post.authorUsername ?? '')}`}
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 min-w-0"
           >
             {/* Avatar */}
             <div className="w-9 h-9 rounded-full bg-aura-500/20 border border-aura-500/30
@@ -134,13 +134,19 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
                   </div>
                 )}
               </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--text-primary)]
                             hover:text-aura-400 transition-colors">
                 {post.authorDisplay}
               </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                {timeAgo(post.createdAt)}
+              <p className="text-xs text-[var(--text-muted)] flex items-center gap-1 min-w-0">
+                <span className="flex-shrink-0">{timeAgo(post.createdAt)}</span>
+                {post.location && (
+                  <span className="flex items-center gap-0.5 min-w-0" title={post.location}>
+                    <span aria-hidden="true">·</span><MapPin size={11} className="flex-shrink-0" aria-label="Taken at" />
+                    <span className="truncate">{post.location}</span>
+                  </span>
+                )}
               </p>
             </div>
           </Link>
@@ -306,6 +312,18 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
               <CaptionText text={post.caption} style={post.style} />
             </p>
           </div>
+        )}
+
+        {post.people?.length > 0 && (
+          <p className="px-4 pb-1.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-[var(--text-muted)]">
+            <Users size={12} aria-hidden="true" /> With
+            {post.people.map((p, i) => (
+              <React.Fragment key={p.userId}>
+                <Link to={`/profile/${encodeURIComponent(p.username)}`} onClick={e => e.stopPropagation()} className="font-semibold text-[var(--text-secondary)] hover:text-[var(--accent)]">@{p.username}</Link>
+                {i < post.people.length - 1 ? ',' : ''}
+              </React.Fragment>
+            ))}
+          </p>
         )}
 
         {(tags.length > 0 || hashtags.length > 0) && (

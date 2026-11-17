@@ -79,6 +79,9 @@ const TOPICS = new Set([
   'motivation', 'sustainability', 'outdoors', 'cars', 'diy',
 ]);
 const MAX_POST_TOPICS = 3;
+// People tagged in a post, and the place name (keep in sync with src/utils/postExtras.js)
+const MAX_TAGGED = 10;
+const LOCATION_MAX = 60;
 // Who may comment on a post; keep in sync with aura-users
 const COMMENT_VISIBILITY = ['anyone', 'followers'];
 
@@ -338,6 +341,33 @@ async function createPost(userId, body) {
   const placed = checkOverlays(body.overlays, type === 'image' ? (mediaKeys?.length ?? 0) : 1, cleanText);
   if (placed.error) return response(400, { error: placed.error });
 
+  // People tagged in the post: real, active accounts (found through their
+  // USERNAME# reservations), never someone either of you has blocked
+  let people = [];
+  if (body.people !== undefined && body.people !== null) {
+    if (!Array.isArray(body.people) || body.people.length > MAX_TAGGED) return response(400, { error: `Tag up to ${MAX_TAGGED} people.` });
+    const names = [...new Set(body.people.map(n => String(n ?? '').toLowerCase().replace(/^@/, '')))];
+    if (!names.every(n => /^[a-z0-9_]{3,30}$/.test(n))) return response(400, { error: 'Tag people by their username.' });
+    const reservations = names.length ? await batchGet(USERS_TABLE, names.map(n => ({ userId: `USERNAME#${n}` }))) : [];
+    const owners = new Map(reservations.map(r => [r.userId.slice('USERNAME#'.length), r.ownerId]));
+    const accounts = new Map((owners.size ? await batchGet(USERS_TABLE, [...owners.values()].map(id => ({ userId: id }))) : []).map(u => [u.userId, u]));
+    for (const name of names) {
+      const owner = owners.get(name);
+      if (!owner || !accounts.get(owner) || accounts.get(owner).isBanned) return response(400, { error: `Couldn't find @${name}.` });
+      if (owner === userId) return response(400, { error: 'You don\'t need to tag yourself.' });
+      if (await eitherBlocked(dynamo, userId, owner)) return response(400, { error: `You can't tag @${name}.` });
+      people.push({ userId: owner, username: name });
+    }
+  }
+
+  // Where it was taken: a short place name they type (no coordinates are kept)
+  let location = '';
+  if (body.location !== undefined && body.location !== null) {
+    location = cleanText(String(body.location)).replace(/\s+/g, ' ').trim();
+    if (location.length > LOCATION_MAX) return response(400, { error: `Keep the location under ${LOCATION_MAX} characters.` });
+    if (/(https?:|www\.|@|\.[a-z]{2,}\/)/i.test(location)) return response(400, { error: 'A location is a place name, not a link or an address to contact.' });
+  }
+
   const postId = generateId();
   const now    = new Date().toISOString();
 
@@ -352,6 +382,8 @@ async function createPost(userId, body) {
     mediaKeys:      mediaKeys ?? [],
     tags:           tags ?? [],
     ...(custom.length && { customTopics: custom }),
+    ...(people.length && { people }),
+    ...(location && { location }),
     hashtags:       hashtags ?? [],
     auraScore:      0,
     auraReceived:   0,

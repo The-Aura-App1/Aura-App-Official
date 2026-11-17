@@ -221,7 +221,7 @@ function Suggestions() {
         <textarea id="suggestion" value={text} onChange={e => setText(e.target.value.slice(0, SUGGESTION_MAX))}
           rows={3} placeholder="A feature, a fix, a new theme idea..." className="input resize-none" />
         <div className="flex items-center justify-between gap-3">
-          <span className={`text-xs ${left < 50 ? 'text-amber-400' : 'text-[var(--text-muted)]'}`}>
+          <span className={`text-xs ${left < 50 ? 'text-[var(--star)]' : 'text-[var(--text-muted)]'}`}>
             {text.trim().length < SUGGESTION_MIN ? `At least ${SUGGESTION_MIN} characters` : `${left} left`}
           </span>
           <button type="submit" disabled={text.trim().length < SUGGESTION_MIN || sending} className="btn-primary px-5 py-2 text-sm">
@@ -306,10 +306,10 @@ function RatingSummary({ data, stars, onStars }) {
                 ${on ? 'bg-[var(--accent-subtle)]' : 'enabled:hover:bg-[var(--accent-subtle)]'}
                 disabled:opacity-40 disabled:cursor-default`}>
               <span className={`w-6 flex items-center gap-0.5 font-semibold tabular-nums ${on ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}>
-                {n}<Star size={10} className="text-amber-400" fill="currentColor" />
+                {n}<Star size={10} className="text-[var(--star)]" fill="currentColor" />
               </span>
               <span className="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
-                <span className="block h-full rounded-full bg-amber-400 transition-[width] duration-500 ease-out"
+                <span className="block h-full rounded-full bg-[var(--star)] transition-[width] duration-500 ease-out"
                   style={{ width: `${(count / most) * 100}%` }} />
               </span>
               <span className={`w-6 text-right tabular-nums ${on ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-muted)]'}`}>{count}</span>
