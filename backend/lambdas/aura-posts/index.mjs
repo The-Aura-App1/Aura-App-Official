@@ -646,7 +646,10 @@ async function getFeed(viewerId) {
   return response(200, { posts: await forViewer(posts, viewerId) });
 }
 
-async function getUserPosts(authorId, viewerId, limit = 20) {
+// `mine`: the author asking for their own posts (the Creator page) gets group
+// posts too, and up to MINE_LIMIT of them, with their own views and likes.
+const MINE_LIMIT = 500;
+async function getUserPosts(authorId, viewerId, limit = 20, mine = false) {
   if (!(await canSeeAccount(dynamo, viewerId, authorId, ADMIN_IDS.has(viewerId)))) {
     return response(403, { error: 'This account is private.', private: true });
   }
@@ -655,7 +658,7 @@ async function getUserPosts(authorId, viewerId, limit = 20) {
   }
   const authored = await scanAll({
     TableName:        POSTS_TABLE,
-    FilterExpression: 'authorId = :aid AND #status = :active AND attribute_not_exists(groupId)',
+    FilterExpression: `authorId = :aid AND #status = :active${mine ? '' : ' AND attribute_not_exists(groupId)'}`,
     ExpressionAttributeNames:  { '#status': 'status' },
     ExpressionAttributeValues: { ':aid': authorId, ':active': 'active' },
   });
@@ -1105,8 +1108,9 @@ export const handler = async (event) => {
     if (method === 'GET' && segments[0] === 'users' && segments.length === 3 && segments[2] === 'posts') {
       const authorId = segments[1];
       const asked    = parseInt(event.queryStringParameters?.limit ?? '20', 10);
-      const limit    = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), 50) : 20;
-      return await getUserPosts(authorId, userId, limit);
+      const mine     = event.queryStringParameters?.scope === 'mine' && !!userId && authorId === userId;
+      const limit    = Number.isInteger(asked) ? Math.min(Math.max(asked, 1), mine ? MINE_LIMIT : 50) : 20;
+      return await getUserPosts(authorId, userId, limit, mine);
     }
 
     if (method === 'GET' && path === '/posts') {

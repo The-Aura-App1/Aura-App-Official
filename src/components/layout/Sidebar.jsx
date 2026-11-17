@@ -73,7 +73,7 @@ export default function Sidebar() {
         </button>
         <div className={`aura-fold ${moreOpen ? '' : 'is-leaving'}`} aria-hidden={!moreOpen}>
           <div className="flex flex-col gap-1 pl-3">
-            {moreItems(!!dbProfile?.isAdmin).map(({ to, icon: Icon, label }) => (
+            {moreItems(!!dbProfile?.isAdmin, !!dbProfile?.isCreator).map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to} tabIndex={moreOpen ? 0 : -1}
                 // The tour link opens a dialog over the feed, so it never shows as the current page
                 className={to.startsWith('/?') ? linkClass({ isActive: false }) : linkClass}>

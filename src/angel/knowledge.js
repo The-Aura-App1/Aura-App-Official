@@ -152,7 +152,7 @@ export const KNOWLEDGE = [
   {
     id: 'wallet', q: 'How does the Aura Wallet work?',
     keys: ['wallet', 'balance', 'my aura went', 'lost aura', 'aura went down', 'where did my aura go', 'history'],
-    a: 'Your Aura Wallet (in the More menu) shows your balance split into earned and spendable, plus today\'s limits (a full list of changes is coming). Your balance goes down when you give or take aura, stake a game or use a power-up, and when someone takes from your post. The Aura tab on your profile graphs it over time.',
+    a: 'Your Aura Wallet (in the More menu) shows your balance split into earned and spendable, plus today\'s limits (a full list of changes is coming). Your balance goes down when you give or take aura, stake a game or use a power-up, and when someone takes from your post. The Aura tab on your profile and your wallet graph it over time.',
   },
   {
     id: 'caption-tips', q: 'How do I write a good caption?',

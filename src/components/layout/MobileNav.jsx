@@ -52,7 +52,7 @@ function MeSheet({ onClose }) {
 
         <div className="my-2 border-t border-[var(--border)]" />
 
-        {moreItems(!!dbProfile?.isAdmin).map(({ to, icon: Icon, label }, i) => (
+        {moreItems(!!dbProfile?.isAdmin, !!dbProfile?.isCreator).map(({ to, icon: Icon, label }, i) => (
           <Link key={to} to={to} onClick={onClose} className={`${row} aura-arrive`} style={{ animationDelay: `${60 + i * 35}ms` }}>
             <Icon size={20} className="text-[var(--accent)]" /> {label}
           </Link>

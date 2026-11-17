@@ -82,6 +82,8 @@ export const api = {
   deletePost:     (postId)               => request('DELETE', `/posts/${id(postId)}`),
   getUploadUrls:  (files)                => request('POST', '/posts/upload-urls', { files }),
   getUserPosts: (userId, limit = 20) => request('GET', `/users/${id(userId)}/posts?limit=${limit}`),
+  // Your own posts with their stats, group posts included (the Creator page)
+  getMyPostStats: userId => request('GET', `/users/${id(userId)}/posts?limit=500&scope=mine`),
   fixAuthorNames: (newUsername, newDisplayName, newProfilePicKey) =>
   request('POST', '/posts/fix-author', { newUsername, newDisplayName, newProfilePicKey }),
 

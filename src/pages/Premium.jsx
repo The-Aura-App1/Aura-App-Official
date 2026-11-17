@@ -44,7 +44,7 @@ const PREMIUM_PERKS = [
 const CREATOR_PERKS = [
   { icon: Wallet, title: 'Cash out earned aura', text: 'Turn the aura people give your posts into money: creators keep 75%. Coming later, with a $20 minimum and for verified adults (18+) only.', soon: true },
   { icon: BadgeCheck, title: 'Verified creator account', text: 'Confirm who you are, which cashing out will need.', soon: true },
-  { icon: BarChart3, title: 'Creator analytics', text: 'See how your posts do over time: views, aura received and more.', soon: true },
+  { icon: BarChart3, title: 'Creator analytics', text: 'The Creator page: views, aura received, likes, comments and reactions for every post, your top post, and your aura over time. Daily charts for each post and your top supporters are coming.' },
   { icon: Share2, title: 'Share counts', text: 'See how many times your posts are shared to groups.', soon: true },
 ];
 
@@ -172,7 +172,10 @@ export default function Premium() {
           Creator accounts work alongside Premium; you can have either or both.
         </p>
         {isCreator ? (
-          <p className="flex items-center gap-2 text-sm font-semibold text-aura-400"><Check size={16} /> You have a creator account.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-aura-400"><Check size={16} /> You have a creator account.</p>
+            <Link to="/creator" className="btn-secondary px-4 py-2 text-sm text-[var(--text-primary)]">Open the Creator page</Link>
+          </div>
         ) : (
           <button type="button" disabled className="btn-secondary self-start px-4 py-2 opacity-70 cursor-not-allowed text-[var(--text-primary)]">Become a creator (coming soon)</button>
         )}

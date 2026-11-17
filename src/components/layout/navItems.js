@@ -1,14 +1,16 @@
-import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info, Compass, Sparkles, Crown, Brush } from 'lucide-react';
+import { Wallet, Settings, MessageSquareHeart, ShieldAlert, Info, Compass, Sparkles, Crown, Brush, BarChart3 } from 'lucide-react';
 
 // Everything outside the five main tabs. The sidebar shows these under
 // "More"; phones show them in the "Me" sheet. Keep the main tabs to five so
 // the phone bar never overflows; new pages go here.
-export function moreItems(isAdmin) {
+export function moreItems(isAdmin, isCreator = false) {
   return [
     { to: '/angel',    icon: Sparkles,           label: 'Angel' },
     { to: '/wallet',   icon: Wallet,             label: 'Aura Wallet' },
     { to: '/premium',  icon: Crown,              label: 'Premium' },
     { to: '/studio',   icon: Brush,              label: 'Theme Studio' },
+    // Creator accounts (and admins, to check it)
+    ...(isCreator || isAdmin ? [{ to: '/creator', icon: BarChart3, label: 'Creator' }] : []),
     { to: '/settings', icon: Settings,           label: 'Settings' },
     { to: '/feedback', icon: MessageSquareHeart, label: 'Suggestions & Reviews' },
     ...(isAdmin ? [{ to: '/moderation', icon: ShieldAlert, label: 'Moderation' }] : []),
@@ -18,5 +20,5 @@ export function moreItems(isAdmin) {
 }
 
 export function isMorePath(pathname) {
-  return ['/angel', '/wallet', '/premium', '/studio', '/settings', '/feedback', '/moderation'].some(p => pathname.startsWith(p));
+  return ['/angel', '/wallet', '/premium', '/studio', '/creator', '/settings', '/feedback', '/moderation'].some(p => pathname.startsWith(p));
 }
