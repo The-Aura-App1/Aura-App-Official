@@ -104,7 +104,7 @@ function wordScore(post, words, groupName = null) {
   if (!words.length) return 0;
   const tags = (post.hashtags ?? []).map(lower);
   const caption = lower(post.caption).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  const topicWords = [...(post.tags ?? []).map(t => TOPICS.find(x => x.id === t)?.label ?? t), ...(post.customTopics ?? [])].flatMap(t => lower(t).split(/\s+/));
+  const topicWords = [...(post.tags ?? []).map(t => TOPICS.find(x => x.id === t)?.label ?? t), ...(post.customTopics ?? []), post.location ?? ''].filter(Boolean).flatMap(t => lower(t).split(/\s+/));
   const author = [lower(post.authorUsername), ...lower(post.authorDisplay).split(/\s+/)];
   // a group post also matches its group's name ("the twist post in book club")
   const pool = [...tags, ...caption, ...(groupName ? lower(groupName).split(/\s+/) : [])];

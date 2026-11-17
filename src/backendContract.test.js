@@ -286,3 +286,10 @@ test('Theme Studio designs are checked by the same code in the app and aura-user
   // every scene a design can use is a built-in theme's scene
   expect([...new Set(THEMES.map(t => t.scene).filter(Boolean))].sort()).toEqual([...DESIGN_SCENES].sort());
 });
+
+test('tagging and place limits match aura-posts', () => {
+  const app = require('./utils/postExtras');
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-posts', 'index.mjs'), 'utf8');
+  expect(Number(constant(server, 'MAX_TAGGED'))).toBe(app.MAX_TAGGED);
+  expect(Number(constant(server, 'LOCATION_MAX'))).toBe(app.LOCATION_MAX);
+});

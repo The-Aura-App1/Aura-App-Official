@@ -39,7 +39,8 @@ export function textMatch(post, words) {
   if (!words.length) return 0;
   const hashtags = new Set((post.hashtags ?? []).map(hashtagKey));
   const topics   = [...(post.tags ?? []).map(t => TOPIC_LABELS[t] ?? t), ...(post.customTopics ?? [])].flatMap(wordsOf);
-  const caption  = wordsOf(post.caption);
+  // the caption, plus where it was taken and who's tagged in it
+  const caption  = [...wordsOf(post.caption), ...wordsOf(post.location), ...(post.people ?? []).flatMap(p => wordsOf(p.username))];
   const author   = [...wordsOf(post.authorUsername), ...wordsOf(post.authorDisplay)];
 
   let total = 0;

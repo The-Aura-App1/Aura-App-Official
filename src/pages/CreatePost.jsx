@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
 import CustomTopics from '../components/post/CustomTopics';
+import PeopleAndPlace from '../components/post/PeopleAndPlace';
 import { topicDisplay } from '../utils/customTopics';
 import { postEmbeddingText } from '../utils/embeddings';
 import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
@@ -67,6 +68,8 @@ export default function CreatePost() {
   const [videoAspect, setVideoAspect] = useState(1);
   const [topics, setTopics]         = useState([]);
   const [customTopics, setCustomTopics] = useState([]);   // their own (customTopics.js)
+  const [people, setPeople]         = useState([]);   // usernames tagged in the post
+  const [location, setLocation]     = useState('');   // where it was taken (a place name)
   const [hashtags, setHashtags]     = useState([]);
   const [allowTakes, setAllowTakes] = useState(true);
   const [groupTakesOff, setGroupTakesOff] = useState(false);
@@ -276,6 +279,8 @@ export default function CreatePost() {
         tags:      groupId ? [] : topics,
         ...(!groupId && customTopics.length && { customTopics }),
         hashtags:  tags,
+        ...(people.length && { people }),
+        ...(location.trim() && { location: location.trim() }),
         ...(embedding && { embedding }),
         allowTakes: allowTakes && !groupTakesOff,
         ...(cleanStyle(look, postType) && { style: cleanStyle(look, postType) }),
@@ -504,6 +509,8 @@ export default function CreatePost() {
               </div>
             )}
           </div>
+
+          <PeopleAndPlace people={people} onPeople={setPeople} location={location} onLocation={setLocation} me={dbProfile?.username} />
 
           {/* Taking aura: chosen once, locked after posting */}
           <div className="card flex items-center justify-between gap-4" data-tour="post-takes">
