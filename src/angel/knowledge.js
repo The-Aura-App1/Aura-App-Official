@@ -105,9 +105,14 @@ export const KNOWLEDGE = [
     a: 'Moments are coming to groups: dual-camera photos or videos that disappear after 24 hours unless saved. Group owners can already switch them on or off.',
   },
   {
+    id: 'angel-actions', q: 'What can Angel do for me?',
+    keys: ['what can you do for me', 'can you do things for me', 'can angel give aura', 'do things for me', 'act for me', 'let angel make changes', 'does angel ask first'],
+    a: 'Besides answering, I can do things in the app for you, always after you say yes to a card that shows exactly what will happen: give or take aura on a post, like or unlike it, share it to one of your groups, spotlight your group post, start an Aura Rain, delete your own post, comment or post in your own words, join or leave groups, answer follow requests, remove a follower, mark notifications read, and change settings and profile tags. I do one thing at a time, never in bulk, and never write your words for you. To stop me making changes, turn off "Let Angel make changes" in Settings > Angel.',
+  },
+  {
     id: 'delete-account', q: 'How do I delete my account?',
     keys: ['delete my account', 'delete account', 'close my account'],
-    a: 'Go to Settings > Danger zone.',
+    a: 'There\'s no delete button in the app yet. Ask me to contact support and the Aura team will close your account for you.',
   },
   {
     id: 'earn', q: 'How do I earn aura?',
@@ -127,7 +132,7 @@ export const KNOWLEDGE = [
   {
     id: 'settings', q: 'Where are my settings?',
     keys: ['settings', 'setting', 'preferences page', 'find my settings', 'account settings'],
-    a: 'Settings is in the More menu: the sidebar on a computer, or the Me sheet on a phone. It has Account, Appearance (themes and scenery), Privacy (private account, blocks, your rank), Notifications and the Danger zone.',
+    a: 'Settings is in the More menu: the sidebar on a computer, or the Me sheet on a phone. It has Account, Appearance (themes, Theme Studio and scenery), Angel (whether I may make changes for you), Privacy (private account, blocks, your rank) and Notifications.',
   },
   {
     id: 'verify', q: 'How do I get verified?',

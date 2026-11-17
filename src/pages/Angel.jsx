@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import useChooseTheme from '../hooks/useChooseTheme';
 import { respond, MAX_MESSAGE } from '../angel/angel';
+import { changesAllowed } from '../angel/actions';
 import { SUPPORT_MAX } from '../angel/flows';
 import { reasonLabel, announceBlocked } from '../utils/reportReasons';
 import { defaultNotificationPrefs } from '../utils/notificationOptions';
@@ -98,6 +99,10 @@ function Reply({ reply, onAction, onAsk, onGo, busy }) {
           ))}
         </ul>
       )}
+      {/* the person's own words, exactly as they'll be posted */}
+      {reply.preview && (
+        <blockquote className="text-sm whitespace-pre-wrap break-words rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-[var(--text-primary)]">{reply.preview}</blockquote>
+      )}
       {reply.note && <p className="text-xs opacity-70">{reply.note}</p>}
       {reply.followUps?.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -135,7 +140,7 @@ export default function Angel() {
   const navigate = useNavigate();
   const chooseTheme = useChooseTheme();
   const [messages, setMessages] = useState([
-    { from: 'angel', reply: { kind: 'hello', text: 'Hi, I\'m Angel. I can tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team. I run on your device: only a report or a support message ever leaves it, and only when you say send.' } },
+    { from: 'angel', reply: { kind: 'hello', text: 'Hi, I\'m Angel. I can tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team. I can also do things for you, like give aura, like or share a post, or post your own words, always after you say yes. I run on your device: what you tell me stays here, and I only ask Aura\'s servers to do what you say yes to.' } },
   ]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -146,6 +151,7 @@ export default function Angel() {
   const pendingActions = useRef([]);
   const lastSubjects = useRef(null);
   const lastFind = useRef(null);   // the posts she just found, for "the second one" or "show more"
+  const recentGives = useRef([]);  // whose posts she gave aura to in this chat (once each)
   const pool = useRef(null);
   const endRef = useRef(null);
   // A report or support message under way (see angel/flows.js)
@@ -184,6 +190,7 @@ export default function Angel() {
         taste: prepareTaste(loadTaste(user?.userId)), learning: isLearningOn(user?.userId),
         flow, lookupUser, lookupPost, customTheme: loadCustom(),
         pendingActions: pendingActions.current, lastSubjects: lastSubjects.current, lastFind: lastFind.current,
+        changesAllowed: changesAllowed(), recentGives: recentGives.current,
         api: { getNotifications: api.getNotifications, getMyGroups: api.getMyGroups, listGroups: api.listGroups,
           getLikedPosts: api.getLikedPosts, getGroupPosts: api.getGroupPosts },
       });
@@ -191,7 +198,8 @@ export default function Angel() {
       lastKind.current = reply.kind;
       pendingActions.current = (reply.actions ?? []).filter(a => !a.payload?.undo);
       if (reply.subjects) lastSubjects.current = reply.subjects;
-      lastFind.current = reply.find ?? null;
+      // a card about a post she found keeps "it" pointing at that post
+      lastFind.current = reply.find ?? (reply.kind === 'action' ? lastFind.current : null);
       setFlow(reply.flow ?? null);
       say('angel', reply);
       // things she does straight away (a setting, the daily bonus, a confirmed send)
@@ -359,8 +367,81 @@ export default function Angel() {
           }
         }
       }
+      await runAppAction(action, { markDone, fail });
     } catch {
       say('angel', { kind: 'error', text: 'Something went wrong on my side. Try again.' });
+    }
+  }
+
+  // The actions from angel/actions.js, each after the person's yes. Every one
+  // says what happened and how to undo it, where it can be undone.
+  async function runAppAction(action, { markDone, fail }) {
+    const p = action.payload ?? {};
+    const done = (text, extra = {}) => { markDone(); say('angel', { kind: 'command', text, ...extra }); };
+    const post = id => ({ to: `/post/${encodeURIComponent(id)}`, label: 'Open the post' });
+    try {
+      switch (action.id) {
+        case 'give-aura':
+          await api.giveAura(p.postId, p.amount);
+          if (p.authorId) recentGives.current = [...recentGives.current, p.authorId];
+          await refreshUser?.();
+          return done(`Gave ${p.amount.toLocaleString()} aura to @${p.author}'s post. Aura that's given can't be taken back.`, { links: [post(p.postId)] });
+        case 'take-aura':
+          await api.takeAura(p.postId, p.amount);
+          await refreshUser?.();
+          return done(`Took ${p.amount.toLocaleString()} aura from @${p.author}'s post. It can't be given back.`, { links: [post(p.postId)] });
+        case 'like-post':
+          await (p.on ? api.likePost(p.postId) : api.unlikePost(p.postId));
+          return done(p.on ? 'Liked. Say "unlike it" to undo.' : 'Unliked.', { links: [post(p.postId)] });
+        case 'share-post':
+          await api.shareToGroup(p.postId, p.groupId);
+          return done(`Shared to ${p.groupName}. You can delete the share from the group's feed.`, { links: [{ to: `/groups/${encodeURIComponent(p.groupId)}`, label: `Open ${p.groupName}` }] });
+        case 'spotlight':
+          await api.spotlightPost(p.groupId, p.postId);
+          await refreshUser?.();
+          return done('Your post is in the spotlight for the next 24 hours. A spotlight can\'t be undone.', { links: [post(p.postId)] });
+        case 'start-rain':
+          await api.startRain(p.groupId, p.pot);
+          await refreshUser?.();
+          return done(`Aura Rain started in ${p.groupName}. Whatever isn't caught comes back to you.`, { links: [{ to: `/groups/${encodeURIComponent(p.groupId)}`, label: `Open ${p.groupName}` }] });
+        case 'delete-post':
+          await api.deletePost(p.postId);
+          return done('Your post is deleted.');
+        case 'comment': {
+          await api.createComment(p.postId, p.text);
+          return done('Your comment is up. You can delete it from the post.', { links: [post(p.postId)] });
+        }
+        case 'create-post': {
+          const created = await api.createPost({ type: 'text', caption: p.caption, mediaKeys: [], tags: [], hashtags: p.hashtags ?? [] });
+          const id = created?.post?.postId ?? created?.postId;
+          return done('Posted. You can delete it from the post\'s ⋯ menu.', id ? { links: [post(id)] } : {});
+        }
+        case 'group':
+          await (p.verb === 'join' ? api.joinGroup(p.groupId) : api.leaveGroup(p.groupId));
+          return done(p.verb === 'join' ? `You're in ${p.groupName} (or your request to join is sent). Say "leave ${p.groupName}" to undo.` : `You've left ${p.groupName}.`,
+            { links: [{ to: `/groups/${encodeURIComponent(p.groupId)}`, label: `Open ${p.groupName}` }] });
+        case 'answer-request':
+          await api.answerFollowRequest(p.userId, p.approve);
+          return done(p.approve ? `@${p.username} follows you now. To undo, say "remove @${p.username} from my followers".` : `Declined @${p.username}'s request.`);
+        case 'remove-follower':
+          await api.removeFollower(p.userId);
+          return done(`@${p.username} no longer follows you.`);
+        case 'read-all':
+          await api.markAllRead();
+          return done('All your notifications are marked read.', { links: [{ to: '/notifications', label: 'Notifications' }] });
+        case 'set-tags':
+          await api.updateProfile({ tags: p.tags });
+          await refreshUser?.();
+          return done('Your profile tags are updated.', { links: [{ to: '/profile', label: 'See your profile' }] });
+        case 'set-profile':
+          await api.updateProfile({ [p.field]: p.value });
+          await refreshUser?.();
+          return done('Done. You can change it back any time in Settings, or ask me.');
+        default:
+          return undefined;
+      }
+    } catch (err) {
+      return fail(err);
     }
   }
 
@@ -372,7 +453,7 @@ export default function Angel() {
         </div>
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Angel</h1>
-          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><ShieldCheck size={12} aria-hidden="true" /> Runs on your device. Only reports and support messages you send leave it.</p>
+          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1"><ShieldCheck size={12} aria-hidden="true" /> Runs on your device. What you tell her stays here; she only asks Aura's servers to do what you say yes to.</p>
         </div>
       </header>
 

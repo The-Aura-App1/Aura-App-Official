@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut, ShieldAlert, Brush, ChevronRight } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut, ShieldAlert, Brush, ChevronRight, Sparkles } from 'lucide-react';
+import { changesAllowed, setChangesAllowed } from '../angel/actions';
 import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -184,6 +185,7 @@ export default function Settings() {
   const [settings, setSettings] = useState(null);
   // Feed learning lives on this device only (tasteProfile.js)
   const [learning, setLearning] = useState(() => isLearningOn(user?.userId));
+  const [angelChanges, setAngelChanges] = useState(changesAllowed);
   const [learnReset, setLearnReset] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
@@ -297,6 +299,16 @@ export default function Settings() {
           description="The moving scenery behind themes like Day, Night, Snowy Peaks, Northern Lights, Abyss and Lantern Lake. Saved on this device."
           checked={skyDetails}
           onChange={setSkyDetails}
+        />
+      </Section>
+
+      {/* ── Angel (kept on this device) ── */}
+      <Section id="angel" icon={Sparkles} title="Angel">
+        <Toggle
+          label="Let Angel make changes"
+          description="Angel can give aura, like, share, post your own words, join groups, change settings and more for you, always after you say yes to each one. Off, she still answers questions and finds things, and points you to where to do them yourself. Saved on this device."
+          checked={angelChanges}
+          onChange={value => { setChangesAllowed(value); setAngelChanges(value); }}
         />
       </Section>
 

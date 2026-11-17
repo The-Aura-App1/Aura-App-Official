@@ -12,6 +12,7 @@ import { THEMES } from '../themes';
 import INTENT_MODEL from './intentModel.json';
 import { continueFlow, startReport, startSupport, WANTS_REPORT, WANTS_SUPPORT, SUPPORT_MAX } from './flows';
 import { commandReply } from './commands';
+import { actionReply, READ_ONLY_ACTIONS } from './actions';
 import {
   vocabularyOf, relatedTags, ASKS_CATCH_UP, catchUpReply, asksToFindPosts, wantsBot, playBotReply, ASKS_GROUPS, groupsReply,
 } from './assist';
@@ -42,7 +43,7 @@ export function refusal(extra = '') {
   const text = REFUSALS[refusalTurn++ % REFUSALS.length];
   return { kind: 'refuse', text: extra ? `${text} ${extra}` : text };
 }
-const WHAT_I_DO = 'I can catch you up on what you missed, find a post you describe (in your likes, your groups or popular posts), start a game against a bot, suggest groups, tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team.';
+const WHAT_I_DO = 'I can catch you up on what you missed, find a post you describe (in your likes, your groups or popular posts), start a game against a bot, suggest groups, tune your feed, look up trends, answer questions about Aura, make you a custom theme, give feedback on a post, change your settings, report someone, or pass a message to Aura\'s support team. I can also do things for you, always after you say yes: give or take aura on a post, like it, share it to a group, comment or post in your own words, join or leave groups, answer follow requests and more.';
 
 // ── Reading a message ─────────────────────────────────────────────────
 
@@ -655,8 +656,12 @@ const OWN_JOBS = new Set(['switch', 'theme-list', 'current-theme', 'theme', 'acc
  * @param {string} message  what the person typed
  * @param {object} ctx      { prefs, getPool(): Promise<post[]>, embed(texts): Promise<string[]|null>, lastTheme }
  */
+// Sending a report or a support message is the person's own message, not a
+// change Angel makes, so it stays on with the master switch off
+const ALWAYS_ON = new Set([...READ_ONLY_ACTIONS, 'send-report', 'send-support']);
+
 export async function respond(message, ctx = {}) {
-  const reply = await reply_(message, ctx);
+  const reply = withChangesSwitch(await reply_(message, ctx), ctx);
   // a question about reaching support or reporting: the answer, and a way to start
   if (reply.kind === 'app' && !ctx.flow) {
     const text = lower(clean(message));
@@ -665,6 +670,24 @@ export async function respond(message, ctx = {}) {
     if (start) return { ...reply, followUps: [...(reply.followUps ?? []), start] };
   }
   return reply;
+}
+
+// Settings > Angel > "Let Angel make changes" off: she still answers, finds
+// and explains, but offers the place to do it instead of doing it
+function withChangesSwitch(reply, ctx) {
+  if (ctx.changesAllowed !== false) return reply;
+  const changes = a => a && !ALWAYS_ON.has(a.id);
+  if (!changes(reply.autoAction) && !(reply.actions ?? []).some(changes)) return reply;
+  const off = '"Let Angel make changes" is off in Settings. You can do it yourself, or turn that back on.';
+  return {
+    ...reply,
+    // a change that would have happened at once ("Done: ...") gets its own words
+    text: changes(reply.autoAction) ? `I can't change that for you right now: ${off}` : `${reply.text} I can't do it for you right now, because ${off}`,
+    autoAction: changes(reply.autoAction) ? undefined : reply.autoAction,
+    actions: (reply.actions ?? []).filter(a => !changes(a)),
+    links: [...(reply.links ?? []), { to: '/settings#angel', label: 'Angel settings' }],
+    done: false,
+  };
 }
 
 async function reply_(message, ctx) {
@@ -714,9 +737,29 @@ async function reply_(message, ctx) {
   if (WANTS_REPORT.test(text) && !asking) return startReport(raw, text, ctx);
   // Her newer skills, from the person's own data
   if (ASKS_CATCH_UP.test(text)) return catchUpReply(ctx);
+  // A post or comment in their own quoted words is always that, even when the
+  // words sound like a search ("Home again")
+  if (/^(?:please )?(?:post|comment|reply|leave (?:a |my )?(?:comment|reply))\b.*["“]/.test(text)) {
+    const act = await actionReply(raw, text, ctx);
+    if (act) return act;
+  }
+  // "find the sunset photo I liked and give it 20 aura": find it first, then a
+  // card for the second part about the top result (still needs their yes)
+  const chain = /^(.+?)\s*(?:,\s*)?(?:and|then)\s+((?:give|send|tip|take|like|share|comment|reply|spotlight)\b.*)$/.exec(raw);
+  if (chain && (asksToDescribe(lower(chain[1])) || asksToFindPosts(lower(chain[1])))) {
+    const found = await describeReply(lower(chain[1]), ctx);
+    if (!found.find?.results?.length) return found;
+    const next = await actionReply(chain[2], lower(chain[2]), { ...ctx, lastFind: found.find });
+    if (!next?.actions?.length) return found;
+    return { ...found, kind: 'action', text: `${found.text} ${next.text}`, actions: next.actions, followUps: next.followUps, preview: next.preview };
+  }
   if (asksToDescribe(text) || asksToFindPosts(text)) return describeReply(text, ctx);
   if (wantsBot(text)) return playBotReply(text, ctx);
   if (ASKS_GROUPS.test(text) && !/\bhow (do|can)\b/.test(text)) return groupsReply(text, ctx);
+  // Doing things in the app (aura, likes, shares, posts in their own words,
+  // groups, followers...), each after a yes
+  const act = await actionReply(raw, text, ctx);
+  if (act) return act;
   const command = await commandReply(raw, text, ctx);
   if (command) return command;
   if (asksToWrite(text) || asksToWrite(plain)) {
