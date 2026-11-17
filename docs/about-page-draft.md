@@ -1,6 +1,6 @@
 # About page: audit and new wording (draft for Corey)
 
-Checked on 2026-11-16 against the code. **Nothing on the live page has changed yet.**
+Checked on 2026-11-16 against the code. **Applied 2026-11-16** (with the three goals as the Promises section), same layout and styling.
 Say "approved" (or edit any line) and Claude Code puts it into `src/pages/About.jsx`,
 keeping the layout, styling, voice and the founder's quote.
 

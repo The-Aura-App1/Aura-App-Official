@@ -582,3 +582,7 @@
 }
 .aura-ll-leaf-spin { animation: llSpin 4s ease-in-out infinite alternate; }
 @keyframes llSpin { from { transform: rotate(-50deg) scaleX(1); } to { transform: rotate(80deg) scaleX(0.4); } }
+
+/* Firefly Grove's hanging vines sway a touch */
+.aura-ff-vines { transform-origin: 50% 0; animation: ffVines 9s ease-in-out infinite alternate; }
+@keyframes ffVines { from { transform: rotate(-0.6deg); } to { transform: rotate(0.6deg); } }

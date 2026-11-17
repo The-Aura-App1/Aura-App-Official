@@ -124,8 +124,10 @@ const FLIES = [
   ...flies(9, 6, { top: 30, bottom: 90, size: [10, 18], wander: 180, blur: 4 }),
 ];
 const MOTES = Array.from({ length: 18 }, (_, i) => ({ left: 54 + ((i * 37) % 30), top: 10 + ((i * 53) % 55), delay: -i * 1.3, dur: 9 + (i % 5) * 2 }));
-// Leaves hanging into the top corners: clusters of blobs, roughened into
-// leafy edges by a noise filter
+// Leaves hanging into the top corners: overlapping clusters, fringed with
+// small leaves along their lower edges, plus a few hanging vines. (Until
+// 2026-11-16 a noise filter roughened plain blobs, which stretched into
+// scribbles across wide screens.)
 const CANOPY = (() => {
   const rand = seeded(81);
   const blobs = [];
@@ -136,6 +138,28 @@ const CANOPY = (() => {
     }
   }
   return blobs;
+})();
+// Small pointed leaves round the lower half of each cluster: [x, y, length, angle]
+const leafPath = (x, y, l) => `M ${x} ${y} Q ${x + l * 0.38} ${y + l * 0.45} ${x} ${y + l} Q ${x - l * 0.38} ${y + l * 0.45} ${x} ${y} Z`;
+const CANOPY_LEAVES = (() => {
+  const rand = seeded(23);
+  const leaves = [];
+  for (const [x, y, r] of CANOPY) {
+    const n = 7 + Math.floor(rand() * 5);
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI * (0.05 + 0.9 * rand());           // the lower half
+      // based just inside the edge, pointing outwards, tilted at random
+      leaves.push([x + Math.cos(a) * r * 0.88, y + Math.sin(a) * r * 0.88, 10 + rand() * 12, (a * 180) / Math.PI - 90 + (rand() - 0.5) * 70]);
+    }
+  }
+  return leaves;
+})();
+const VINES = (() => {
+  const rand = seeded(5);
+  return [[150, 120], [330, 90], [1290, 110], [1460, 140], [880, 30]].map(([x, len]) => {
+    const sway = (rand() - 0.5) * 30;
+    return { x, len: len + rand() * 60, sway, leaves: Array.from({ length: 5 }, (_, i) => [(i + 1) / 6, rand() < 0.5 ? -1 : 1]) };
+  });
 })();
 
 const MUSHROOMS = [[690, 0.9, '#6ff5e6', 0], [712, 1.2, '#8cfbff', 1.2], [736, 0.75, '#6ff5e6', 2.1], [760, 1, '#b8a6ff', 0.6], [790, 0.7, '#8cfbff', 1.8]];
@@ -159,18 +183,39 @@ export default function FireflyGrove({ variant = 'page' }) {
 
       {/* The canopy overhead */}
       <svg className="absolute inset-x-0 top-0 w-full h-[34vh] overflow-visible" viewBox="0 0 1600 300" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
-        <defs>
-          <filter id="ff-leaves" x="-10%" y="-30%" width="120%" height="160%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="12" />
-            <feDisplacementMap in="SourceGraphic" scale="34" />
-          </filter>
-        </defs>
-        <g filter="url(#ff-leaves)" fill="#030a0b">
-          <rect x="-200" y="-200" width="2000" height="200" />
-          {CANOPY.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} />)}
+        {/* the far layer: lit faintly by the moon, a little lower and wider */}
+        <g fill="#0e2a2b" opacity="0.85">
+          <rect x="-200" y="-200" width="2000" height="190" />
+          {CANOPY.map(([x, y, r], i) => <circle key={i} cx={x + 14} cy={y + 16} r={r * 1.08} />)}
+          {CANOPY_LEAVES.filter((_, i) => i % 2 === 0).map(([x, y, l, a], i) => (
+            <path key={`f${i}`} d={leafPath(x + 14, y + 20, l * 1.1)} transform={`rotate(${a + 15} ${x + 14} ${y + 20})`} />
+          ))}
         </g>
-        <g filter="url(#ff-leaves)" fill="none" stroke="#9fd6c8" strokeOpacity="0.08" strokeWidth="3">
-          {CANOPY.filter((_, i) => i % 3 === 0).map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} />)}
+        {/* the near layer, with leaves fringing its edge */}
+        <g fill="#04100f">
+          <rect x="-200" y="-200" width="2000" height="196" />
+          {CANOPY.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} />)}
+          {CANOPY_LEAVES.map(([x, y, l, a], i) => (
+            <path key={`l${i}`} d={leafPath(x, y, l)} transform={`rotate(${a} ${x} ${y})`} />
+          ))}
+        </g>
+        {/* hanging vines, swaying a little */}
+        <g className="aura-ff-vines" stroke="#06140f" strokeWidth="2.2" fill="none">
+          {VINES.map((v, i) => (
+            <g key={i}>
+              <path d={`M ${v.x} 0 Q ${v.x + v.sway} ${v.len * 0.55} ${v.x + v.sway * 0.4} ${v.len}`} />
+              {v.leaves.map(([f, side], k) => {
+                const lx = v.x + v.sway * 0.9 * f * (1 - f) * 2 + side * 5, ly = v.len * f;
+                return <ellipse key={k} cx={lx} cy={ly} rx="3.4" ry="7" transform={`rotate(${side * 40} ${lx} ${ly})`} fill="#06140f" stroke="none" />;
+              })}
+            </g>
+          ))}
+        </g>
+        {/* moonlight catching the tops of a few leaves on the moon's side */}
+        <g fill="#cfeee4" opacity="0.07">
+          {CANOPY_LEAVES.filter(([x], i) => x > 1000 && i % 4 === 0).map(([x, y, l, a], i) => (
+            <path key={i} d={leafPath(x, y, l * 0.8)} transform={`rotate(${a} ${x} ${y})`} />
+          ))}
         </g>
       </svg>
 

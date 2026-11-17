@@ -2,7 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Hourglass, Bot, EyeOff, Gift, Heart, ThumbsDown, TrendingUp,
-  SlidersHorizontal, Smartphone, Ban, Megaphone, Scale, Wallet, ArrowRight, ChevronDown, Map,
+  SlidersHorizontal, Ban, Wallet, ArrowRight, ChevronDown, Map,
+  ShieldCheck, PartyPopper, Users, Gamepad2, Sparkles, Search, UserCheck, Flag, Palette, Brush,
 } from 'lucide-react';
 import AuthBackdrop, { SiteHeader } from '../components/auth/AuthBackdrop';
 
@@ -47,68 +48,71 @@ const STEPS = [
   },
 ];
 
+// The three things Aura puts first (the company's goal framework), each with
+// the promises that belong to it. Every line here must be true of the live app.
 const PROMISES = [
   {
     icon: SlidersHorizontal,
-    title: 'Your feed, your choice',
+    title: 'Giving users their power back',
     points: [
       'You tune your feed with topics, keywords and "Show more/less like this", and it learns from the aura you give and take and the posts you like.',
-      'We never use your clicks, views or watch time to rank your feed. What it learns stays on your device, and you can turn it off or reset it in Settings.',
-    ],
-  },
-  {
-    icon: Smartphone,
-    title: 'Your preferences stay with you',
-    points: [
-      'Your feed settings are saved on your device and never sent to our servers.',
-      'Even keyword matching runs right on your device.',
-    ],
-  },
-  {
-    icon: Megaphone,
-    title: 'Ads that respect you',
-    points: [
-      'Ads are never personalized or targeted using your activity.',
-      'At most 1 ad per 10 posts, clearly labeled "Sponsored", and nothing autoplays.',
-      'Premium members get an ad-free feed.',
-      "Ads come from Google in its cookie-free Limited Ads mode: no cookies, no device IDs, no profile. An ad only knows the topic of the post above it. Google's ad script does see your IP address, as any website you load does.",
-
-    ],
-  },
-  {
-    icon: Scale,
-    title: 'Fair by design',
-    points: [
+      'We never use your clicks, views or watch time to rank your feed. Posts rise on the aura people choose to give them.',
+      'Taking aura costs the taker the same amount, so piling on someone never pays off. Authors choose whether each post can be taken from, and groups can be take-free safe spaces.',
       'Daily limits on giving and taking aura are enforced on our servers, not just in the app.',
-      'Taking aura costs the taker the same amount, so piling on someone never pays off.',
-      'Authors choose whether each post can be taken from, and groups can be take-free safe spaces.',
     ],
   },
+  {
+    icon: ShieldCheck,
+    title: 'Privacy and security',
+    points: [
+      'Your feed settings, and everything your feed learns about what you like, stay on your device and are never sent to our servers. You can turn learning off or reset it in Settings.',
+      'Angel, our helper, runs on your device too. What you tell her stays there, and she only asks our servers to do things you say yes to.',
+      'Make your account private, block anyone, and report posts, comments or accounts for our moderators to review.',
+      "Ads are never personalized: at most 1 in 10 posts, clearly labeled \"Sponsored\", nothing autoplays, and they come from Google's cookie-free Limited Ads mode, knowing only the topic of the post above them. Google's ad script does see your IP address, as any website you load does. Premium members see none.",
+    ],
+  },
+  {
+    icon: PartyPopper,
+    title: 'Bringing fun back to social media',
+    points: [
+      'Challenge friends in your groups to chess, pool, mini golf, poker and more, for fun or for a small aura stake that is never real money.',
+      'Groups level up as members give aura, unlocking their own picture, reaction pins and backgrounds.',
+      'Make your corner of Aura yours: moving dreamscape themes, fonts, backgrounds and frames for your posts, and any emoji as a reaction.',
+    ],
+  },
+];
+
+// What's live in Aura today (only finished, deployed features)
+const TODAY = [
+  { icon: Users, title: 'Groups that grow', body: 'Start or join a group, post and comment with members, and watch it level up as people give aura. Higher levels unlock the group\'s own picture, reaction pins and backgrounds.' },
+  { icon: Gamepad2, title: 'Games for aura', body: 'Challenge members to chess, pool, mini golf, poker and more, or play a bot just for fun. Stakes are aura, never money, and they\'re held fairly until the game ends.' },
+  { icon: Sparkles, title: 'Angel, your helper', body: 'Ask Angel to find a post you half remember, tune your feed, make you a theme or answer questions. She runs on your device and acts only after you say yes.' },
+  { icon: Search, title: 'Search', body: 'Find people, groups and posts by words, hashtags or even meaning. Posts are matched right on your device.' },
+  { icon: UserCheck, title: 'Follow, privately if you like', body: 'Follow the people you want to keep up with. Make your account private and only the followers you approve see your posts.' },
+  { icon: Flag, title: 'Block and report', body: 'Block anyone and you stop seeing each other. Report posts, comments or accounts, and our moderators review them.' },
+  { icon: Palette, title: 'Themes that move', body: 'Pick from animated dreamscapes like Northern Lights, Abyss or City Skies, or design your own with Premium\'s Theme Studio.' },
+  { icon: Brush, title: 'Posts your way', body: 'Fonts, colors, backgrounds and frames for your posts, text and links placed right on your photos, and any emoji as a reaction.' },
 ];
 
 const ROADMAP = [
   {
     when: 'Next up',
     items: [
-      'Blocking: stop someone from interacting with your posts or your account',
-      'Following, with private accounts and follow requests',
-      'Reporting and moderation tools for posts and profiles',
+      'Buying Aura Premium (ad-free, more aura each day, Theme Studio and more). The first 100 accounts already have it free.',
+      'Moments: group-only photos that disappear after 24 hours',
     ],
   },
   {
     when: 'Soon',
     items: [
       'iOS and Android apps',
-      'Moments: group-only photos that disappear after 24 hours',
-      'Group games like Connect 4, played for aura, never money',
-      'Aura Premium: ad-free, custom post styles, higher limits',
+      'Badges, and a global aura rank you can hide',
     ],
   },
   {
     when: 'Later',
     items: [
       'Creator payouts, once the payment and money-transmission rules are sorted out',
-      'Badges, leaderboards and a global aura rank you can hide',
       'Direct messages',
     ],
   },
@@ -121,7 +125,7 @@ const FAQS = [
   },
   {
     q: 'Can I buy aura?',
-    a: 'No, never. Aura can only be earned, so the only way to get ahead is to make things people genuinely value. Real money only buys Premium and cosmetics, never aura.',
+    a: 'No, never. Aura can only be earned, so the only way to get ahead is to make things people genuinely value. When Premium goes on sale, money will buy Premium and cosmetics, never aura.',
   },
   {
     q: 'Can I turn aura into money?',
@@ -129,7 +133,15 @@ const FAQS = [
   },
   {
     q: 'How does Aura make money?',
-    a: 'From Aura Premium ($4.99/month: ad-free, customizable posts and higher daily limits), optional cosmetics, and non-personalized ads. Not from your data.',
+    a: 'Today, from non-personalized ads. Next, from Aura Premium ($4.99 a month: ad-free, more daily aura, Theme Studio and more) and optional cosmetics. Never from your data.',
+  },
+  {
+    q: 'What is Angel?',
+    a: 'Aura\'s built-in helper. She runs entirely on your device: what you tell her stays there, and she only asks Aura\'s servers to do things you\'ve said yes to.',
+  },
+  {
+    q: 'Who can see my posts if my account is private?',
+    a: 'Only the followers you approve. Everyone else sees your name and picture, not your posts.',
   },
   {
     q: 'Who can join?',
@@ -229,10 +241,11 @@ export default function About() {
 
         {/* Promises */}
         <section className="mt-28 sm:mt-36 max-w-5xl mx-auto">
-          <SectionHeading kicker="our promises" title={<>Built around <em className="aura-em">you</em></>}>
+          <SectionHeading kicker="what we stand for" title={<>Three things we put <em className="aura-em">first</em></>}>
+            Giving you your power back, keeping you private and secure, and bringing the fun back to social media.
             We're in the business of building a social media platform, not harvesting your data.
           </SectionHeading>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
             {PROMISES.map(p => (
               <article key={p.title} className="aura-glass-card !p-7 text-left">
                 <div className="flex items-center gap-4">
@@ -247,6 +260,20 @@ export default function About() {
                     </li>
                   ))}
                 </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* What's live today */}
+        <section className="mt-28 sm:mt-36 max-w-6xl mx-auto">
+          <SectionHeading kicker="already here" title={<>What's in <em className="aura-em">aura</em> today</>} />
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {TODAY.map(t => (
+              <article key={t.title} className="aura-glass-card !p-6 text-left">
+                <IconBadge icon={t.icon} />
+                <h3 className="mt-4 text-lg font-bold text-aura-950 dark:text-white">{t.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-aura-800/80 dark:text-aura-100/80">{t.body}</p>
               </article>
             ))}
           </div>
