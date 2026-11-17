@@ -405,3 +405,8 @@ section.game-result-win { animation: game-win-glow 2.6s ease-in-out infinite; }
 @keyframes golf-ring { 50% { transform: scale(1.18); opacity: .4; } }
 .golf-splash { animation: golf-splash .6s ease-out both; transform-box: fill-box; transform-origin: center; }
 @keyframes golf-splash { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+/* A windmill's sails sway a touch while players aim (they only turn for real
+   during a stroke, from the angle shown, so what you see is what you get) */
+.golf-mill-idle { animation: golfMillIdle 3.2s ease-in-out infinite alternate; transform-box: view-box; }
+@keyframes golfMillIdle { from { opacity: 1; } to { opacity: 0.92; } }

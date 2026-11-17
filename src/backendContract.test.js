@@ -212,7 +212,10 @@ test('the pool table in the app is the size of the one aura-aura plays on', () =
 test('mini golf in the app is drawn at the size aura-aura plays it', () => {
   const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'golf.mjs'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, 'components', 'games', 'GolfCourse.jsx'), 'utf8');
-  for (const name of ['W', 'H', 'T', 'COLS', 'BALL', 'CUP']) expect(constant(app, name).trim()).toBe(constant(server, name).trim());
+  for (const name of ['W', 'H', 'T', 'COLS', 'BALL', 'CUP', 'MILL_LEN', 'MILL_HUB', 'MILL_SPEED']) expect(constant(app, name).trim()).toBe(constant(server, name).trim());
+  // the windmills' starting angle is worked out the same way on both sides
+  const start = src => /millStartFor = shots => ([^;]+);/.exec(src)[1].trim();
+  expect(start(app)).toBe(start(server));
 });
 
 test('post styles: aura-posts accepts exactly the fonts, backgrounds, frames and colors the app offers', () => {

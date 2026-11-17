@@ -308,6 +308,50 @@ for (const bad of [{ type: 'raise', to: 1 }, { type: 'raise', to: 99999 }, { typ
     assert(holed, `golf: course ${i} couldn't be holed`);
   }
   refused('golf', GAMES.golf.init(rand, GAMES.golf.options({}), 2), 0, { angle: 1, power: 0 });
+  // Windmills and mounds (2026-11-16)
+  {
+    // a straight corridor three tiles long with a windmill in the middle tile
+    const T = G.T, cx = T * 1.5, cy = T * 1.5;
+    const tiles = Array(G.COLS * G.ROWS).fill('.');
+    for (let r = 0; r < 3; r++) tiles[r * G.COLS + 1] = 'g';
+    const walls = [[T, 0, T, 3 * T], [2 * T, 0, 2 * T, 3 * T], [T, 0, 2 * T, 0], [T, 3 * T, 2 * T, 3 * T]];
+    const course = { tiles: tiles.join(''), walls, bumpers: [], mills: [[cx, cy]], mounds: [], cup: [cx + 30, T * 0.4], tee: [cx + 30, T * 2.6], par: 2 };
+    // the same putt up the side gap, with the blades starting at different angles
+    const outcomes = new Set();
+    for (let k = 0; k < 12; k++) {
+      const r = G.simulate(course, [cx + 36, T * 2.7], -Math.PI / 2, 0.5, (k / 12) * Math.PI * 2);
+      outcomes.add(r.holed ? 'holed' : r.end.map(Math.round).join(','));
+    }
+    assert(outcomes.size > 1, 'golf: the windmill blades change where a putt goes');
+    // never inside the hub or a blade
+    for (let k = 0; k < 12; k++) {
+      const r = G.simulate(course, [cx + 36, T * 2.7], -Math.PI / 2, 0.8, k);
+      if (r.end) assert(Math.hypot(r.end[0] - cx, r.end[1] - cy) >= G.MILL_HUB + G.BALL - 0.5, 'golf: ball left inside the hub');
+    }
+    // and the hole can still be made whatever angle the blades start at
+    for (const start of [0, 1.1, 2.3, 4.0]) {
+      let made = false;
+      for (let a = 0; a < 72 && !made; a++) for (const pw of [0.3, 0.45, 0.6, 0.8]) {
+        const r1 = G.simulate(course, course.tee, -Math.PI / 2 + (a - 36) / 120, pw, start);
+        if (r1.holed) { made = true; break; }
+        if (!r1.water && r1.end) {
+          const r2 = G.simulate(course, r1.end, Math.atan2(course.cup[1] - r1.end[1], course.cup[0] - r1.end[0]), 0.35, start + 0.9);
+          if (r2.holed) { made = true; break; }
+        }
+      }
+      assert(made, `golf: the windmill corridor couldn't be holed (blades from ${start})`);
+    }
+    // a mound pushes a ball off its top but lets it stop
+    const mound = { ...course, mills: [], mounds: [[cx, cy, 50]], cup: [cx, T * 0.2] };
+    const still = G.simulate(mound, [cx + 4, cy], 0, 0.02);
+    assert(still.end && Math.hypot(still.end[0] - cx, still.end[1] - cy) > 4, 'golf: a mound rolls a ball off its top');
+    assert(still.frames.length < 15 * 20 * 2, 'golf: a ball comes to rest beside a mound');
+    // replays carry the blades' starting angle
+    let gs = GAMES.golf.init(rand, GAMES.golf.options({}), 2);
+    const who = gs.turn;
+    gs = GAMES.golf.apply(gs, who, { angle: 1, power: 0.3 }, rand);
+    assert(Math.abs(gs.shot.millStart - G.millStartFor(0)) < 1e-9, 'golf: the shot records where the blades started');
+  }
   try { GAMES.golf.options({ holes: 4 }); throw new Error('accepted 4 holes'); } catch (e) { assert(e instanceof GameError, e.message); }
 }
 

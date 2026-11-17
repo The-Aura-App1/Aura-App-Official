@@ -70,23 +70,90 @@ function aimPath(balls, cue, angle, spinTop) {
   return { end: ghost, hit, ghost, objectDir: n, cueDir: al > 0.02 ? [after[0] / al, after[1] / al] : null, cueLen: al, dot };
 }
 
-function Ball({ n, x, y, clip }) {
+// Each ball's orientation as it rolls: the point at the centre of its
+// number (a unit vector; z towards the viewer). Moving a distance d turns it
+// by d / R about the axis lying flat and square to the motion, so the number
+// slides across the face, round the back and up again, like a real ball.
+const START_POLE = n => { const a = n * 2.4; const t = 0.35; return [Math.sin(t) * Math.cos(a), Math.sin(t) * Math.sin(a), Math.cos(t)]; };
+function rolled(pole, dx, dy) {
+  const d = Math.hypot(dx, dy);
+  if (d < 0.01) return pole;
+  const k = [-dy / d, dx / d, 0];                 // the rolling axis
+  const th = d / R, c = Math.cos(th), sn = Math.sin(th);
+  const dot = k[0] * pole[0] + k[1] * pole[1];
+  const cross = [k[1] * pole[2], -k[0] * pole[2], k[0] * pole[1] - k[1] * pole[0]];
+  const v = [0, 1, 2].map(i => pole[i] * c + cross[i] * sn + k[i] * dot * (1 - c));
+  const l = Math.hypot(...v) || 1;
+  return v.map(x => x / l);
+}
+
+// Keeps each ball's orientation from frame to frame (safe to call twice with
+// the same positions: nothing moves, nothing turns)
+function useRolling(positions) {
+  const state = useRef({ last: [], poles: [] });
+  const s = state.current;
+  positions.forEach((b, n) => {
+    if (!s.poles[n]) s.poles[n] = START_POLE(n);
+    const prev = s.last[n];
+    if (b && prev) s.poles[n] = rolled(s.poles[n], b[0] - prev[0], b[1] - prev[1]);
+    s.last[n] = b ? [b[0], b[1]] : null;
+  });
+  return s.poles;
+}
+
+function Ball({ n, x, y, clip, pole = [0, 0, 1] }) {
+  const [px, py, pz] = pole;
+  const tilt = (Math.atan2(py, px) * 180) / Math.PI;
+  const shadow = <ellipse cx={4} cy={7} rx={R * 0.95} ry={R * 0.8} fill="#000" opacity="0.32" />;
   if (n === 0) {
     return (
       <g transform={`translate(${x} ${y})`}>
+        {shadow}
         <circle r={R} fill="#f6f3ea" />
+        {/* the cue ball's red dot, rolling like the numbers do */}
+        {pz > 0 && <ellipse cx={px * R * 0.92} cy={py * R * 0.92} rx={R * 0.13 * Math.max(pz, 0.2)} ry={R * 0.13} transform={`rotate(${tilt} ${px * R * 0.92} ${py * R * 0.92})`} fill="#c23b3b" opacity="0.8" />}
         <circle r={R} fill={`url(#${clip}-shine)`} />
       </g>
     );
   }
   const stripe = n > 8;
+  // the number's disc, foreshortened as it turns away
+  const cx = px * R * 0.92, cy = py * R * 0.92;
+  const disc = pz > 0.05 && (
+    <g transform={`translate(${cx} ${cy}) rotate(${tilt})`}>
+      <ellipse rx={R * 0.5 * pz} ry={R * 0.5} fill="#f6f3ea" />
+      <g transform={`rotate(${-tilt}) scale(${Math.max(pz, 0.25)} 1)`} opacity={Math.min(1, pz * 1.6)}>
+        <text y={6} textAnchor="middle" fontSize={n > 9 ? 15 : 17} fontWeight="700" fill="#141414" fontFamily="system-ui, sans-serif">{n}</text>
+      </g>
+    </g>
+  );
   return (
     <g transform={`translate(${x} ${y})`}>
+      {shadow}
       <circle r={R} fill={stripe ? '#f6f3ea' : color(n)} />
-      {stripe && <rect x={-R} y={-R * 0.56} width={2 * R} height={R * 1.12} fill={color(n)} clipPath={`url(#${clip})`} />}
-      <circle r={R * 0.5} fill="#f6f3ea" />
-      <text y={6} textAnchor="middle" fontSize={n > 9 ? 15 : 17} fontWeight="700" fill="#141414" fontFamily="system-ui, sans-serif">{n}</text>
+      {/* a stripe is the band round the ball's equator, seen at whatever tilt it has rolled to */}
+      {stripe && (
+        <g clipPath={`url(#${clip})`}>
+          <ellipse rx={R * 1.02} ry={R * Math.max(Math.abs(pz), 0.02)} transform={`rotate(${tilt + 90})`} fill="none" stroke={color(n)} strokeWidth={R * 1.1} />
+        </g>
+      )}
+      {disc}
       <circle r={R} fill={`url(#${clip}-shine)`} />
+    </g>
+  );
+}
+
+// An Aura halo pressed into the felt: a tilted ring, tone on tone, lit from
+// the top left (a dark groove with a light lip below it)
+function EngravedHalo() {
+  const ring = { cx: W / 2, cy: H / 2, rx: 210, ry: 74 };
+  return (
+    <g pointerEvents="none" transform={`rotate(-12 ${W / 2} ${H / 2})`} opacity="0.9">
+      <ellipse {...ring} fill="none" stroke="#06322e" strokeOpacity="0.55" strokeWidth={26} />
+      <ellipse {...ring} cy={ring.cy + 3} fill="none" stroke="#3fb3a5" strokeOpacity="0.22" strokeWidth={18} />
+      <ellipse {...ring} cy={ring.cy - 2} fill="none" stroke="#0a3d38" strokeOpacity="0.6" strokeWidth={14} />
+      <text x={W / 2} y={H / 2 + 150} textAnchor="middle" fontSize={64} fontStyle="italic" fontWeight="700" letterSpacing="6"
+        fill="#0a3d38" fillOpacity="0.55" stroke="#3fb3a5" strokeOpacity="0.18" strokeWidth={2} fontFamily="Fraunces, Georgia, serif">AURA</text>
     </g>
   );
 }
@@ -241,6 +308,7 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
   const canShoot = myTurn && !busy && !playing && !view.over;
   const balls = playing ? frame : view.balls;
   const shown = balls.map((b, n) => (n === 0 && place && !playing ? place : b));
+  const poles = useRolling(shown);
   const cue = shown[0];
   const path = canShoot && cue && !placing ? aimPath(shown, cue, angle, spin[1]) : null;
   const showStick = (path || strike) && cue;
@@ -398,6 +466,7 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
               <circle cx={-RAIL / 2 - 4} cy={H * f} r={5} /><circle cx={W + RAIL / 2 + 4} cy={H * f} r={5} />
             </g>
           ))}
+          <EngravedHalo />
           <line x1={0} y1={HEAD_LINE} x2={W} y2={HEAD_LINE} stroke="#fff" strokeOpacity="0.15" strokeWidth={3} />
           <circle cx={W / 2} cy={500} r={5} fill="#fff" fillOpacity="0.25" />
           {POCKETS.map(([x, y], i) => (
@@ -425,7 +494,7 @@ export default function PoolTable({ view, seat, players, move, busy, myTurn }) {
               )}
             </g>
           )}
-          {shown.map((b, n) => (b ? <Ball key={n} n={n} x={b[0]} y={b[1]} clip={clip} /> : null))}
+          {shown.map((b, n) => (b ? <Ball key={n} n={n} x={b[0]} y={b[1]} clip={clip} pole={poles[n]} /> : null))}
           {showStick && (
             <g pointerEvents="none" transform={`translate(${cue[0]} ${cue[1]}) rotate(${(angle * 180) / Math.PI + 180})`}
               style={{ opacity: strike ? 0 : 1, transition: strike ? 'opacity .35s ease .12s' : 'none' }}>

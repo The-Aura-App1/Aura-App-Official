@@ -10,7 +10,7 @@
 //   fallbackMove(...) → a simple legal move, if a bot move is ever refused
 import { legalMoves, makeMove, inCheck, sqName } from './chess.mjs';
 import { simulate as poolShot, cueSpotFree, POCKETS, R as BALL_R, W as POOL_W, H as POOL_H, HEAD_LINE, SOLIDS, STRIPES } from './pool.mjs';
-import { simulate as golfShot, T as TILE, COLS as GOLF_COLS } from './golf.mjs';
+import { simulate as golfShot, T as TILE, COLS as GOLF_COLS, millStartFor } from './golf.mjs';
 import { bestHand } from './gameRules.mjs';
 
 export const BOT_GAMES = ['connect4', 'pool', 'chess', 'gofish', 'crazy8', 'poker', 'golf'];
@@ -265,7 +265,7 @@ function golfBot(level, { state, seat, rand }) {
   for (let k = 0; k < tries; k++) {
     const angle = k < tries / 3 ? direct + noise(0.6, rand) : rand(6283) / 1000;
     const power = 0.08 + rand(92) / 100;
-    const shot = golfShot(course, from, angle + noise(wobble, rand), power);
+    const shot = golfShot(course, from, angle + noise(wobble, rand), power, millStartFor(state.shots ?? 0));
     const score = shot.holed ? -1e6 : (shot.water ? 1e5 : golfDistance(course, shot.end));
     if (!best || score < best.score) best = { angle, power, score };
   }

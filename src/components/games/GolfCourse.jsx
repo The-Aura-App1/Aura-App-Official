@@ -16,6 +16,12 @@ export const T = 125;
 export const COLS = 8;
 export const BALL = 11;
 export const CUP = 19;
+// Windmills (golf.mjs; a test keeps them equal): blades start each stroke at
+// millStartFor(shots) and turn at MILL_SPEED while the ball rolls
+export const MILL_LEN = 52;
+export const MILL_HUB = 12;
+export const MILL_SPEED = 1.7;
+const millStartFor = shots => (shots * 0.9) % (Math.PI * 2);
 const ROWS = H / T;
 const FRAME_MS = 50;
 const MAX_PULL = 330;        // pulling this far (in course units) is full power
@@ -246,7 +252,8 @@ export default function GolfCourse({ view, seat, players, move, busy, myTurn }) 
       const t = at - i;
       const trail = [];
       for (let k = Math.max(0, i - 7); k <= i; k++) trail.push([f[2 * k], f[2 * k + 1]]);
-      setFrame({ by: shot.by, pos: [f[2 * i] + (f[2 * i + 2] - f[2 * i]) * t, f[2 * i + 1] + (f[2 * i + 3] - f[2 * i + 1]) * t], trail, end: i >= count - 3 ? shot : null });
+      setFrame({ by: shot.by, pos: [f[2 * i] + (f[2 * i + 2] - f[2 * i]) * t, f[2 * i + 1] + (f[2 * i + 3] - f[2 * i + 1]) * t], trail, end: i >= count - 3 ? shot : null,
+        mill: (shot.millStart ?? 0) + MILL_SPEED * (at * FRAME_MS / 1000) });
       raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
@@ -353,6 +360,11 @@ export default function GolfCourse({ view, seat, players, move, busy, myTurn }) 
         onPointerDown={down} onPointerMove={drag} onPointerUp={up}
         onPointerCancel={() => { press.current = null; setPull(null); }}>
         <defs>
+          <radialGradient id={`${id}-mound`} cx="40%" cy="38%" r="65%">
+            <stop offset="0" stopColor="#7fd88c" />
+            <stop offset="0.6" stopColor="#3f9e52" stopOpacity="0.85" />
+            <stop offset="1" stopColor="#2f7d40" stopOpacity="0" />
+          </radialGradient>
           <radialGradient id={`${id}-lawn`} cx="50%" cy="40%" r="75%">
             <stop offset="0%" stopColor="#3f8f4a" /><stop offset="100%" stopColor="#24603a" />
           </radialGradient>
@@ -394,6 +406,12 @@ export default function GolfCourse({ view, seat, players, move, busy, myTurn }) 
         {layout.tiles.map(t => <rect key={`sh${t.c},${t.r}`} x={t.x + 10} y={t.y + 14} width={T} height={T} fill="#000" opacity="0.28" />)}
         {layout.tiles.map(t => <rect key={`g${t.c},${t.r}`} x={t.x - 0.5} y={t.y - 0.5} width={T + 1} height={T + 1} fill={`url(#${id}-mow)`} />)}
         {layout.tiles.map(t => <Patch key={`p${t.c},${t.r}`} t={t} id={id} />)}
+        {/* a soft shadow just inside the rails, so the green sits down between them */}
+        <g pointerEvents="none">
+          {layout.rails.map(([x1, y1, x2, y2, nx, ny], i) => (
+            <line key={`ao${i}`} x1={x1 - nx * 7} y1={y1 - ny * 7} x2={x2 - nx * 7} y2={y2 - ny * 7} stroke="#06240f" strokeOpacity="0.22" strokeWidth={14} />
+          ))}
+        </g>
 
         {/* the tee mat */}
         <rect x={course.tee[0] - 40} y={course.tee[1] - 26} width={80} height={52} rx={10} fill="#2b7a39" stroke="#9fe0aa" strokeOpacity="0.6" strokeWidth={3} />
@@ -418,6 +436,38 @@ export default function GolfCourse({ view, seat, players, move, busy, myTurn }) 
           })}
           {layout.baffles.map(([x1, y1, x2, y2], i) => <line key={`bt${i}`} x1={x1} y1={y1 - 1} x2={x2} y2={y2 - 1} stroke="#d39a5c" strokeWidth={8} />)}
         </g>
+
+        {/* mounds: soft grassy humps, lit from the top left, with faint contour rings */}
+        {(course.mounds ?? []).map(([x, y, r], i) => (
+          <g key={`m${i}`} pointerEvents="none">
+            <circle cx={x} cy={y} r={r} fill={`url(#${id}-mound)`} />
+            {[0.72, 0.45].map(f => <circle key={f} cx={x} cy={y} r={r * f} fill="none" stroke="#e8ffe9" strokeOpacity="0.16" strokeWidth={2} />)}
+            <ellipse cx={x - r * 0.28} cy={y - r * 0.3} rx={r * 0.32} ry={r * 0.2} fill="#f0fff0" opacity="0.18" />
+          </g>
+        ))}
+
+        {/* windmills: a little stone tower with four sails, turning while the ball rolls */}
+        {(course.mills ?? []).map(([x, y], i) => {
+          const a = ((frame ? frame.mill : millStartFor(view.shots ?? 0)) * 180) / Math.PI;
+          return (
+            <g key={`w${i}`} pointerEvents="none">
+              <g transform={`translate(${x + 6} ${y + 9}) rotate(${a})`} opacity="0.28">
+                {[0, 90, 180, 270].map(r => <rect key={r} x={MILL_HUB} y={-7} width={MILL_LEN - MILL_HUB} height={14} rx={3} fill="#000" transform={`rotate(${r})`} />)}
+              </g>
+              <circle cx={x} cy={y} r={MILL_HUB + 9} fill="#8b6b4a" stroke="#5c4330" strokeWidth={3} />
+              <g transform={`translate(${x} ${y}) rotate(${a})`} className={frame ? '' : 'golf-mill-idle'}>
+                {[0, 90, 180, 270].map(r => (
+                  <g key={r} transform={`rotate(${r})`}>
+                    <rect x={MILL_HUB} y={-7} width={MILL_LEN - MILL_HUB} height={14} rx={3} fill="#f6efe1" stroke="#7a5a3a" strokeWidth={2.5} />
+                    {[0.3, 0.55, 0.8].map(f => <line key={f} x1={MILL_HUB + (MILL_LEN - MILL_HUB) * f} y1={-6} x2={MILL_HUB + (MILL_LEN - MILL_HUB) * f} y2={6} stroke="#c9a77c" strokeWidth={2} />)}
+                  </g>
+                ))}
+              </g>
+              <circle cx={x} cy={y} r={MILL_HUB} fill="#b2412f" stroke="#6e2419" strokeWidth={3} />
+              <circle cx={x - 3} cy={y - 3} r={MILL_HUB * 0.35} fill="#fff" opacity="0.35" />
+            </g>
+          );
+        })}
 
         {course.bumpers.map(([x, y, r], i) => (
           <g key={i}>

@@ -10,6 +10,13 @@
 // off the path add water, sand, slopes and bumpers. Slopes are gentler than
 // the green's friction, so a ball can always come to rest on one.
 //
+// Since 2026-11-16 also: windmills (four blades turning round a hub in the
+// middle of a straight stretch; the gaps beside the hub are wider than the
+// ball, so there's always a way past) and mounds (round humps that push a
+// ball outwards, gentler than friction). A windmill's blades start each
+// stroke at an angle the player can see (millStartFor(shots)) and turn while
+// the ball rolls, so the app plays back exactly what the server ran.
+//
 // A move is { angle, power 0..1 }; the server runs the stroke like a pool
 // shot and stores a recording (20 frames a second) for the app to play.
 // Players take strokes in turn until everyone has holed out (or picked up
@@ -25,6 +32,12 @@ export const BALL = 11;
 export const CUP = 19;
 export const MAX_STROKES = 8;
 export const HOLE_COUNTS = [3, 5, 9];
+// Windmills and mounds (the app draws them with the same numbers)
+export const MILL_LEN = 52;            // blade length from the hub's centre (under half a tile)
+export const MILL_HUB = 12;
+export const MILL_SPEED = 1.7;         // radians a second
+export const MOUND_PUSH = 200;         // outward pull at a mound's centre, less than ROLL
+export const millStartFor = shots => (shots * 0.9) % (Math.PI * 2);
 
 const DT          = 1 / 400;
 const FRAME_EVERY = 20;               // 20 frames a second
@@ -94,6 +107,8 @@ export function makeCourse(rand, holeNo) {
   const tiles = Array(COLS * ROWS).fill('.');
   const bumpers = [];
   const walls = [];
+  const mills = [];
+  const mounds = [];
   const center = ([c, r]) => [c * T + T / 2, r * T + T / 2];
 
   // The path: mostly green, with sand, ice and slopes along the way
@@ -111,7 +126,11 @@ export function makeCourse(rand, holeNo) {
     const [x, y] = spots[rand(spots.length)];
     const k = rand(100);
     tiles[key(x, y)] = k < 40 ? 'w' : k < 55 ? 's' : k < 65 ? 'UDLR'[rand(4)] : 'g';
-    if (tiles[key(x, y)] === 'g') { const [cx, cy] = center([x, y]); bumpers.push([cx, cy, 20 + rand(11)]); }
+    if (tiles[key(x, y)] === 'g') {
+      const [cx, cy] = center([x, y]);
+      if (rand(2)) bumpers.push([cx, cy, 20 + rand(11)]);
+      else mounds.push([cx, cy, 46 + rand(10)]);
+    }
   }
   // Bumpers and baffles on straight stretches, always leaving room to pass
   for (let i = 1; i < path.length - 2; i++) {
@@ -131,6 +150,11 @@ export function makeCourse(rand, holeNo) {
       const from = [cx + side[0] * s * T / 2, cy + side[1] * s * T / 2];
       const len = T * 0.42;
       walls.push([from[0], from[1], from[0] - side[0] * s * len, from[1] - side[1] * s * len]);
+    } else if (roll < 62 && mills.length < 2 && tiles[key(...b)] === 'g') {
+      // a windmill in the middle of a green straight stretch
+      mills.push([cx, cy]);
+    } else if (roll < 74 && tiles[key(...b)] === 'g') {
+      mounds.push([cx, cy, 44 + rand(12)]);
     }
   }
   // Walls along every edge of the fairway
@@ -147,7 +171,7 @@ export function makeCourse(rand, holeNo) {
   const [ccx, ccy] = center(path[path.length - 1]);
   const cup = [ccx + rand(41) - 20, ccy + rand(41) - 20];
   const par = path.length <= 6 ? 2 : path.length <= 10 ? 3 : path.length <= 15 ? 4 : 5;
-  return { tiles: tiles.join(''), walls, bumpers, tee, cup, par, path: path.map(p => key(...p)) };
+  return { tiles: tiles.join(''), walls, bumpers, mills, mounds, tee, cup, par, path: path.map(p => key(...p)) };
 }
 
 // ─── Physics ──────────────────────────────────────────────────
@@ -157,9 +181,40 @@ const tileAt = (course, x, y) => {
   return inField(c, r) ? course.tiles[key(c, r)] : '.';
 };
 
+// A windmill's blades at time t (seconds into the stroke), hub edge to tip
+export function millBlades([mx, my], millStart, t) {
+  const a0 = millStart + MILL_SPEED * t;
+  return [0, 1, 2, 3].map(i => {
+    const a = a0 + (i * Math.PI) / 2;
+    return [mx + Math.cos(a) * MILL_HUB, my + Math.sin(a) * MILL_HUB, mx + Math.cos(a) * MILL_LEN, my + Math.sin(a) * MILL_LEN];
+  });
+}
+
+// Pushes the ball out of a segment (a wall or a turning blade), bouncing it
+// off; `surface` is the segment's own velocity at the touching point
+function bounceOffSegment(p, v, [x1, y1, x2, y2], restitution, surface = [0, 0]) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((p[0] - x1) * dx + (p[1] - y1) * dy) / len2)) : 0;
+  const qx = x1 + dx * t, qy = y1 + dy * t;
+  const ex = p[0] - qx, ey = p[1] - qy;
+  const d = Math.hypot(ex, ey);
+  if (d >= BALL || d === 0) return false;
+  const nx = ex / d, ny = ey / d;
+  const rx = v[0] - surface[0], ry = v[1] - surface[1];
+  const vn = rx * nx + ry * ny;
+  let hit = false;
+  if (vn < 0) { v[0] = rx - (1 + restitution) * vn * nx + surface[0]; v[1] = ry - (1 + restitution) * vn * ny + surface[1]; hit = true; }
+  p[0] = qx + nx * BALL; p[1] = qy + ny * BALL;
+  return hit;
+}
+
 // Runs one stroke from `from`. Returns where the ball stopped (or that it
-// dropped, or found water), and the recording.
-export function simulate(course, from, angle, power) {
+// dropped, or found water), and the recording. `millStart` is where the
+// windmills' blades start (millStartFor(shots)).
+export function simulate(course, from, angle, power, millStart = 0) {
+  const mills = course.mills ?? [];
+  const mounds = course.mounds ?? [];
   const p = [from[0], from[1]];
   const speed0 = speedFor(power);
   const v = [Math.cos(angle) * speed0, Math.sin(angle) * speed0];
@@ -180,6 +235,14 @@ export function simulate(course, from, angle, power) {
       break;
     }
     if (slope) { v[0] += slope[0] * SLOPE * DT; v[1] += slope[1] * SLOPE * DT; }
+    // Mounds push outwards, hardest at the top, always less than friction
+    for (const [mx, my, mr] of mounds) {
+      const ex = p[0] - mx, ey = p[1] - my;
+      const d = Math.hypot(ex, ey);
+      if (d >= mr || d < 0.5) continue;
+      const push = MOUND_PUSH * (1 - d / mr);
+      v[0] += (ex / d) * push * DT; v[1] += (ey / d) * push * DT;
+    }
     // The cup's edge draws a slow ball in
     if (toCup < CUP + 6 && sp < 380 && toCup > 0.5) {
       v[0] += ((cx - p[0]) / toCup) * 600 * DT; v[1] += ((cy - p[1]) / toCup) * 600 * DT;
@@ -191,18 +254,26 @@ export function simulate(course, from, angle, power) {
     }
     p[0] += v[0] * DT; p[1] += v[1] * DT;
     // Walls and baffles: bounce off the nearest point of each segment
-    for (const [x1, y1, x2, y2] of course.walls) {
-      const dx = x2 - x1, dy = y2 - y1;
-      const len2 = dx * dx + dy * dy;
-      const t = len2 ? Math.max(0, Math.min(1, ((p[0] - x1) * dx + (p[1] - y1) * dy) / len2)) : 0;
-      const qx = x1 + dx * t, qy = y1 + dy * t;
-      const ex = p[0] - qx, ey = p[1] - qy;
-      const d = Math.hypot(ex, ey);
-      if (d >= BALL || d === 0) continue;
-      const nx = ex / d, ny = ey / d;
-      const vn = v[0] * nx + v[1] * ny;
-      if (vn < 0) { v[0] -= (1 + WALL_BOUNCE) * vn * nx; v[1] -= (1 + WALL_BOUNCE) * vn * ny; bounces++; }
-      p[0] = qx + nx * BALL; p[1] = qy + ny * BALL;
+    for (const wall of course.walls) if (bounceOffSegment(p, v, wall, WALL_BOUNCE)) bounces++;
+    // Windmills: the hub, then each turning blade (which carries the ball along a little)
+    const time = step * DT;
+    for (const mill of mills) {
+      const [mx, my] = mill;
+      const hx = p[0] - mx, hy = p[1] - my;
+      const hd = Math.hypot(hx, hy);
+      if (hd < MILL_HUB + BALL && hd > 0) {
+        const nx = hx / hd, ny = hy / hd;
+        const vn = v[0] * nx + v[1] * ny;
+        if (vn < 0) { v[0] -= (1 + WALL_BOUNCE) * vn * nx; v[1] -= (1 + WALL_BOUNCE) * vn * ny; bounces++; }
+        p[0] = mx + nx * (MILL_HUB + BALL); p[1] = my + ny * (MILL_HUB + BALL);
+      }
+      for (const blade of millBlades(mill, millStart, time)) {
+        // the blade's speed where the ball touches it (omega x r)
+        const rx = p[0] - mx, ry = p[1] - my;
+        if (bounceOffSegment(p, v, blade, WALL_BOUNCE, [-MILL_SPEED * ry, MILL_SPEED * rx])) bounces++;
+      }
+      const s2 = Math.hypot(v[0], v[1]);
+      if (s2 > MAX_SPEED) { v[0] *= MAX_SPEED / s2; v[1] *= MAX_SPEED / s2; }
     }
     // Bumpers kick the ball back out a little faster
     for (const [bx, by, br] of course.bumpers) {
@@ -286,10 +357,11 @@ export function makeGolf({ fail, clone, log, finish, activeSeats, nextSeat, isIn
       if (typeof angle !== 'number' || !Number.isFinite(angle)) fail('Aim first.');
       if (typeof power !== 'number' || !(power > 0 && power <= 1)) fail('Pick a power above 0, up to 1.');
       const from = s.balls[seat];
-      const stroke = simulate(s.course, from, angle, power);
+      const millStart = millStartFor(s.shots);
+      const stroke = simulate(s.course, from, angle, power, millStart);
       s.shots += 1;
       s.strokes[seat] += 1;
-      s.shot = { no: s.shots, by: seat, start: from, frames: stroke.frames, holed: stroke.holed, water: stroke.water };
+      s.shot = { no: s.shots, by: seat, start: from, frames: stroke.frames, holed: stroke.holed, water: stroke.water, millStart };
       if (stroke.water) {
         s.strokes[seat] += 1;
         log(s, seat, 'found the water. One stroke penalty.');
