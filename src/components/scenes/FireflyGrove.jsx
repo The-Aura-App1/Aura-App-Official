@@ -164,10 +164,19 @@ const VINES = (() => {
 
 const MUSHROOMS = [[690, 0.9, '#6ff5e6', 0], [712, 1.2, '#8cfbff', 1.2], [736, 0.75, '#6ff5e6', 2.1], [760, 1, '#b8a6ff', 0.6], [790, 0.7, '#8cfbff', 1.8]];
 
+function PinnedToScreen({ children }) {
+  return <div className="fixed inset-0 overflow-hidden">{children}</div>;
+}
+
 export default function FireflyGrove({ variant = 'page' }) {
   const page = variant === 'page';
+  // On the public pages the backdrop spans the whole (long) page, which put
+  // the canopy on the first screen and the trunks at the very bottom, cut off
+  // from their leaves. There the grove is pinned to the screen instead, so
+  // canopy, trunks and clearing are always one picture.
+  const Wrap = page ? PinnedToScreen : React.Fragment;
   return (
-    <>
+    <Wrap>
       <div className="aura-ff-sky absolute inset-0" />
       <div className="absolute inset-0 aura-ff-stars"><TwinklingStars seed={61} count={34} /></div>
       <div className="aura-ff-moon absolute" aria-hidden="true" />
@@ -337,6 +346,6 @@ export default function FireflyGrove({ variant = 'page' }) {
           </span>
         ))}
       </div>
-    </>
+    </Wrap>
   );
 }
