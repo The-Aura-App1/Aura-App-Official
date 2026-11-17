@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Gift, Tv, Clock, Coins, Wallet } from 'lucide-react';
+import { Sparkles, Gift, Tv, Clock, Coins, Wallet, LineChart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { watchRewardedAd } from '../ads/rewarded';
 import { api } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import OrbBurst from '../components/motion/OrbBurst';
 import useCountUp from '../hooks/useCountUp';
+import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
 
 // Ad rewards stay off until a real ad network verifies views. aura-aura
 // enforces this (its own ADS_ENABLED); this only hides the button. The ad
@@ -186,6 +187,11 @@ export default function AuraWallet() {
             description="Given to you by others. Used for giving when spendable runs out."
           />
         </div>
+      </Section>
+
+      {/* ── Your balance over time (the same graph as the profile's Aura tab), all time first ── */}
+      <Section icon={LineChart} title="Your aura over time">
+        <AuraTimelineGraph userId={dbProfile.userId} balance={dbProfile.auraBalance ?? 0} initialRange="all" />
       </Section>
 
       {/* ── Today ── */}

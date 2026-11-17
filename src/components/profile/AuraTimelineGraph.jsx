@@ -72,9 +72,9 @@ function dateLabel(t, unit, long = false) {
   return d.toLocaleDateString([], long ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-export default function AuraTimelineGraph({ userId, balance: profileBalance = 0 }) {
+export default function AuraTimelineGraph({ userId, balance: profileBalance = 0, initialRange = '1m' }) {
   const gradId = `aura-graph-${useId().replace(/:/g, '')}`;
-  const [range, setRange] = useState('1m');
+  const [range, setRange] = useState(initialRange);
   const [state, setState] = useState({ status: 'loading' });
   const [hover, setHover] = useState(null);
   const [attempt, setAttempt] = useState(0);
