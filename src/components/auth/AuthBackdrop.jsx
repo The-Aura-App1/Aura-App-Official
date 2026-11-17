@@ -1,6 +1,6 @@
 import React, { Suspense, createContext, lazy, useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pause, Play } from 'lucide-react';
+import { Pause, Play, SkipForward } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { getTheme, PUBLIC_ROTATION } from '../../themes';
 import TwinklingStars from '../scenes/TwinklingStars';
@@ -65,18 +65,25 @@ function SceneControls() {
   const { index, paused, togglePaused, pick } = scenes;
   const current = getTheme(PUBLIC_ROTATION[index]);
   return (
-    <div className="ml-1 flex items-center gap-0.5 h-9 pl-1 pr-1.5 rounded-xl bg-white/50 dark:bg-white/5 border border-white/80 dark:border-white/15">
+    <div className="ml-1 shrink-0 flex items-center gap-0.5 h-9 pl-1 pr-1 sm:pr-1.5 rounded-xl bg-white/50 dark:bg-white/5 border border-white/80 dark:border-white/15">
       <button type="button" onClick={togglePaused}
         aria-label={paused ? 'Rotate the scenery' : `Keep the ${current.name} scenery`}
         title={paused ? 'Rotate the scenery' : `Keep ${current.name}`}
         className="w-7 h-7 rounded-lg flex items-center justify-center text-aura-800 dark:text-aura-100 hover:text-aura-500 transition-colors">
         {paused ? <Play size={15} /> : <Pause size={15} />}
       </button>
+      {/* phones: one "next scene" button instead of a dot per scene, which
+          don't fit beside the links */}
+      <button type="button" onClick={() => pick((index + 1) % PUBLIC_ROTATION.length)}
+        aria-label={`Next scenery (now ${current.name})`} title="Next scenery"
+        className="sm:hidden w-7 h-7 rounded-lg flex items-center justify-center text-aura-800 dark:text-aura-100 hover:text-aura-500 transition-colors">
+        <SkipForward size={15} />
+      </button>
       {PUBLIC_ROTATION.map((id, i) => {
         const theme = getTheme(id);
         return (
           <button key={id} type="button" onClick={() => pick(i)} aria-label={`Show ${theme.name}`} aria-pressed={i === index}
-            title={theme.name} className="w-5 h-7 flex items-center justify-center group">
+            title={theme.name} className="hidden sm:flex w-5 h-7 items-center justify-center group">
             <span className={`block rounded-full transition-all duration-300
               ${i === index ? 'w-2.5 h-2.5 bg-aura-500' : 'w-1.5 h-1.5 bg-aura-800/30 dark:bg-white/30 group-hover:bg-aura-500/70'}`} />
           </button>
@@ -91,12 +98,12 @@ function SceneControls() {
 export function SiteHeader() {
   return (
     <header className="flex items-center justify-between px-5 sm:px-10 py-6">
-      <Link to="/welcome" aria-label="Aura App home">
+      <Link to="/welcome" aria-label="Aura App home" className="shrink-0">
         <img src="/logo192.png" alt="Aura App" className="w-9 h-9 rounded-xl" />
       </Link>
-      <nav className="flex items-center gap-1 sm:gap-3 text-sm">
-        <Link to="/about" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">About</Link>
-        <Link to="/signin" className="px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
+      <nav className="flex items-center gap-0.5 sm:gap-3 text-sm whitespace-nowrap">
+        <Link to="/about" className="px-2.5 sm:px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">About</Link>
+        <Link to="/signin" className="px-2.5 sm:px-3 py-2 rounded-xl text-aura-800 dark:text-aura-100 hover:text-aura-500 font-medium transition-colors">Sign in</Link>
         <SceneControls />
       </nav>
     </header>
