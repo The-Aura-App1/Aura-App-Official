@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Grid, Heart, TrendingUp, Camera, Edit3,
-  Save, X, Plus, Sparkles, Lock, MoreHorizontal, Ban
+  Save, X, Plus, Lock, MoreHorizontal, Ban
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import shrinkImage from '../utils/shrinkImage';
 import PostCard from '../components/post/PostCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatAura, timeAgo, usernameStatusText } from '../utils/format';
+import { formatAura, usernameStatusText } from '../utils/format';
 import AuraTimelineGraph from '../components/profile/AuraTimelineGraph';
 import LikedPosts from '../components/profile/LikedPosts';
 import { FollowButton, FollowCount, FollowListSheet } from '../components/profile/FollowBits';
@@ -49,7 +49,7 @@ const SUGGESTED_TAGS = [
 
 export default function Profile() {
   const { username }   = useParams();
-  const { user, displayName, isPremium, isCreator, refreshUser, dbProfile } = useAuth();
+  const { user, displayName, refreshUser, dbProfile } = useAuth();
   const usernameStatus = dbProfile?.usernameStatus;
   const navigate       = useNavigate();
 
@@ -85,7 +85,8 @@ export default function Profile() {
 
   const profileUsername = username ?? displayName;
 
-  useEffect(() => { loadProfile(); }, [profileUsername]);
+  // Reload only when the profile being shown changes (loadProfile reads the latest state when it runs)
+  useEffect(() => { loadProfile(); }, [profileUsername]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Private accounts' posts load only for the owner and approved followers
   const blockedHere = useBlockedAuthor(profile?.userId);

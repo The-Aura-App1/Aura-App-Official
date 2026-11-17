@@ -108,11 +108,12 @@ function pines(seed, { base, minH, maxH, gap, clearing = [0, 0] }) {
     // The lit left half: the same tiers, cut down the middle
     lit += `M ${x} ${top} ` + left.map(([tip, notch], i) => `L ${tip[0]} ${tip[1]}` + (i < 2 ? ` L ${notch[0]} ${notch[1]}` : '')).join(' ') + ` L ${x} ${left[2][0][1]} Z `;
     // Snow along each tier's lower edge, heavier on the outer tips
-    left.forEach(([tip], i) => {
+    for (let i = 0; i < left.length; i++) {
+      const [tip] = left[i];
       const y = tip[1];
       const reach = (x - tip[0]) * (i === 2 ? 0.75 : 0.9);
       snow += `M ${(x - reach).toFixed(1)} ${(y - 1).toFixed(1)} Q ${x} ${(y - 6).toFixed(1)} ${(x + reach).toFixed(1)} ${(y - 1).toFixed(1)} `;
-    });
+    }
   }
   return { bodies, lit, snow };
 }
