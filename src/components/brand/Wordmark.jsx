@@ -7,7 +7,7 @@ import { loadPostFont } from '../../utils/postStyle';
 // ring. `halo={false}` leaves it off, e.g. where the big halo already sits
 // above the name. The face and placement are in index.css (.aura-wordmark).
 export default function Wordmark({ className = '', halo = true }) {
-  useEffect(() => { loadPostFont('sacramento'); }, []);
+  useEffect(() => { loadPostFont('kaushan-script'); }, []);
   return (
     <span className={`relative inline-block ${className}`}>
       <span className="aura-wordmark">
