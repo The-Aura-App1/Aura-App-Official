@@ -7,11 +7,12 @@ import { api } from '../api';
 import { THEMES } from '../themes';
 import {
   cleanCustom, customVars, loadCustom, saveCustom, saveTheme, readableKeys, contrast,
-  THEME_FONT_CATEGORIES, NAME_MAX,
+  NAME_MAX,
 } from '../themes/customTheme';
 import { DESIGN_SCENES } from '../themes/themeDesign';
 import { saveMedia, checkMedia } from '../themes/studioMedia';
-import { POST_FONTS, fontFamily, loadPostFont } from '../utils/postStyle';
+import { fontFamily } from '../utils/postStyle';
+import FontPicker from '../components/common/FontPicker';
 import StudioBackdrop, { gradientCss } from '../components/theme/StudioBackdrop';
 import { SceneDecor } from '../components/auth/AuthBackdrop';
 
@@ -54,7 +55,6 @@ const SCENE_NAMES = Object.fromEntries(DESIGN_SCENES.map(id => {
   return [id, id === 'sky' ? 'Day or Night sky' : themes[0] ?? id];
 }));
 
-const FONT_GROUPS = THEME_FONT_CATEGORIES.map(cat => [cat, POST_FONTS.filter(f => f.cat === cat)]);
 
 const HEX = /^#[0-9a-f]{6}$/i;
 // Reads any CSS color as #rrggbb (for the color inputs)
@@ -139,25 +139,6 @@ function Chips({ label, options, value, onChange }) {
           {o.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function FontSelect({ label, value, onChange, defaultLabel }) {
-  const id = `studio-${label.replace(/\W+/g, '-').toLowerCase()}`;
-  return (
-    <div className="py-1.5">
-      <label htmlFor={id} className="block text-sm text-[var(--text-primary)] mb-1">{label}</label>
-      <select id={id} value={value ?? ''} onChange={e => { const v = e.target.value || null; if (v) loadPostFont(v); onChange(v); }}
-        className="input !text-base sm:!text-sm">
-        <option value="">{defaultLabel}</option>
-        {FONT_GROUPS.map(([cat, fonts]) => (
-          <optgroup key={cat} label={cat}>
-            {fonts.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </optgroup>
-        ))}
-      </select>
-      {value && <p className="mt-1.5 text-lg text-[var(--text-secondary)]" style={{ fontFamily: fontFamily(value) }}>The quick brown fox jumps over the lazy dog</p>}
     </div>
   );
 }
@@ -419,12 +400,13 @@ export default function ThemeStudio() {
 
           {tab === 'fonts' && (
             <div role="tabpanel" aria-label="Fonts" className="flex flex-col gap-2">
-              <FontSelect label="Text font" value={spec.font} defaultLabel="Aura's font (Plus Jakarta Sans)" onChange={font => setSpec(s => ({ ...s, font }))} />
-              <FontSelect label="Heading font" value={d.fonts.heading} defaultLabel="Aura's heading font (Sora)" onChange={heading => setDesign('fonts', { heading })} />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Text font</p>
+              <FontPicker label="Text font" value={spec.font} defaultLabel="Aura's font" onChange={font => setSpec(s => ({ ...s, font }))} height="max-h-52" />
+              <p className="text-sm font-semibold text-[var(--text-primary)] mt-2">Heading font</p>
+              <FontPicker label="Heading font" value={d.fonts.heading} defaultLabel="Aura's heading font" onChange={heading => setDesign('fonts', { heading })} height="max-h-52" />
               <Slider label="Text size" value={d.fonts.scale} min={0.85} max={1.2} step={0.05} onChange={scale => setDesign('fonts', { scale })} show={v => `${Math.round(v * 100)}%`} />
               <Slider label="Text weight" value={d.fonts.weight} min={400} max={700} step={100} onChange={weight => setDesign('fonts', { weight })}
                 show={v => ({ 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold' }[v])} />
-              <p className="text-xs text-[var(--text-muted)]">Script and handwriting fonts are for posts only, so the app stays easy to read.</p>
             </div>
           )}
 

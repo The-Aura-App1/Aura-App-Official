@@ -628,5 +628,755 @@
 "id": "dm-mono",
 "name": "DM Mono",
 "cat": "Mono"
+},
+{
+"id": "source-sans-3",
+"name": "Source Sans 3",
+"cat": "Sans"
+},
+{
+"id": "ibm-plex-sans",
+"name": "IBM Plex Sans",
+"cat": "Sans"
+},
+{
+"id": "pt-sans",
+"name": "PT Sans",
+"cat": "Sans"
+},
+{
+"id": "noto-sans",
+"name": "Noto Sans",
+"cat": "Sans"
+},
+{
+"id": "fira-sans",
+"name": "Fira Sans",
+"cat": "Sans"
+},
+{
+"id": "cabin",
+"name": "Cabin",
+"cat": "Sans"
+},
+{
+"id": "hind",
+"name": "Hind",
+"cat": "Sans"
+},
+{
+"id": "oxygen",
+"name": "Oxygen",
+"cat": "Sans"
+},
+{
+"id": "ubuntu",
+"name": "Ubuntu",
+"cat": "Sans"
+},
+{
+"id": "exo-2",
+"name": "Exo 2",
+"cat": "Sans"
+},
+{
+"id": "titillium-web",
+"name": "Titillium Web",
+"cat": "Sans"
+},
+{
+"id": "assistant",
+"name": "Assistant",
+"cat": "Sans"
+},
+{
+"id": "heebo",
+"name": "Heebo",
+"cat": "Sans"
+},
+{
+"id": "plus-jakarta-sans",
+"name": "Plus Jakarta Sans",
+"cat": "Sans"
+},
+{
+"id": "sora",
+"name": "Sora",
+"cat": "Sans"
+},
+{
+"id": "jost",
+"name": "Jost",
+"cat": "Sans"
+},
+{
+"id": "red-hat-display",
+"name": "Red Hat Display",
+"cat": "Sans"
+},
+{
+"id": "overpass",
+"name": "Overpass",
+"cat": "Sans"
+},
+{
+"id": "catamaran",
+"name": "Catamaran",
+"cat": "Sans"
+},
+{
+"id": "asap",
+"name": "Asap",
+"cat": "Sans"
+},
+{
+"id": "maven-pro",
+"name": "Maven Pro",
+"cat": "Sans"
+},
+{
+"id": "questrial",
+"name": "Questrial",
+"cat": "Sans"
+},
+{
+"id": "signika",
+"name": "Signika",
+"cat": "Sans"
+},
+{
+"id": "sarabun",
+"name": "Sarabun",
+"cat": "Sans"
+},
+{
+"id": "public-sans",
+"name": "Public Sans",
+"cat": "Sans"
+},
+{
+"id": "be-vietnam-pro",
+"name": "Be Vietnam Pro",
+"cat": "Sans"
+},
+{
+"id": "albert-sans",
+"name": "Albert Sans",
+"cat": "Sans"
+},
+{
+"id": "onest",
+"name": "Onest",
+"cat": "Sans"
+},
+{
+"id": "instrument-sans",
+"name": "Instrument Sans",
+"cat": "Sans"
+},
+{
+"id": "schibsted-grotesk",
+"name": "Schibsted Grotesk",
+"cat": "Sans"
+},
+{
+"id": "chivo",
+"name": "Chivo",
+"cat": "Sans"
+},
+{
+"id": "encode-sans",
+"name": "Encode Sans",
+"cat": "Sans"
+},
+{
+"id": "m-plus-rounded-1c",
+"name": "M PLUS Rounded 1c",
+"cat": "Sans"
+},
+{
+"id": "nunito-sans",
+"name": "Nunito Sans",
+"cat": "Sans"
+},
+{
+"id": "mukta",
+"name": "Mukta",
+"cat": "Sans"
+},
+{
+"id": "prompt",
+"name": "Prompt",
+"cat": "Sans"
+},
+{
+"id": "saira",
+"name": "Saira",
+"cat": "Sans"
+},
+{
+"id": "exo",
+"name": "Exo",
+"cat": "Sans"
+},
+{
+"id": "red-hat-text",
+"name": "Red Hat Text",
+"cat": "Sans"
+},
+{
+"id": "golos-text",
+"name": "Golos Text",
+"cat": "Sans"
+},
+{
+"id": "gabarito",
+"name": "Gabarito",
+"cat": "Sans"
+},
+{
+"id": "bricolage-grotesque",
+"name": "Bricolage Grotesque",
+"cat": "Sans"
+},
+{
+"id": "hanken-grotesk",
+"name": "Hanken Grotesk",
+"cat": "Sans"
+},
+{
+"id": "epilogue",
+"name": "Epilogue",
+"cat": "Sans"
+},
+{
+"id": "readex-pro",
+"name": "Readex Pro",
+"cat": "Sans"
+},
+{
+"id": "libre-caslon-text",
+"name": "Libre Caslon Text",
+"cat": "Serif"
+},
+{
+"id": "cormorant",
+"name": "Cormorant",
+"cat": "Serif"
+},
+{
+"id": "crimson-pro",
+"name": "Crimson Pro",
+"cat": "Serif"
+},
+{
+"id": "dm-serif-text",
+"name": "DM Serif Text",
+"cat": "Serif"
+},
+{
+"id": "zilla-slab",
+"name": "Zilla Slab",
+"cat": "Serif"
+},
+{
+"id": "roboto-slab",
+"name": "Roboto Slab",
+"cat": "Serif"
+},
+{
+"id": "arvo",
+"name": "Arvo",
+"cat": "Serif"
+},
+{
+"id": "domine",
+"name": "Domine",
+"cat": "Serif"
+},
+{
+"id": "vollkorn",
+"name": "Vollkorn",
+"cat": "Serif"
+},
+{
+"id": "fraunces",
+"name": "Fraunces",
+"cat": "Serif"
+},
+{
+"id": "newsreader",
+"name": "Newsreader",
+"cat": "Serif"
+},
+{
+"id": "literata",
+"name": "Literata",
+"cat": "Serif"
+},
+{
+"id": "ibm-plex-serif",
+"name": "IBM Plex Serif",
+"cat": "Serif"
+},
+{
+"id": "tinos",
+"name": "Tinos",
+"cat": "Serif"
+},
+{
+"id": "gelasio",
+"name": "Gelasio",
+"cat": "Serif"
+},
+{
+"id": "noticia-text",
+"name": "Noticia Text",
+"cat": "Serif"
+},
+{
+"id": "josefin-slab",
+"name": "Josefin Slab",
+"cat": "Serif"
+},
+{
+"id": "rozha-one",
+"name": "Rozha One",
+"cat": "Serif"
+},
+{
+"id": "bodoni-moda",
+"name": "Bodoni Moda",
+"cat": "Serif"
+},
+{
+"id": "instrument-serif",
+"name": "Instrument Serif",
+"cat": "Serif"
+},
+{
+"id": "young-serif",
+"name": "Young Serif",
+"cat": "Serif"
+},
+{
+"id": "marcellus",
+"name": "Marcellus",
+"cat": "Serif"
+},
+{
+"id": "cinzel-decorative",
+"name": "Cinzel Decorative",
+"cat": "Serif"
+},
+{
+"id": "lustria",
+"name": "Lustria",
+"cat": "Serif"
+},
+{
+"id": "sorts-mill-goudy",
+"name": "Sorts Mill Goudy",
+"cat": "Serif"
+},
+{
+"id": "unna",
+"name": "Unna",
+"cat": "Serif"
+},
+{
+"id": "rufina",
+"name": "Rufina",
+"cat": "Serif"
+},
+{
+"id": "bellefair",
+"name": "Bellefair",
+"cat": "Serif"
+},
+{
+"id": "archivo-black",
+"name": "Archivo Black",
+"cat": "Display"
+},
+{
+"id": "dela-gothic-one",
+"name": "Dela Gothic One",
+"cat": "Display"
+},
+{
+"id": "rubik-glitch",
+"name": "Rubik Glitch",
+"cat": "Display"
+},
+{
+"id": "bungee-inline",
+"name": "Bungee Inline",
+"cat": "Display"
+},
+{
+"id": "climate-crisis",
+"name": "Climate Crisis",
+"cat": "Display"
+},
+{
+"id": "rubik-dirt",
+"name": "Rubik Dirt",
+"cat": "Display"
+},
+{
+"id": "big-shoulders-display",
+"name": "Big Shoulders Display",
+"cat": "Display"
+},
+{
+"id": "sigmar-one",
+"name": "Sigmar One",
+"cat": "Display"
+},
+{
+"id": "carter-one",
+"name": "Carter One",
+"cat": "Display"
+},
+{
+"id": "concert-one",
+"name": "Concert One",
+"cat": "Display"
+},
+{
+"id": "patua-one",
+"name": "Patua One",
+"cat": "Display"
+},
+{
+"id": "paytone-one",
+"name": "Paytone One",
+"cat": "Display"
+},
+{
+"id": "sniglet",
+"name": "Sniglet",
+"cat": "Display"
+},
+{
+"id": "chango",
+"name": "Chango",
+"cat": "Display"
+},
+{
+"id": "poller-one",
+"name": "Poller One",
+"cat": "Display"
+},
+{
+"id": "bevan",
+"name": "Bevan",
+"cat": "Display"
+},
+{
+"id": "rye",
+"name": "Rye",
+"cat": "Display"
+},
+{
+"id": "special-elite",
+"name": "Special Elite",
+"cat": "Display"
+},
+{
+"id": "cherry-bomb-one",
+"name": "Cherry Bomb One",
+"cat": "Display"
+},
+{
+"id": "gloock",
+"name": "Gloock",
+"cat": "Display"
+},
+{
+"id": "bagel-fat-one",
+"name": "Bagel Fat One",
+"cat": "Display"
+},
+{
+"id": "protest-strike",
+"name": "Protest Strike",
+"cat": "Display"
+},
+{
+"id": "tilt-warp",
+"name": "Tilt Warp",
+"cat": "Display"
+},
+{
+"id": "kalnia",
+"name": "Kalnia",
+"cat": "Display"
+},
+{
+"id": "rammetto-one",
+"name": "Rammetto One",
+"cat": "Display"
+},
+{
+"id": "coda",
+"name": "Coda",
+"cat": "Display"
+},
+{
+"id": "allison",
+"name": "Allison",
+"cat": "Script"
+},
+{
+"id": "birthstone",
+"name": "Birthstone",
+"cat": "Script"
+},
+{
+"id": "ephesis",
+"name": "Ephesis",
+"cat": "Script"
+},
+{
+"id": "italianno",
+"name": "Italianno",
+"cat": "Script"
+},
+{
+"id": "mrs-saint-delafield",
+"name": "Mrs Saint Delafield",
+"cat": "Script"
+},
+{
+"id": "petit-formal-script",
+"name": "Petit Formal Script",
+"cat": "Script"
+},
+{
+"id": "qwigley",
+"name": "Qwigley",
+"cat": "Script"
+},
+{
+"id": "rouge-script",
+"name": "Rouge Script",
+"cat": "Script"
+},
+{
+"id": "herr-von-muellerhoff",
+"name": "Herr Von Muellerhoff",
+"cat": "Script"
+},
+{
+"id": "monsieur-la-doulaise",
+"name": "Monsieur La Doulaise",
+"cat": "Script"
+},
+{
+"id": "meddon",
+"name": "Meddon",
+"cat": "Script"
+},
+{
+"id": "euphoria-script",
+"name": "Euphoria Script",
+"cat": "Script"
+},
+{
+"id": "arizonia",
+"name": "Arizonia",
+"cat": "Script"
+},
+{
+"id": "berkshire-swash",
+"name": "Berkshire Swash",
+"cat": "Script"
+},
+{
+"id": "niconne",
+"name": "Niconne",
+"cat": "Script"
+},
+{
+"id": "playball",
+"name": "Playball",
+"cat": "Script"
+},
+{
+"id": "norican",
+"name": "Norican",
+"cat": "Script"
+},
+{
+"id": "grand-hotel",
+"name": "Grand Hotel",
+"cat": "Script"
+},
+{
+"id": "handlee",
+"name": "Handlee",
+"cat": "Handwriting"
+},
+{
+"id": "nanum-pen-script",
+"name": "Nanum Pen Script",
+"cat": "Handwriting"
+},
+{
+"id": "coming-soon",
+"name": "Coming Soon",
+"cat": "Handwriting"
+},
+{
+"id": "sue-ellen-francisco",
+"name": "Sue Ellen Francisco",
+"cat": "Handwriting"
+},
+{
+"id": "just-another-hand",
+"name": "Just Another Hand",
+"cat": "Handwriting"
+},
+{
+"id": "schoolbell",
+"name": "Schoolbell",
+"cat": "Handwriting"
+},
+{
+"id": "gochi-hand",
+"name": "Gochi Hand",
+"cat": "Handwriting"
+},
+{
+"id": "swanky-and-moo-moo",
+"name": "Swanky and Moo Moo",
+"cat": "Handwriting"
+},
+{
+"id": "short-stack",
+"name": "Short Stack",
+"cat": "Handwriting"
+},
+{
+"id": "delius",
+"name": "Delius",
+"cat": "Handwriting"
+},
+{
+"id": "neucha",
+"name": "Neucha",
+"cat": "Handwriting"
+},
+{
+"id": "itim",
+"name": "Itim",
+"cat": "Handwriting"
+},
+{
+"id": "mali",
+"name": "Mali",
+"cat": "Handwriting"
+},
+{
+"id": "dekko",
+"name": "Dekko",
+"cat": "Handwriting"
+},
+{
+"id": "sriracha",
+"name": "Sriracha",
+"cat": "Handwriting"
+},
+{
+"id": "waiting-for-the-sunrise",
+"name": "Waiting for the Sunrise",
+"cat": "Handwriting"
+},
+{
+"id": "zeyada",
+"name": "Zeyada",
+"cat": "Handwriting"
+},
+{
+"id": "give-you-glory",
+"name": "Give You Glory",
+"cat": "Handwriting"
+},
+{
+"id": "mynerve",
+"name": "Mynerve",
+"cat": "Handwriting"
+},
+{
+"id": "inconsolata",
+"name": "Inconsolata",
+"cat": "Mono"
+},
+{
+"id": "ubuntu-mono",
+"name": "Ubuntu Mono",
+"cat": "Mono"
+},
+{
+"id": "overpass-mono",
+"name": "Overpass Mono",
+"cat": "Mono"
+},
+{
+"id": "red-hat-mono",
+"name": "Red Hat Mono",
+"cat": "Mono"
+},
+{
+"id": "fira-mono",
+"name": "Fira Mono",
+"cat": "Mono"
+},
+{
+"id": "anonymous-pro",
+"name": "Anonymous Pro",
+"cat": "Mono"
+},
+{
+"id": "share-tech-mono",
+"name": "Share Tech Mono",
+"cat": "Mono"
+},
+{
+"id": "xanh-mono",
+"name": "Xanh Mono",
+"cat": "Mono"
+},
+{
+"id": "b612-mono",
+"name": "B612 Mono",
+"cat": "Mono"
+},
+{
+"id": "azeret-mono",
+"name": "Azeret Mono",
+"cat": "Mono"
+},
+{
+"id": "spline-sans-mono",
+"name": "Spline Sans Mono",
+"cat": "Mono"
+},
+{
+"id": "martian-mono",
+"name": "Martian Mono",
+"cat": "Mono"
+},
+{
+"id": "sometype-mono",
+"name": "Sometype Mono",
+"cat": "Mono"
+},
+{
+"id": "noto-sans-mono",
+"name": "Noto Sans Mono",
+"cat": "Mono"
 }
 ]

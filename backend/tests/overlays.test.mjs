@@ -23,6 +23,13 @@ assert.equal(out[2].username, 'bob_1');
 assert.equal(out[3].tag, 'café');
 assert.equal(out[5].evil, undefined, 'unknown fields are dropped');
 assert.deepEqual(checkOverlays(undefined, 1, cleanText), { overlays: [] });
+// Fonts: any from the post catalog, script and handwriting included; emoji get none
+const fonts = ok([at({ kind: 'text', text: 'Hi', font: 'pacifico' }), at({ kind: 'mention', username: 'bob', font: 'inter' }), at({ kind: 'emoji', emoji: '🔥', font: 'inter' })]);
+assert.equal(fonts[0].font, 'pacifico');
+assert.equal(fonts[1].font, 'inter');
+assert.equal(fonts[2].font, undefined);
+bad([at({ kind: 'text', text: 'Hi', font: 'comic-sans-9000' })]);
+bad([at({ kind: 'text', text: 'Hi', font: '<script>' })]);
 
 // refused
 for (const url of ['javascript:alert(1)', 'data:text/html,x', 'https://u:p@x.com', 'ftp://x.com', 'https://localhost', 'notaurl', 'https://x.com/' + 'a'.repeat(300)]) {

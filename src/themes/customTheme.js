@@ -1,4 +1,4 @@
-import { FONT_BY_ID, fontFamily, loadPostFont } from '../utils/postStyle';
+import { FONT_BY_ID, FONT_CATEGORIES, fontFamily, loadPostFont } from '../utils/postStyle';
 import { cleanDesign } from './themeDesign';
 
 // A custom theme: a person's own colors and font, kept on this device
@@ -14,9 +14,10 @@ import { cleanDesign } from './themeDesign';
 
 export const CUSTOM_KEY = 'aura-custom-theme';
 const HEX = /^#[0-9a-f]{6}$/i;
-// Fonts a theme may use for the app's own text: easy-reading families only,
-// never script or handwriting (the app's look never uses those)
-export const THEME_FONT_CATEGORIES = ['Sans', 'Serif', 'Display', 'Mono'];
+// Fonts a theme may use: the whole catalog, the same as posts (Corey,
+// 2026-11-16: every feature offers the most fonts possible). Aura's own
+// default look still never uses script or handwriting; a person's own theme may.
+export const THEME_FONT_CATEGORIES = FONT_CATEGORIES;
 
 // ── Color math ───────────────────────────────────────────────────────
 

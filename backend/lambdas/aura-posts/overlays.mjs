@@ -7,6 +7,7 @@
 // Links are only http(s) addresses; the app shows their domain, opens them in
 // a new tab and marks them nofollow, so a post can't run script or pose as Aura.
 import { isReactionEmoji } from './reactions.mjs';
+import { FONT_IDS } from './postStyle.mjs';
 
 export const MAX_OVERLAYS = 12;
 export const OVERLAY_KINDS = ['text', 'link', 'mention', 'hashtag', 'emoji'];
@@ -42,6 +43,11 @@ export function checkOverlays(list, slides, cleanText) {
     const color = raw.color ?? '#ffffff';
     if (!HEX.test(color)) return { error: 'Pick a color from the list.' };
     item.color = color;
+    // Any font from the catalog (the same one as post styling); emoji have none
+    if (raw.font !== undefined && raw.font !== null && raw.kind !== 'emoji') {
+      if (!FONT_IDS.has(raw.font)) return { error: 'Pick a font from the list.' };
+      item.font = raw.font;
+    }
     if (raw.kind === 'text') {
       const text = cleanText(String(raw.text ?? '')).slice(0, OVERLAY_TEXT_MAX + 1);
       if (!text.trim() || text.length > OVERLAY_TEXT_MAX) return { error: `Text on a post is 1 to ${OVERLAY_TEXT_MAX} characters.` };

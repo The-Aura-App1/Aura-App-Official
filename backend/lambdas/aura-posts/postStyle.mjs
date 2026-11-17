@@ -7,7 +7,8 @@ import fs from 'node:fs';
 // src/utils/postStyle.js to make styling a Premium feature.
 export const STYLE_PREMIUM_ONLY = false;
 
-const FONT_IDS = new Set(JSON.parse(fs.readFileSync(new URL('./postFonts.json', import.meta.url), 'utf8')).map(f => f.id));
+// The font catalog: post styling and text on photos use the same one
+export const FONT_IDS = new Set(JSON.parse(fs.readFileSync(new URL('./postFonts.json', import.meta.url), 'utf8')).map(f => f.id));
 export const BACKGROUND_IDS = ['midnight', 'plum', 'ocean', 'forest', 'wine', 'slate', 'cream', 'blush', 'sky', 'lemon', 'aura', 'dusk', 'sunset', 'tide', 'aurora', 'nightsky', 'rose', 'lagoon', 'ember', 'gold', 'peach', 'mint', 'candy', 'graphite', 'dots', 'grid', 'stripes', 'checker', 'stars', 'notebook', 'confetti', 'plaid'];
 export const FRAME_IDS = ['glow', 'gold', 'silver', 'neon', 'ice', 'rainbow', 'aurora', 'sunset', 'ocean', 'ember', 'mint', 'thick'];
 export const SAFE_COLORS = ['#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#ef4444', '#f97316', '#d97706', '#65a30d', '#16a34a', '#0d9488', '#0891b2', '#0284c7', '#2563eb', '#6366f1', '#64748b'];

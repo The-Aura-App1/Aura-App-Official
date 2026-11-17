@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Type, Link2, AtSign, Hash, Smile, Trash2, Minus, Plus } from 'lucide-react';
+import { Type, Link2, AtSign, Hash, Smile, Trash2, Minus, Plus, CaseSensitive } from 'lucide-react';
 import { OverlayItem } from './PostOverlays';
 import { MAX_OVERLAYS, OVERLAY_TEXT_MAX, OVERLAY_LABEL_MAX, OVERLAY_COLORS, normalizeUrl, newOverlayId } from '../../utils/overlays';
 import { REACTION_EMOJIS } from '../../utils/reactions';
+import { FONT_BY_ID } from '../../utils/postStyle';
+import FontPicker from '../common/FontPicker';
 
 const TOOLS = [
   { kind: 'text', icon: Type, label: 'Text' },
@@ -28,6 +30,7 @@ export default function OverlayEditor({ overlays, onChange, slide = 0, aspect = 
   const canvas = useRef(null);
   const drag = useRef(null);
   const [selected, setSelected] = useState(null);
+  const [fontsOpen, setFontsOpen] = useState(false);
   const here = overlays.filter(o => o.slide === slide);
   const current = overlays.find(o => o.id === selected && o.slide === slide) ?? null;
   const full = overlays.length >= MAX_OVERLAYS;
@@ -133,7 +136,17 @@ export default function OverlayEditor({ overlays, onChange, slide = 0, aspect = 
               ))}
             </div>
           )}
+          {current.kind !== 'emoji' && fontsOpen && (
+            <FontPicker label="Font" value={current.font ?? null} defaultLabel="Aura's font" height="max-h-48"
+              onChange={font => update(current.id, { font: font ?? undefined })} />
+          )}
           <div className="flex items-center gap-2 flex-wrap">
+            {current.kind !== 'emoji' && (
+              <button type="button" onClick={() => setFontsOpen(v => !v)} aria-expanded={fontsOpen}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-secondary)]">
+                <CaseSensitive size={14} aria-hidden="true" /> {current.font ? FONT_BY_ID[current.font]?.name ?? 'Font' : 'Font'}
+              </button>
+            )}
             {current.kind === 'text' && (
               <div className="flex rounded-lg border border-[var(--border)] p-0.5 text-xs font-semibold">
                 {[['none', 'Plain'], ['solid', 'Filled'], ['soft', 'Shaded']].map(([bg, name]) => (

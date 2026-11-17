@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ThemeStudio from './ThemeStudio';
 import { api } from '../api';
@@ -23,7 +23,10 @@ test('Premium: change colors, shape and fonts, then use it and save it to the ac
   fireEvent.click(screen.getByRole('tab', { name: 'Shape' }));
   fireEvent.change(screen.getByLabelText('Corner roundness'), { target: { value: '0' } });
   fireEvent.click(screen.getByRole('tab', { name: 'Fonts' }));
-  fireEvent.change(screen.getByLabelText('Heading font'), { target: { value: 'inter' } });
+  // the same full font picker as posts: search it, then tap the font
+  const heading = screen.getByRole('group', { name: 'Heading font' });
+  fireEvent.change(within(heading).getByLabelText('Search fonts for heading font'), { target: { value: 'inter' } });
+  fireEvent.click(within(heading).getByRole('button', { name: 'Inter' }));
   fireEvent.click(screen.getByRole('tab', { name: 'Backdrop' }));
   fireEvent.click(screen.getByRole('radio', { name: 'Gradient' }));
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Use this theme/ })); });

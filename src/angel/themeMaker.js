@@ -75,8 +75,11 @@ const FONT_WORDS = [
   [/\b(mono|monospace|code|coder|techy|typewriter|terminal|hacker)\b/, 'Mono', 'jetbrains-mono'],
   [/\b(bold|display|headline|chunky|loud|poster)\b/, 'Display', 'oswald'],
   [/\b(sans|modern|clean|minimal|simple|neutral|round|rounded|friendly)\b/, 'Sans', 'nunito'],
+  // the whole catalog is open to themes now, script and handwriting included
+  [/\b(script|cursive|calligraph\w*|swirly|wedding|romantic)\b/, 'Script', 'dancing-script'],
+  [/\b(handwrit\w*|hand-?drawn|scribbl\w*|notebook|marker|doodle\w*|journal)\b/, 'Handwriting', 'caveat'],
 ];
-const NOT_ALLOWED_FONT = /\b(script|handwrit|handwriting|cursive|calligraph)\w*\b/;
+const HARD_TO_READ = /\b(script|cursive|calligraph\w*|handwrit\w*|hand-?drawn|scribbl\w*)\b/;
 
 const hsl = hex => rgbToHsl(hexToRgb(hex));
 const tune = (hex, dl = 0, ds = 0, dh = 0) => {
@@ -264,7 +267,7 @@ export function describeTheme(text, previous = null, { remix = false } = {}) {
     spec.turns = turns;
     changed.push('variation');
   }
-  if (NOT_ALLOWED_FONT.test(t)) notes.push('For readability, app themes use sans, serif, display or mono fonts. Script and handwriting fonts are still yours to use in posts.');
+  if (HARD_TO_READ.test(t) && font) notes.push('Script and handwriting fonts look lovely in headings but can be harder to read in long text. Say "use a sans font" any time to switch back.');
 
   // Asking again for the same thing gets a fresh take on it, not a repeat
   if (previous && fresh && spec.accent === previous.accent && spec.background === previous.background) {

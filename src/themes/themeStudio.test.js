@@ -52,9 +52,11 @@ test('a design shows only while the account has Premium', () => {
   expect(customThemeInfo().backdrop.kind).toBe('scene');
 });
 
-test('fonts in a design are limited to the readable kinds', () => {
-  const spec = cleanCustom({ base: 'light', design: { fonts: { heading: 'dancing-script' } } });
-  expect(spec.design.fonts.heading).toBeNull();
+test('a design may use any font in the catalog, script and handwriting too', () => {
+  const spec = cleanCustom({ base: 'light', font: 'great-vibes', design: { fonts: { heading: 'dancing-script' } } });
+  expect(spec.design.fonts.heading).toBe('dancing-script');
+  expect(spec.font).toBe('great-vibes');
+  expect(cleanCustom({ base: 'light', design: { fonts: { heading: 'not-a-font' } } }).design.fonts.heading).toBeNull();
 });
 
 test('readable fonts are kept as heading fonts', () => {

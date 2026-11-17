@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Link2, AtSign, Hash } from 'lucide-react';
 import { domainOf, inkOn } from '../../utils/overlays';
+import { fontFamily, loadPostFont } from '../../utils/postStyle';
 
 // One placed item, drawn the same in the feed and in the editor. Sizes are in
 // container units (cqw), so it scales with the post. `interactive` makes
 // links, mentions and hashtags tappable (never in the editor).
 export function OverlayItem({ o, interactive = false }) {
   const size = o.size ?? 1;
-  const base = { fontSize: `${4.4 * size}cqw`, lineHeight: 1.15 };
+  useEffect(() => { if (o.font) loadPostFont(o.font); }, [o.font]);
+  const base = { fontSize: `${4.4 * size}cqw`, lineHeight: 1.15, ...(o.font && { fontFamily: fontFamily(o.font) }) };
   const pill = 'inline-flex items-center gap-[0.3em] rounded-[0.6em] px-[0.6em] py-[0.3em] font-semibold whitespace-nowrap shadow-lg';
   const stop = e => e.stopPropagation();
   if (o.kind === 'text') {

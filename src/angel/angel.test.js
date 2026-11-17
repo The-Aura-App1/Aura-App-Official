@@ -60,8 +60,14 @@ test('themes: builds one from a description and takes follow-ups', async () => {
   const muted = await ask('more muted please', { lastTheme: reply.theme });
   expect(muted.kind).toBe('theme');
   expect(muted.theme.accent).not.toBe(reply.theme.accent);
+  // every font works in themes now, script and handwriting too
   const script = await ask('make a pink theme with a script font');
-  expect(script.note).toMatch(/Script and handwriting fonts are still yours to use in posts/);
+  expect(script.theme.font).toBe('dancing-script');
+  expect(script.note).toMatch(/harder to read in long text/);
+  const hand = await ask('a cozy theme with a handwritten font');
+  expect(hand.theme.font).toBe('caveat');
+  const named = await ask('a dark theme in Pacifico');
+  expect(named.theme.font).toBe('pacifico');
 });
 
 test('custom theme colors always read on their backgrounds', () => {

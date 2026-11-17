@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Palette, ChevronDown, Lock, AlignLeft, AlignCenter, AlignRight, Search, RotateCcw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Palette, ChevronDown, Lock, AlignLeft, AlignCenter, AlignRight, RotateCcw } from 'lucide-react';
 import {
-  POST_FONTS, FONT_CATEGORIES, FONT_BY_ID, POST_BACKGROUNDS, BACKGROUND_KINDS, POST_FRAMES,
-  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, fontFamily, loadPostFont, cleanStyle, groupBgCss,
+  POST_BACKGROUNDS, BACKGROUND_KINDS, POST_FRAMES,
+  SAFE_COLORS, CARD_COLORS, HEX, STYLE_PREMIUM_ONLY, cleanStyle, groupBgCss,
 } from '../../utils/postStyle';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
+import FontPicker from '../common/FontPicker';
 
 // The "Customize the look" panel in CreatePost: fonts, text color, background,
 // size and alignment (text posts), and a frame (any post), with a live preview.
@@ -16,26 +17,6 @@ const Tile = ({ selected, label, onClick, children, className = '' }) => (
     {children}
   </button>
 );
-
-// Loads its font only once it scrolls into view, so opening the list doesn't fetch all 126
-function FontOption({ font, selected, onPick }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (typeof IntersectionObserver === 'undefined' || !el) { loadPostFont(font.id); return undefined; }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { loadPostFont(font.id); io.disconnect(); } }, { rootMargin: '120px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [font.id]);
-  return (
-    <button ref={ref} type="button" onClick={onPick} aria-pressed={selected}
-      className={`text-left px-3 py-2 rounded-lg border text-[15px] truncate transition-colors
-        ${selected ? 'border-aura-400 bg-aura-500/15 text-[var(--text-primary)]' : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-aura-500/40'}`}
-      style={{ fontFamily: fontFamily(font.id) }}>
-      {font.name}
-    </button>
-  );
-}
 
 function CustomColor({ value, onChange, label }) {
   const custom = value && HEX.test(value) ? value : '#7c3aed';
@@ -58,19 +39,12 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
   const kind = postType === 'text' ? 'text' : 'media';
   const [open, setOpen] = useState(bare);
   const [tab, setTab] = useState('Font');
-  const [fontCat, setFontCat] = useState('All');
-  const [query, setQuery] = useState('');
   const locked = STYLE_PREMIUM_ONLY && !isPremium;
   const tabs = TABS[kind];
   const current = cleanStyle(style, postType) ?? {};
   const set = (key, value) => onChange(cleanStyle({ ...style, [key]: value }, postType) ?? {});
 
   useEffect(() => { if (!tabs.includes(tab)) setTab('Font'); }, [tabs, tab]);
-
-  const fonts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return POST_FONTS.filter(f => (fontCat === 'All' || f.cat === fontCat) && (!q || f.name.toLowerCase().includes(q)));
-  }, [fontCat, query]);
 
   const changed = Object.keys(current).length;
   const sample = caption.trim() || (kind === 'text' ? 'Your words, your look.' : 'Your caption, your look.');
@@ -119,29 +93,8 @@ export default function StylePicker({ style, onChange, postType, caption, isPrem
           </div>
 
           {tab === 'Font' && (
-            <div className="flex flex-col gap-2" role="tabpanel">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
-                <input value={query} onChange={e => setQuery(e.target.value)} placeholder={`Search ${POST_FONTS.length} fonts`}
-                  aria-label="Search fonts" className="input !py-2 pl-8 text-sm" />
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-                {['All', ...FONT_CATEGORIES].map(c => (
-                  <button key={c} type="button" onClick={() => setFontCat(c)} aria-pressed={fontCat === c}
-                    className={`px-2.5 py-1 rounded-full text-xs whitespace-nowrap border
-                      ${fontCat === c ? 'border-aura-400 text-[var(--text-primary)] bg-aura-500/15' : 'border-[var(--border)] text-[var(--text-muted)]'}`}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
-                <button type="button" onClick={() => set('font', null)} aria-pressed={!current.font}
-                  className={`text-left px-3 py-2 rounded-lg border text-sm ${!current.font ? 'border-aura-400 bg-aura-500/15 text-[var(--text-primary)]' : 'border-[var(--border)] text-[var(--text-secondary)]'}`}>
-                  App default
-                </button>
-                {fonts.map(f => <FontOption key={f.id} font={f} selected={current.font === f.id} onPick={() => set('font', f.id)} />)}
-              </div>
-              {current.font && <p className="text-[11px] text-[var(--text-muted)]">{FONT_BY_ID[current.font]?.name} · {FONT_BY_ID[current.font]?.cat}</p>}
+            <div role="tabpanel">
+              <FontPicker value={current.font ?? null} onChange={id => set('font', id)} />
             </div>
           )}
 

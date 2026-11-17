@@ -16,12 +16,16 @@ test('adds text and a link, edits them, and readies them for the server', () => 
   fireEvent.click(screen.getByRole('button', { name: 'Text' }));
   fireEvent.change(screen.getByLabelText('Text on the post'), { target: { value: 'Hello world' } });
   fireEvent.click(screen.getByRole('button', { name: 'Filled' }));
+  // the same full font picker as post styling
+  fireEvent.click(screen.getByRole('button', { name: 'Font' }));
+  fireEvent.change(screen.getByLabelText('Search fonts'), { target: { value: 'pacifico' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Pacifico' }));
   fireEvent.click(screen.getByRole('button', { name: 'Link' }));
   fireEvent.change(screen.getByLabelText('Link address'), { target: { value: 'example.com/shop' } });
   expect(latest).toHaveLength(2);
   const { overlays, error } = readyOverlays(latest);
   expect(error).toBeUndefined();
-  expect(overlays[0]).toMatchObject({ kind: 'text', text: 'Hello world', bg: 'solid', slide: 0 });
+  expect(overlays[0]).toMatchObject({ kind: 'text', text: 'Hello world', bg: 'solid', slide: 0, font: 'pacifico' });
   expect(overlays[0].id).toBeUndefined();
   expect(overlays[1]).toMatchObject({ kind: 'link', url: 'https://example.com/shop' });
   expect(overlays[1].label).toBeUndefined();
