@@ -40,7 +40,7 @@ Work down the 🔲 and ⚠️ items; each says what to do.
 - ✅ No secrets in the repository (scanned for AWS keys, private keys and tokens).
 - ✅ The phone audit's sample data is left out of real builds (checked in the built files).
 - ⚠️ **Dependencies** (`npm audit`): most findings are build tools inside react-scripts and never reach users. One that does: **react-router** has an open-redirect issue in links built from a backslash path; Aura's links are built from encoded ids and usernames, so it isn't reachable today, but the fix is upgrading to react-router 7 (a bigger change; after the contest).
-- 🔲 **Security headers on the hosting** (wherever the built app is served): add `Content-Security-Policy` (scripts from your domain and Google Ad Manager only), `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`. Claude Code can write the exact header list once you say which host serves the app.
+- ✅ **Security headers** are set in `customHttp.yml` (Amplify Hosting): an enforced Content-Security-Policy (since 2026-11-16, commit 8aa4651), Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy and Cross-Origin-Opener-Policy. Re-check the CSP whenever a new outside script or domain is added.
 
 ## IAM
 - ✅ Each Lambda has its own role with only the tables and actions it uses (`backend/iam/`, checked against the live roles on 2026-11-16).
