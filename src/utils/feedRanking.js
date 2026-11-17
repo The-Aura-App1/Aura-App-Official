@@ -1,4 +1,5 @@
 import { decodeVector, similarity } from './embeddings';
+import { postTopicIds } from './topics';
 import { hashtagKey } from './hashtags';
 import { EMPTY_TASTE, hasTaste, prepareTaste, tasteMatch } from './tasteProfile';
 
@@ -46,7 +47,7 @@ function bestMatch(postVec, hashKeys, words) {
 
 // Returns the post's score and whether it matches anything the user wants more of
 function evaluate(post, prefs, words, taste) {
-  const tags = post.tags ?? [];
+  const tags = postTopicIds(post);
   let score = post.hotScore ?? 0;
 
   const topicMore = tags.some(t => prefs.more.includes(t));

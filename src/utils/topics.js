@@ -1,3 +1,5 @@
+import { checkCustomTopic, topicDisplay, isHiddenTopic } from './customTopics';
+
 // Keep in sync with TOPICS in backend/lambdas/aura-posts/index.mjs
 export const TOPICS = [
   { id: 'photography',    label: 'Photography' },
@@ -33,6 +35,24 @@ export const TOPICS = [
 export const TOPIC_IDS       = new Set(TOPICS.map(t => t.id));
 export const MAX_POST_TOPICS = 3;
 
+// A custom topic's id wherever ids mix (feed prefs, taste): "c:<key>"
+export const CUSTOM_PREFIX = 'c:';
+export const customTopicId = key => `${CUSTOM_PREFIX}${key}`;
+
 export function topicLabel(id) {
+  if (typeof id === 'string' && id.startsWith(CUSTOM_PREFIX)) return topicDisplay(id.slice(CUSTOM_PREFIX.length));
   return TOPICS.find(t => t.id === id)?.label ?? id;
+}
+
+// A curated topic id, or a valid custom one ("c:home baking")
+export function isTopicId(id) {
+  if (TOPIC_IDS.has(id)) return true;
+  if (typeof id !== 'string' || !id.startsWith(CUSTOM_PREFIX)) return false;
+  const key = id.slice(CUSTOM_PREFIX.length);
+  return checkCustomTopic(key).key === key && !isHiddenTopic(key);
+}
+
+// Every topic on a post, curated and custom, as ids (hidden ones left out)
+export function postTopicIds(post) {
+  return [...(post?.tags ?? []), ...(post?.customTopics ?? []).filter(k => !isHiddenTopic(k)).map(customTopicId)];
 }

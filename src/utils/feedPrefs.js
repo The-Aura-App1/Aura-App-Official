@@ -1,4 +1,4 @@
-import { TOPIC_IDS } from './topics';
+import { isTopicId } from './topics';
 import { decodeVector } from './embeddings';
 
 // Feed preferences live only in this browser's localStorage and are never sent
@@ -27,7 +27,7 @@ function cleanWords(list) {
 }
 
 export function cleanPrefs(raw) {
-  const pick = list => (Array.isArray(list) ? [...new Set(list.filter(t => TOPIC_IDS.has(t)))] : []);
+  const pick = list => (Array.isArray(list) ? [...new Set(list.filter(isTopicId))] : []);
   const more = pick(raw?.more);
   const less = pick(raw?.less).filter(t => !more.includes(t));
   return { more, less, words: cleanWords(raw?.words) };

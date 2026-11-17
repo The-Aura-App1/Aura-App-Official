@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SlidersHorizontal, ChevronDown, Lock, X } from 'lucide-react';
-import { TOPICS } from '../../utils/topics';
+import { TOPICS, CUSTOM_PREFIX, topicLabel } from '../../utils/topics';
 import {
   setTopics, topicChoice, addKeyword, removeKeyword, hasKeyword,
   EMPTY_PREFS, MAX_KEYWORDS, MAX_KEYWORD_LENGTH,
@@ -74,7 +74,7 @@ export default function TuneFeed({ prefs, onChange }) {
             again to see <span className="text-red-400 font-semibold">less</span>, and again to reset.
           </p>
           <div className="flex flex-wrap gap-2">
-            {TOPICS.map(topic => {
+            {[...TOPICS, ...[...prefs.more, ...prefs.less].filter(id => id.startsWith(CUSTOM_PREFIX)).map(id => ({ id, label: topicLabel(id), custom: true }))].map(topic => {
               const choice = topicChoice(prefs, topic.id);
               return (
                 <button

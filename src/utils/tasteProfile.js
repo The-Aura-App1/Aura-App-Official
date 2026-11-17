@@ -1,4 +1,5 @@
 import { decodeVector, similarity } from './embeddings';
+import { postTopicIds } from './topics';
 import { hashtagKey } from './hashtags';
 
 // What the feed learns from what someone does: the aura they give and take,
@@ -110,7 +111,7 @@ export function learn(taste, post, kind, amount = 0, now = Date.now()) {
     authors: { ...taste.authors },
     vectors: [...taste.vectors],
   };
-  for (const topic of post.tags ?? []) bump(next.topics, topic, delta, now);
+  for (const topic of postTopicIds(post)) bump(next.topics, topic, delta, now);
   for (const tag of post.hashtags ?? []) bump(next.tags, hashtagKey(tag), delta, now);
   if (post.authorId) bump(next.authors, post.authorId, delta, now);
   if (decodeVector(post.embedding)) next.vectors.push({ vec: post.embedding, w: delta, t: now });
@@ -155,7 +156,7 @@ export function prepareTaste(taste, now = Date.now()) {
 export function tasteMatch(post, prepared) {
   const sum = (map, keys) => keys.reduce((total, key) => total + (map[key] ?? 0), 0);
 
-  const topics = Math.tanh(sum(prepared.topics, post.tags ?? []) / 3);
+  const topics = Math.tanh(sum(prepared.topics, postTopicIds(post)) / 3);
   const tags   = Math.tanh(sum(prepared.tags, (post.hashtags ?? []).map(hashtagKey)) / 2);
   const author = Math.tanh((prepared.authors[post.authorId] ?? 0) / 3);
 

@@ -4,6 +4,8 @@ import { Image, Video, Type, X, Upload, Sparkles, Users, ArrowLeft, ChevronLeft,
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { TOPICS, MAX_POST_TOPICS, topicLabel } from '../utils/topics';
+import CustomTopics from '../components/post/CustomTopics';
+import { topicDisplay } from '../utils/customTopics';
 import { postEmbeddingText } from '../utils/embeddings';
 import { addHashtags, MAX_HASHTAGS } from '../utils/hashtags';
 import { embedTexts, warmUpModel } from '../utils/embedClient';
@@ -64,6 +66,7 @@ export default function CreatePost() {
   const [slide, setSlide]           = useState(0);    // which photo is being edited or shown
   const [videoAspect, setVideoAspect] = useState(1);
   const [topics, setTopics]         = useState([]);
+  const [customTopics, setCustomTopics] = useState([]);   // their own (customTopics.js)
   const [hashtags, setHashtags]     = useState([]);
   const [allowTakes, setAllowTakes] = useState(true);
   const [groupTakesOff, setGroupTakesOff] = useState(false);
@@ -101,7 +104,7 @@ export default function CreatePost() {
   useEffect(() => { topRef.current?.scrollIntoView?.({ block: 'start' }); }, [step]);
 
   async function captionEmbedding(tags) {
-    const text = postEmbeddingText(caption, topics.map(topicLabel), tags);
+    const text = postEmbeddingText(caption, [...topics.map(topicLabel), ...customTopics.map(topicDisplay)], tags);
     if (groupId || !text) return undefined;
     try {
       const [vec] = await embedTexts([text], EMBED_TIMEOUT_MS);
@@ -177,7 +180,7 @@ export default function CreatePost() {
   function toggleTopic(id) {
     setTopics(prev => prev.includes(id)
       ? prev.filter(t => t !== id)
-      : prev.length < MAX_POST_TOPICS ? [...prev, id] : prev);
+      : prev.length + customTopics.length < MAX_POST_TOPICS ? [...prev, id] : prev);
   }
 
   // Adds whatever is typed in the hashtag box; returns the updated list, or null
@@ -271,6 +274,7 @@ export default function CreatePost() {
         caption:   caption.trim(),
         mediaKeys,
         tags:      groupId ? [] : topics,
+        ...(!groupId && customTopics.length && { customTopics }),
         hashtags:  tags,
         ...(embedding && { embedding }),
         allowTakes: allowTakes && !groupTakesOff,
@@ -446,13 +450,13 @@ export default function CreatePost() {
           {!groupId && (
             <div data-tour="post-topics">
               <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
-                Topics <span className="text-[var(--text-muted)] font-normal">({topics.length}/{MAX_POST_TOPICS}, optional)</span>
+                Topics <span className="text-[var(--text-muted)] font-normal">({topics.length + customTopics.length}/{MAX_POST_TOPICS}, optional)</span>
               </p>
               <p className="text-xs text-[var(--text-muted)] mb-2">Helps people who want more of these find your post.</p>
               <div className="flex flex-wrap gap-2">
                 {TOPICS.map(topic => {
                   const selected = topics.includes(topic.id);
-                  const full     = !selected && topics.length >= MAX_POST_TOPICS;
+                  const full     = !selected && topics.length + customTopics.length >= MAX_POST_TOPICS;
                   return (
                     <button key={topic.id} type="button" onClick={() => toggleTopic(topic.id)} disabled={full} aria-pressed={selected}
                       className={`px-3 py-1 rounded-full border text-xs font-medium transition-all disabled:opacity-40
@@ -464,6 +468,9 @@ export default function CreatePost() {
                   );
                 })}
               </div>
+              <CustomTopics value={customTopics} onChange={setCustomTopics} room={MAX_POST_TOPICS - topics.length - customTopics.length}
+                onCurated={id => { if (!topics.includes(id)) toggleTopic(id); }}
+                onHashtag={tag => { const { list } = addHashtags(hashtags, `#${tag}`); if (list) setHashtags(list); }} />
             </div>
           )}
 

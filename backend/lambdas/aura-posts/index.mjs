@@ -11,6 +11,7 @@ import { addGroupXp, GROUP_STATS_TABLE, groupLevel, PERKS } from './groupStats.m
 import { parseReaction, reactionKey, commentReactionKey, normalizeReaction, visibleCounts, MAX_PER_USER, MAX_KINDS } from './reactions.mjs';
 import { checkOverlays } from './overlays.mjs';
 import { checkStyle } from './postStyle.mjs';
+import { checkCustomTopic, CUSTOM_TOPICS_PER_DAY } from './customTopics.mjs';
 
 // Request bodies must be JSON objects; anything else is a 400, not a crash
 function parseBody(raw) {
@@ -228,7 +229,7 @@ async function visibleToViewer(posts, viewerId) {
 }
 
 async function createPost(userId, body) {
-  const { type, mediaKeys, tags, hashtags, groupId, embedding, allowTakes, commentVisibility } = body;
+  const { type, mediaKeys, tags, hashtags, groupId, embedding, allowTakes, commentVisibility, customTopics } = body;
   // Invisible and direction-flipping characters are removed before any check
   const caption = typeof body.caption === 'string' ? cleanText(body.caption) : body.caption;
 
@@ -254,6 +255,29 @@ async function createPost(userId, body) {
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > MAX_POST_TOPICS
       || new Set(tags).size !== tags.length || !tags.every(t => TOPICS.has(t)))) {
     return response(400, { error: `Pick up to ${MAX_POST_TOPICS} topics from the list.` });
+  }
+  // People's own topics (customTopics.mjs): stored apart from the curated
+  // ones, never given a feed list of their own (getFeed only lists TOPICS),
+  // at most MAX_POST_TOPICS together with them, and CUSTOM_TOPICS_PER_DAY a day
+  let custom = [];
+  if (customTopics !== undefined && customTopics !== null) {
+    if (!Array.isArray(customTopics)) return response(400, { error: 'Invalid custom topics.' });
+    for (const raw of customTopics) {
+      const checked = checkCustomTopic(raw, [...TOPICS]);
+      if (checked.error) return response(400, { error: checked.error });
+      if (checked.curated) return response(400, { error: `"${checked.key}" is one of Aura's topics. Pick it from the list.` });
+      if (checked.key !== raw) return response(400, { error: 'Send custom topics in their normal form.' });
+      if (custom.includes(checked.key)) return response(400, { error: 'Each topic once per post.' });
+      custom.push(checked.key);
+    }
+    if (custom.length && groupId !== undefined) custom = [];   // group posts don't use topics
+    if ((tags?.length ?? 0) + custom.length > MAX_POST_TOPICS) return response(400, { error: `Up to ${MAX_POST_TOPICS} topics in all, yours and Aura's.` });
+    // each custom topic on a post uses one of the day's CUSTOM_TOPICS_PER_DAY
+    for (let i = 0; i < custom.length; i++) {
+      if (await rateLimited(userId, 'custom-topic', CUSTOM_TOPICS_PER_DAY, 86400)) {
+        return response(429, { error: `You can use ${CUSTOM_TOPICS_PER_DAY} of your own topics a day. Pick from Aura's topics, or try again tomorrow.` });
+      }
+    }
   }
   if (hashtags !== undefined && (!Array.isArray(hashtags) || hashtags.length > MAX_HASHTAGS
       || !hashtags.every(t => typeof t === 'string' && HASHTAG_PATTERN.test(t))
@@ -327,6 +351,7 @@ async function createPost(userId, body) {
     caption:        caption ?? '',
     mediaKeys:      mediaKeys ?? [],
     tags:           tags ?? [],
+    ...(custom.length && { customTopics: custom }),
     hashtags:       hashtags ?? [],
     auraScore:      0,
     auraReceived:   0,

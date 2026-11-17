@@ -9,6 +9,7 @@ import { ViewSwitch, CaptionFilter, CaptionRow, captionMatches, loadView, saveVi
 import Reveal from '../components/motion/Reveal';
 import { FeedSkeleton } from '../components/motion/Skeleton';
 import { loadPrefs, savePrefs, setTopics } from '../utils/feedPrefs';
+import { postTopicIds } from '../utils/topics';
 import { rankFeed } from '../utils/feedRanking';
 import { EMPTY_TASTE, isLearningOn, loadTaste } from '../utils/tasteProfile';
 
@@ -102,7 +103,7 @@ export default function Feed() {
   }
 
   function preferPost(post, choice) {
-    storePrefs(current => setTopics(current, post.tags ?? [], choice));
+    storePrefs(current => setTopics(current, postTopicIds(post), choice));
   }
 
   if (loading) return <FeedSkeleton />;

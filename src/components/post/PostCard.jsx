@@ -10,7 +10,7 @@ import { timeAgo } from '../../utils/format';
 import AuraScore   from '../motion/AuraScore';
 import LikeHeart   from '../motion/LikeHeart';
 import { TextBody, CaptionText, frameProps } from './PostStyle';
-import { topicLabel } from '../../utils/topics';
+import { topicLabel, postTopicIds } from '../../utils/topics';
 import SafetyActions, { useBlockedAuthor } from '../moderation/SafetyActions';
 import Reactions from './Reactions';
 
@@ -22,7 +22,7 @@ export default function PostCard({ post, onUpdate, onRemove, onPrefer, onComment
   const navigate = useNavigate();
   const { user }  = useAuth();
   const isOwner   = user?.userId === post.authorId;
-  const tags      = post.tags ?? [];
+  const tags      = postTopicIds(post);   // curated and custom
   const hashtags  = post.hashtags ?? [];
   const canPrefer = !!onPrefer && tags.length > 0;
   const [menuOpen, setMenuOpen]           = useState(false);
