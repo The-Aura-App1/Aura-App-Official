@@ -285,3 +285,9 @@
 4. Security pass: WAF, rate limits, cooldowns, input sanitization, signed S3 URLs, CORS, pen testing
 5. React Native app and store submission
 6. Chat (post-launch). Remind the user later about aura-reactive post glow.
+
+## Phone checks (2026-11-16)
+
+- **Layout:** `scripts/phone-audit.mjs` opens every route (`scripts/phone-audit-routes.json`; `src/phoneAuditRoutes.test.js` fails if one is missing) at 8 sizes from 360 to 1024 wide, against the app in audit mode (`REACT_APP_PHONE_AUDIT=1`: sample data in `src/audit/fixtures.js` and a made-up account; `.env` keeps it 0 so real builds drop it). Fails on sideways overflow; also lists small tap targets, inputs under 16px, crashes and error text. Night: 304/304 pass after fixes (fold grid width, 16px inputs on phones, leaderboard member count, tour note clamp, moon behind the top buttons).
+- **Speed:** `scripts/serve-build.mjs` serves an audit build (`REACT_APP_PHONE_AUDIT=1 BUILD_PATH=build-audit npx react-scripts build`), and `scripts/phone-speed.mjs` loads key pages at 390x844 with the CPU slowed 4x and Slow 4G (150 ms, 1.6 Mb/s), first visit. Headless Chrome doesn't pace frames, so use slow-frame counts, not fps. Before/after the scene split (2026-11-16): first paint 1.83–2.39 s → 1.60–2.17 s; main JS 812 → 689 KB (234 → 205 KB gzipped). The nine non-sky scenes now load on demand (`LOADERS` in AuthBackdrop.jsx; the public pages prefetch them when idle). The language model already loads only where it's used (Angel, composer, search, Tune your feed).
+

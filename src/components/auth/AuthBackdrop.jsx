@@ -1,17 +1,8 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { Suspense, createContext, lazy, useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Pause, Play } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { getTheme, PUBLIC_ROTATION } from '../../themes';
-import SnowyPeaks from '../scenes/SnowyPeaks';
-import Duskfall from '../scenes/Duskfall';
-import NorthernLights from '../scenes/NorthernLights';
-import FireflyGrove from '../scenes/FireflyGrove';
-import SkyIsles from '../scenes/SkyIsles';
-import Abyss from '../scenes/Abyss';
-import GoldenDunes from '../scenes/GoldenDunes';
-import LanternLake from '../scenes/LanternLake';
-import CitySkies from '../scenes/CitySkies';
 import TwinklingStars from '../scenes/TwinklingStars';
 import { CloudBank, FloatingCloud } from '../scenes/Clouds';
 import ShootingStars from '../scenes/ShootingStars';
@@ -21,6 +12,22 @@ import NightMoon from '../scenes/NightMoon';
 import { SkyField, AppSkyConstellations, SkyContentContext } from '../scenes/Constellations';
 import '../scenes/scenes.css';
 import BrandWordmark from '../brand/Wordmark';
+
+// The other scenes load the first time they're shown, so the first download
+// only carries the Day and Night sky (measured 2026-11-16: about a tenth of
+// the main file was scenes most people never see)
+const LOADERS = {
+  peaks: () => import('../scenes/SnowyPeaks'), beach: () => import('../scenes/Duskfall'), city: () => import('../scenes/CitySkies'),
+  aurora: () => import('../scenes/NorthernLights'), grove: () => import('../scenes/FireflyGrove'), isles: () => import('../scenes/SkyIsles'),
+  deep: () => import('../scenes/Abyss'), dunes: () => import('../scenes/GoldenDunes'), lanterns: () => import('../scenes/LanternLake'),
+};
+const LAZY = Object.fromEntries(Object.entries(LOADERS).map(([id, load]) => [id, lazy(load)]));
+// The public pages rotate through scenes: fetch them all once the page is idle
+export function prefetchScenes() {
+  const go = () => Object.values(LOADERS).forEach(load => load().catch(() => {}));
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 2500);
+}
 
 // Fixed positions so the sparkles don't jump around between renders.
 const SPARKLES = [
@@ -178,13 +185,13 @@ function useGentleMotion(ref) {
     const slow = () => ref.current?.getAnimations?.({ subtree: true })
       .forEach(animation => { animation.playbackRate = 0.6; });
     slow();
-    // Catch anything that starts a moment after the scene mounts
-    const timer = setTimeout(slow, 500);
-    return () => clearTimeout(timer);
+    // Catch anything that starts a moment after the scene mounts (or loads)
+    const timers = [setTimeout(slow, 500), setTimeout(slow, 2000)];
+    return () => timers.forEach(clearTimeout);
   }, [ref]);
 }
 
-const SCENES = { sky: SkyDecor, peaks: SnowyPeaks, beach: Duskfall, city: CitySkies, aurora: NorthernLights, grove: FireflyGrove, isles: SkyIsles, deep: Abyss, dunes: GoldenDunes, lanterns: LanternLake };
+const SCENES = { sky: SkyDecor, ...LAZY };
 
 // The scenery for a theme: Day and Night share the sky (styled by the
 // `dark` class), Snowy Peaks and Duskfall have their own.
@@ -195,7 +202,9 @@ export function SceneDecor({ scene, variant = 'page' }) {
   if (!Scene) return null;
   return (
     <div ref={ref} className="absolute inset-0">
-      <Scene variant={variant} />
+      <Suspense fallback={null}>
+        <Scene variant={variant} />
+      </Suspense>
     </div>
   );
 }
@@ -326,6 +335,8 @@ export default function AuthBackdrop({ children, className = '' }) {
   const scenes = useSceneRotation();
   const theme = getTheme(PUBLIC_ROTATION[scenes.foreground]);
   useCardSpotlight();
+  // the rotation will need every scene, so fetch them once the page is idle
+  useEffect(() => { prefetchScenes(); }, []);
   // The sky keeps its constellations clear of what's in here
   const contentRef = useRef(null);
   return (

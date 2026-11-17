@@ -31,3 +31,5 @@ yarn-error.log*
 # Personal Claude Code settings
 .claude/settings.local.json
 phone-audit-out/
+build-audit/
+phone-speed*.json
