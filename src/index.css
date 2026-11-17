@@ -417,6 +417,37 @@
    itself; this only picks up their font. */
 [data-theme="custom"] body { font-family: var(--custom-font, 'Plus Jakarta Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif); }
 
+/* Theme Studio (Premium) designs: text size and weight, heading font,
+   corner roundness, see-through cards, shadow strength and border width.
+   The variables come from customVars; without a design they're the defaults,
+   so plain custom themes look the same as before. */
+:root[data-theme="custom"] { font-size: calc(100% * var(--font-scale, 1)); }
+[data-theme="custom"] body { font-weight: var(--font-weight, 400); }
+[data-theme="custom"] h1, [data-theme="custom"] h2, [data-theme="custom"] h3 {
+  font-family: var(--custom-heading-font, 'Sora Variable', 'Plus Jakarta Sans Variable', system-ui, sans-serif);
+}
+[data-theme="custom"] .rounded-md  { border-radius: calc(0.375rem * var(--radius-scale, 1)); }
+[data-theme="custom"] .rounded-lg  { border-radius: calc(0.5rem * var(--radius-scale, 1)); }
+[data-theme="custom"] .rounded-xl  { border-radius: calc(0.75rem * var(--radius-scale, 1)); }
+[data-theme="custom"] .rounded-2xl { border-radius: calc(1rem * var(--radius-scale, 1)); }
+[data-theme="custom"] .rounded-3xl { border-radius: calc(1.5rem * var(--radius-scale, 1)); }
+[data-theme="custom"] .card, [data-theme="custom"] .card-hover, [data-theme="custom"] .input,
+[data-theme="custom"] .btn-primary, [data-theme="custom"] .btn-secondary, [data-theme="custom"] .btn-ghost {
+  border-radius: calc(0.75rem * var(--radius-scale, 1));
+}
+[data-theme="custom"] .card, [data-theme="custom"] .card-hover {
+  border-width: var(--border-width, 1px);
+  -webkit-backdrop-filter: blur(var(--card-blur, 0px));
+  backdrop-filter: blur(var(--card-blur, 0px));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, calc(0.04 * var(--shadow-scale, 1))),
+    0 14px 34px -26px rgb(var(--aura-500) / calc(0.45 * var(--shadow-scale, 1)));
+}
+/* The Studio's backdrop behind the app (StudioBackdrop.jsx) */
+.studio-backdrop { position: absolute; inset: 0; }
+.studio-backdrop > img, .studio-backdrop > video { width: 100%; height: 100%; object-fit: cover; }
+@keyframes studioDrift { 0% { background-position: 0% 30%; } 50% { background-position: 100% 70%; } 100% { background-position: 0% 30%; } }
+.studio-drift { animation: studioDrift 28s ease-in-out infinite; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {

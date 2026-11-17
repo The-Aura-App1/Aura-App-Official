@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Crown, Sparkles, Gift, ShieldOff, Rocket, Smile, AtSign, Palette, Swords, BadgeCheck, Wallet, BarChart3, Share2, Check, Minus,
+  Crown, Sparkles, Gift, ShieldOff, Rocket, Smile, AtSign, Palette, Swords, BadgeCheck, Wallet, BarChart3, Share2, Check, Minus, Brush,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -26,6 +26,7 @@ const COMPARE = [
   ['Group boosts', '–', `${BOOSTS.perMonth} a month`],
   ['Group reaction pins on any post', '–', 'Yes'],
   ['Username changes', 'Once', 'Every 24 hours'],
+  ['Theme Studio (your own design)', 'Simple themes from Angel', 'Everything'],
 ];
 
 const PREMIUM_PERKS = [
@@ -36,6 +37,7 @@ const PREMIUM_PERKS = [
   { icon: Smile, title: 'Your groups\' pins, everywhere', text: 'Use the custom reaction pins from any group you\'re in on posts anywhere on Aura, not just in the group.' },
   { icon: AtSign, title: 'Change your username', text: 'Change it once every 24 hours. Without Premium you get one change.' },
   { icon: Palette, title: 'Post styling', text: STYLE_PREMIUM_ONLY ? 'About 120 fonts, text colors, backgrounds and frames for your posts.' : 'About 120 fonts, text colors, backgrounds and frames for your posts (free for everyone during launch, then part of Premium).' },
+  { icon: Brush, title: 'Theme Studio', text: 'Design your own Aura: every color, a backdrop of your own (a gradient, a scene, or your picture, GIF or video), text and heading fonts, text size, corner roundness and frosted-glass cards. Your design follows you to your other devices; pictures and videos stay on the device you add them on.' },
   { icon: Swords, title: 'Never pay-to-win', text: 'Premium gives more room and cosmetics, never stronger effects. Games stay pure skill.' },
 ];
 

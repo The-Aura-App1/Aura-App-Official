@@ -276,3 +276,13 @@ test('the first-suggestion bonus the app shows is what aura-aura pays', () => {
   const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'index.mjs'), 'utf8');
   expect(Number(constant(server, 'SUGGESTION_BONUS'))).toBe(SUGGESTION_BONUS);
 });
+
+test('Theme Studio designs are checked by the same code in the app and aura-users', () => {
+  const app = fs.readFileSync(path.join(__dirname, 'themes', 'themeDesign.js'), 'utf8').replace(/\r\n/g, '\n');
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-users', 'themeDesign.mjs'), 'utf8').replace(/\r\n/g, '\n');
+  expect(server).toBe(app);
+  const { DESIGN_SCENES } = require('./themes/themeDesign');
+  const { THEMES } = require('./themes');
+  // every scene a design can use is a built-in theme's scene
+  expect([...new Set(THEMES.map(t => t.scene).filter(Boolean))].sort()).toEqual([...DESIGN_SCENES].sort());
+});

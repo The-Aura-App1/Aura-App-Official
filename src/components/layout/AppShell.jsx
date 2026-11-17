@@ -4,6 +4,7 @@ import Sidebar   from './Sidebar';
 import MobileNav from './MobileNav';
 import Topbar    from './Topbar';
 import { SceneDecor } from '../auth/AuthBackdrop';
+import StudioBackdrop from '../theme/StudioBackdrop';
 import { useTheme } from '../../context/ThemeContext';
 import { FeedSkeleton as PageSkeleton } from '../motion/Skeleton';
 import { useAuth } from '../../context/AuthContext';
@@ -50,8 +51,14 @@ export default function AppShell() {
           <SceneDecor scene={themeInfo.scene} variant="app" />
         </div>
       )}
+      {/* A Theme Studio gradient, picture or video */}
+      {['gradient', 'image', 'video'].includes(themeInfo.backdrop?.kind) && (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden">
+          <StudioBackdrop backdrop={themeInfo.backdrop} still={!skyDetails} />
+        </div>
+      )}
       {/* Themes without scenery get a faint drifting glow instead */}
-      {skyDetails && !themeInfo.scene && (
+      {skyDetails && !themeInfo.scene && (!themeInfo.backdrop || themeInfo.backdrop.kind === 'glow') && (
         <div aria-hidden="true" className="aura-ambient pointer-events-none fixed inset-y-0 right-0 left-0 lg:left-64 overflow-hidden" />
       )}
 

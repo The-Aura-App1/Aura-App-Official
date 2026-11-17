@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Bell, KeyRound, Palette, LogOut, ShieldAlert, Brush, ChevronRight } from 'lucide-react';
 import { updatePassword } from 'aws-amplify/auth';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -283,6 +283,14 @@ export default function Settings() {
           <p className="text-xs text-[var(--text-muted)] mt-0.5 mb-3">Saved to your account, so it follows you to other devices.</p>
           <ThemeCards />
         </div>
+        <Link to="/studio" className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-3 py-3 hover:border-aura-500/40">
+          <Brush size={18} className="text-aura-400 flex-shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-[var(--text-primary)]">Theme Studio <span className="aura-badge !py-0 !px-2 ml-1">Premium</span></span>
+            <span className="block text-xs text-[var(--text-muted)]">Every color, your own backdrop (a gradient, a scene, or your picture, GIF or video), fonts and shapes.</span>
+          </span>
+          <ChevronRight size={16} className="text-[var(--text-muted)]" />
+        </Link>
         <SavedThemes />
         <Toggle
           label="Animated scenery"

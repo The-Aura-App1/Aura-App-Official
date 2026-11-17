@@ -67,7 +67,7 @@ export const KNOWLEDGE = [
   {
     id: 'themes', q: 'How do themes work?',
     keys: ['theme', 'themes', 'dark mode', 'light mode', 'scenery'],
-    a: 'Pick a theme in Settings > Appearance; each has its own colors and moving scenery, and you can turn the scenery off there. I can also make you a custom theme: tell me the colors, mood or font you want. You can save up to 20 custom themes with any names you like (say "save it as" and a name, or use Your themes in Settings > Appearance) and switch between them there.',
+    a: 'Pick a theme in Settings > Appearance; each has its own colors and moving scenery, and you can turn the scenery off there. I can also make you a custom theme: tell me the colors, mood or font you want. You can save up to 20 custom themes with any names you like (say "save it as" and a name, or use Your themes in Settings > Appearance) and switch between them there. With Premium, Theme Studio (in the More menu) lets you design every part: each color, a backdrop (a gradient, a scene, or your own picture, GIF or video), text and heading fonts, text size and weight, corner roundness, see-through and frosted cards, shadows and borders.',
   },
   {
     id: 'premium', q: 'What does Premium include?',

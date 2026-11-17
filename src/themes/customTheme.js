@@ -1,11 +1,13 @@
 import { FONT_BY_ID, fontFamily, loadPostFont } from '../utils/postStyle';
+import { cleanDesign } from './themeDesign';
 
 // A custom theme: a person's own colors and font, kept on this device
 // (localStorage). Their account only stores the id 'custom'; the palette
 // itself never leaves the device. Angel (src/angel) builds these from a
 // description; the theme builder will use the same shape.
 //
-//   { name, base: 'light' | 'dark', background: '#rrggbb', accent: '#rrggbb', font: postFont id | null }
+//   { name, base: 'light' | 'dark', background: '#rrggbb', accent: '#rrggbb', font: postFont id | null,
+//     design?: a Theme Studio design (Premium, see themeDesign.js) }
 //
 // Every color the app needs is worked out from those, with contrast checked
 // so text always reads on the backgrounds.
@@ -83,11 +85,80 @@ export function cleanCustom(raw) {
   const font = typeof raw.font === 'string' && Object.hasOwn(FONT_BY_ID, raw.font) && THEME_FONT_CATEGORIES.includes(FONT_BY_ID[raw.font].cat) ? raw.font : null;
   const name = cleanName(raw.name) || 'My theme';
   const savedId = typeof raw.savedId === 'string' ? raw.savedId : undefined;
-  return { name, base, background, accent, font, ...(savedId && { savedId }) };
+  const design = raw.design ? studioDesign(raw.design) : null;
+  return { name, base, background, accent, font, ...(savedId && { savedId }), ...(design && { design }) };
 }
 
-// Every CSS variable a theme defines (see index.css), from the custom spec
-export function customVars(spec) {
+// A design, with fonts limited to the ones the app's own text may use
+export const themeFont = id => (typeof id === 'string' && Object.hasOwn(FONT_BY_ID, id) && THEME_FONT_CATEGORIES.includes(FONT_BY_ID[id].cat) ? id : null);
+function studioDesign(raw) {
+  const d = cleanDesign(raw);
+  if (!d) return null;
+  return { ...d, fonts: { ...d.fonts, heading: themeFont(d.fonts.heading) } };
+}
+
+// Studio designs show only for Premium accounts. ThemeSync sets this from the
+// account; it's remembered on the device so the design is there at once on
+// the next visit. Without it, a design is kept but the basics are used.
+const STUDIO_KEY = 'aura-studio-ok';
+export function studioAllowed() {
+  try { return localStorage.getItem(STUDIO_KEY) === '1'; } catch { return false; }
+}
+export function setStudioAllowed(on) {
+  try { if (on) localStorage.setItem(STUDIO_KEY, '1'); else localStorage.removeItem(STUDIO_KEY); } catch { /* private mode */ }
+}
+
+// Studio settings that aren't colors, as CSS variables (always present, so
+// switching away from a custom theme clears them)
+const SHAPE_DEFAULTS = { '--radius-scale': '1', '--card-blur': '0px', '--shadow-scale': '1', '--border-width': '1px', '--font-scale': '1', '--font-weight': '400' };
+const rgba = (hex, a) => `rgba(${hexToRgb(hex).join(', ')}, ${a})`;
+
+// Every CSS variable a theme defines (see index.css), from the custom spec.
+// A Studio design's own colors replace the worked-out ones; text colors are
+// still nudged until they read on the cards (`readableKeys` says which were).
+export function customVars(spec, { studio = studioAllowed() } = {}) {
+  const base = basicVars(spec);
+  const d = studio ? cleanCustom(spec).design : null;
+  if (!d) return { ...base, ...SHAPE_DEFAULTS };
+  const c = d.colors;
+  const v = { ...base };
+  if (c.background) v['--bg-primary'] = c.background;
+  if (c.surface) { v['--bg-card'] = c.surface; v['--bg-secondary'] = c.surface; }
+  if (c.elevated) v['--bg-elevated'] = c.elevated;
+  if (c.border) v['--border'] = c.border;
+  const card = v['--bg-card'];
+  if (c.text) v['--text-primary'] = readable(c.text, card, 7);
+  else v['--text-primary'] = readable(v['--text-primary'], card, 7);
+  v['--wordmark-ink'] = v['--text-primary'];
+  v['--text-secondary'] = readable(c.textSecondary ?? v['--text-secondary'], card, 4.5);
+  v['--text-muted'] = readable(c.muted ?? v['--text-muted'], card, 4.5);
+  v['--accent'] = readable(v['--accent'], card, 3.2);
+  ['brand1', 'brand2', 'brand3'].forEach((k, i) => {
+    if (c[k]) { v[`--brand-${i + 1}`] = c[k]; v[`--brand-ink-${i + 1}`] = readable(c[k], card, 4.5); }
+  });
+  if (d.shape.cardOpacity < 1) v['--bg-card'] = rgba(card, d.shape.cardOpacity);
+  return {
+    ...v,
+    '--radius-scale': String(d.shape.radius),
+    '--card-blur': `${d.shape.cardBlur}px`,
+    '--shadow-scale': String(d.shape.shadow),
+    '--border-width': `${d.shape.border}px`,
+    '--font-scale': String(d.fonts.scale),
+    '--font-weight': String(d.fonts.weight),
+  };
+}
+
+// Which text colors a design asked for but got changed so they stay readable
+export function readableKeys(spec) {
+  const t = cleanCustom(spec);
+  if (!t.design) return [];
+  const v = customVars(t, { studio: true });
+  const c = t.design.colors;
+  return [['text', '--text-primary'], ['textSecondary', '--text-secondary'], ['muted', '--text-muted']]
+    .filter(([k, varName]) => c[k] && c[k] !== v[varName]).map(([k]) => k);
+}
+
+function basicVars(spec) {
   const t = cleanCustom(spec);
   const dark = t.base === 'dark';
   const [bh, bs] = rgbToHsl(hexToRgb(t.background));
@@ -191,8 +262,16 @@ export function loadCustom() {
 }
 export function saveCustom(spec) {
   const clean = cleanCustom(spec);
-  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(clean)); } catch { /* private mode */ }
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(clean));
+    // When this device last changed it, so an older copy from the account doesn't win
+    localStorage.setItem(CUSTOM_UPDATED_KEY, new Date().toISOString());
+  } catch { /* private mode */ }
   return clean;
+}
+export const CUSTOM_UPDATED_KEY = 'aura-custom-theme-updated';
+export function customUpdatedAt() {
+  try { return localStorage.getItem(CUSTOM_UPDATED_KEY) ?? ''; } catch { return ''; }
 }
 
 // The picker entry for the custom theme, when one exists
@@ -200,9 +279,12 @@ export function customThemeInfo() {
   const t = loadCustom();
   if (!t) return null;
   const vars = customVars(t);
+  const backdrop = (studioAllowed() && t.design?.backdrop) || null;
   return {
-    id: 'custom', name: t.name || 'My theme', base: t.base, scene: null, bar: vars['--bg-primary'], custom: true,
-    description: 'Your own colors and font, on this device.',
+    id: 'custom', name: t.name || 'My theme', base: t.base, bar: vars['--bg-primary'], custom: true,
+    scene: backdrop?.kind === 'scene' ? backdrop.scene : null,
+    backdrop,
+    description: backdrop ? 'Your own design from Theme Studio.' : 'Your own colors and font, on this device.',
     preview: { background: vars['--bg-primary'], card: vars['--bg-card'], text: vars['--text-primary'], muted: vars['--border'], accent: vars['--accent'] },
   };
 }
@@ -222,5 +304,12 @@ export function applyCustomVars(on) {
     root.style.setProperty('--custom-font', `${fontFamily(t.font)}, 'Plus Jakarta Sans Variable', system-ui, sans-serif`);
   } else {
     root.style.removeProperty('--custom-font');
+  }
+  const heading = studioAllowed() ? t?.design?.fonts.heading : null;
+  if (heading) {
+    loadPostFont(heading);
+    root.style.setProperty('--custom-heading-font', `${fontFamily(heading)}, 'Sora Variable', system-ui, sans-serif`);
+  } else {
+    root.style.removeProperty('--custom-heading-font');
   }
 }

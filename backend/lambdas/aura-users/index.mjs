@@ -8,6 +8,7 @@ import { searchPeople } from './people.mjs';
 import { claimLaunchPremium, ensureHouseAccount, launchSpotsLeft } from './premium.mjs';
 import { listReports, reviewReport } from './moderation.mjs';
 import { cleanLine, cleanText, hasVisibleText, impersonatesStaff } from './text.mjs';
+import { cleanAccountTheme } from './themeDesign.mjs';
 
 const client = new DynamoDBClient({ region: 'us-east-1' });
 const db     = DynamoDBDocumentClient.from(client);
@@ -609,12 +610,22 @@ async function updateProfile(userId, body) {
     return response(400, { error: `theme must be one of: ${THEME_IDS.join(', ')}.` });
   }
 
+  // A Theme Studio design (Premium only), kept on the account so it follows
+  // the person to other devices. null removes it. Only its owner ever gets it
+  // back (it isn't in PUBLIC_FIELDS).
+  let themeDesign;
+  if (body.themeDesign !== undefined && body.themeDesign !== null) {
+    themeDesign = cleanAccountTheme(body.themeDesign);
+    if (!themeDesign) return response(400, { error: "That theme design isn't valid, or it's too big." });
+  }
+
   if (notificationPrefs !== undefined && (typeof notificationPrefs !== 'object' || notificationPrefs === null)) {
     return response(400, { error: 'notificationPrefs must be an object.' });
   }
 
   const current = await getUser(userId);
   if (!current) return response(404, { error: 'User not found.' });
+  if (themeDesign && !current.isPremium) return response(403, { error: 'Theme Studio designs are a Premium feature.' });
 
   // New pictures must be ones this user uploaded through /users/me/upload-urls.
   // Keeping the current picture is always allowed.
@@ -641,6 +652,8 @@ async function updateProfile(userId, body) {
   if (hideFromSearch !== undefined) updates.hideFromSearch = hideFromSearch;
   if (commentVisibilityDefault !== undefined) updates.commentVisibilityDefault = commentVisibilityDefault;
   if (theme          !== undefined) updates.theme          = theme;
+  if (themeDesign) updates.themeDesign = { ...themeDesign, updatedAt: new Date().toISOString() };
+  if (body.themeDesign === null) updates.themeDesign = null;
   // Unknown keys are dropped; every known type defaults to on
   if (notificationPrefs !== undefined) {
     updates.notificationPrefs = Object.fromEntries(

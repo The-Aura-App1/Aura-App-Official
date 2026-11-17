@@ -187,6 +187,14 @@
 
 - Each notification can be marked read or unread on its own (`PUT /notifications/{id}/read { read }`, no body means read) and starred to keep (`PUT /notifications/{id}/star { starred }`). `GET /notifications` returns the newest `limit` plus every starred one, however old. The page has All / Unread / Starred filters and always-visible star, read and delete buttons (deleting a starred one asks first). Opening one still marks it read.
 
+## Theme Studio (Premium, 2026-11-16)
+
+- **Page:** `/studio` (`src/pages/ThemeStudio.jsx`, in moreItems; linked from Settings > Appearance and the Premium page). Tabs: Basics (name, light/dark, background, accent, start from a built-in theme), Colors (10 overridable colors, each "Auto" or the person's own), Backdrop (soft glow, plain, gradient builder with straight/round/swirl and 2-4 colors, any built-in scene, or their own picture/GIF/video with darken and blur), Fonts (text and heading font, size 85-120%, weight), Shape (corner roundness, card see-through, frosted glass, shadow, border). Live preview, Use this theme (with Undo), Save a copy (Your themes).
+- **Shape of a design:** `design` on the custom theme (`src/themes/themeDesign.js`, byte-identical to aura-users `themeDesign.mjs`; a test compares them). `customVars` applies it: own colors replace the worked-out ones, and the three text colors are still nudged until they read on the cards (`readableKeys` reports which). Extra variables `--radius-scale`, `--card-blur`, `--shadow-scale`, `--border-width`, `--font-scale`, `--font-weight`, `--custom-heading-font` drive the `[data-theme="custom"]` rules in index.css. Script and handwriting fonts stay out (the app's own look never uses them).
+- **Premium:** aura-users accepts `PUT /users/me { themeDesign }` only from Premium accounts (403 otherwise; `null` clears it), cleans it and stamps `updatedAt`; it is owner-only (not in PUBLIC_FIELDS). ThemeSync applies the account's design when it's newer than this device's (`aura-custom-theme-updated`) and sets `studioAllowed` from `isPremium` (remembered in `aura-studio-ok`); without Premium a design is kept but only its basics show. Anyone can try the Studio's preview. Angel's simple custom themes stay free.
+- **Pictures and videos:** kept on the device only, in IndexedDB (`src/themes/studioMedia.js`, images up to 15 MB, videos up to 60 MB, the newest 12 kept); the account copy keeps only `mediaId`, so another device shows the glow. Syncing them would need an S3 prefix and an IAM change (ask Corey).
+- Tests: `src/themes/themeStudio.test.js`, `src/pages/ThemeStudio.test.jsx`, `backend/tests/themeDesign.test.mjs`.
+
 ## Saved themes and the Premium page (2026-11-16)
 
 - **Saved custom themes:** up to 20 per device, in localStorage `aura-custom-themes` (`saveTheme`, `renameSavedTheme`, `deleteSavedTheme`, `applySavedTheme` in `src/themes/customTheme.js`).
