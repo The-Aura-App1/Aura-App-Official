@@ -132,7 +132,9 @@ assert.equal(stats.boostMultiplier(getItem('aura-group-stats', { groupId: 'g2', 
 // Reactions: only the fixed emoji list and well-formed group pins
 assert.deepEqual(reactions.parseReaction('🔥'), { kind: 'emoji' });
 assert.deepEqual(reactions.parseReaction('pin:1731-abc:a1b2c3d4e5f60718'), { kind: 'pin', groupId: '1731-abc', pinId: 'a1b2c3d4e5f60718' });
-for (const bad of ['A', '🅰️', '🇺🇸', '1️⃣', 'pin:g1:x', 'pin::abcdef', '', null, '🔥🔥']) assert.equal(reactions.parseReaction(bad), null, String(bad));
+for (const bad of ['A', '🅰️', '1️⃣', 'pin:g1:x', 'pin::abcdef', '', null, '🔥🔥']) assert.equal(reactions.parseReaction(bad), null, String(bad));
+assert.deepEqual(reactions.parseReaction('🇺🇸'), { kind: 'emoji' }, 'flags are fine (2026-11-16)');
+assert.equal(reactions.parseReaction('🇦🇦'), null, 'letter tiles that are no flag');
 assert.deepEqual(reactions.visibleCounts({ '🔥': 2, '😂': 0, '👍': -1 }), { '🔥': 2 });
 
 console.log('group checks passed');

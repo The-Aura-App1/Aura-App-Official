@@ -118,8 +118,8 @@ await react('alice', 'c1', '👀');
 r = await react('alice', 'c1', '🎉');
 assert.equal(r.status, 409);
 assert.match(r.body.error, /up to 3 reactions to a comment/);
-// Letters, flags, the deny list and group pins don't work on comments
-for (const bad of ['A', '🇺🇸', '🖕', '🖕🏽', 'pin:g1:abcdef12', '🔥🔥']) assert.equal((await react('bob', 'c1', bad)).status, 400, bad);
+// Letters, fake flags, the deny list and group pins don't work on comments
+for (const bad of ['A', '🇦🇦', '🇦', '🖕', '🖕🏽', '🍆', '🔫', 'pin:g1:abcdef12', '🔥🔥']) assert.equal((await react('bob', 'c1', bad)).status, 400, bad);
 
 // Who can't react
 assert.equal((await react(null, 'c1', '🔥')).status, 401, 'signed out');

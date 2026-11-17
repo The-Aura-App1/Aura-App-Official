@@ -575,6 +575,39 @@ async function claimDailyBonus(user) {
   return response(200, { message: `Claimed ${loginBonus} aura.`, amount: loginBonus });
 }
 
+// ─── First suggestion bonus ───────────────────────────────────
+// SUGGESTION_BONUS spendable aura (never earned, so never cashable), once per
+// account, ever. aura-users marks the account with `firstSuggestionAt` in the
+// same write that saves its first suggestion; this pays it and sets
+// `suggestionBonusAt` in one transaction with the balance and the
+// aura-transactions entry, on the condition that it isn't set yet. So a
+// double tap, a retry or two at once pay once, and if paying fails the
+// suggestion is already saved and the app simply asks again later.
+// Asked for through POST /aura/daily-bonus { kind: 'suggestion' }, so no new
+// route is needed.
+export const SUGGESTION_BONUS = 500;
+const ALREADY_PAID = 'You already got your 500 aura for suggesting.';
+
+async function claimSuggestionBonus(user) {
+  if (user.suggestionBonusAt) return response(409, { error: ALREADY_PAID, claimed: true });
+  if (!user.firstSuggestionAt) return response(409, { error: 'Post a suggestion first, then the 500 aura is yours.' });
+  const error = await commit([
+    {
+      Update: {
+        TableName:                 USERS_TABLE,
+        Key:                       { userId: user.userId },
+        // :auraBalance so the balance history picks this change up
+        UpdateExpression:          'SET suggestionBonusAt = :now ADD auraSpendable :bonus, auraBalance :auraBalance',
+        ConditionExpression:       'auraVersion = :v AND attribute_exists(firstSuggestionAt) AND attribute_not_exists(suggestionBonusAt)',
+        ExpressionAttributeValues: { ':now': new Date().toISOString(), ':bonus': SUGGESTION_BONUS, ':auraBalance': SUGGESTION_BONUS, ':v': AURA_VERSION },
+      },
+    },
+    transactionRecord({ type: 'suggestion_bonus', toUserId: user.userId, amount: SUGGESTION_BONUS }),
+  ], [ALREADY_PAID]);
+  if (error) return response(409, { error: ALREADY_PAID, claimed: true });
+  return response(200, { message: `Thanks! ${SUGGESTION_BONUS} aura added to your wallet.`, amount: SUGGESTION_BONUS });
+}
+
 // ─── Watch ad for aura ────────────────────────────────────────
 // Two steps on POST /ads/watch, so no new API route is needed:
 //   { start: true }     opens a one-time ad session (before the ad shows)
@@ -711,8 +744,9 @@ export const handler = async (event) => {
       return given;
     }
 
-    // POST /aura/daily-bonus
+    // POST /aura/daily-bonus, or { kind: 'suggestion' } for the one-time suggestion bonus
     if (method === 'POST' && path === '/aura/daily-bonus') {
+      if (body.kind === 'suggestion') return await claimSuggestionBonus(user);
       return await claimDailyBonus(user);
     }
 

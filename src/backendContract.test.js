@@ -157,10 +157,17 @@ test('the app offers exactly the reactions aura-posts accepts', () => {
     return src.slice(from, src.indexOf('\n}\n', src.indexOf('export function isReactionEmoji')) + 2).replace(/\r\n/g, '\n');
   };
   expect(check(server.replace(/\r\n/g, '\n'))).toBe(check(appSource.replace(/\r\n/g, '\n')));
-  for (const ok of ['🔥', '👍🏽', '👨‍👩‍👧', '❤️‍🔥', '🫠', '🏳️‍🌈']) expect(app.isReactionEmoji(ok)).toBe(true);
-  for (const bad of ['A', '🅰️', 'Ⓜ️', '🇺🇸', '1️⃣', '#️⃣', '™️', '🆗', '🔥🔥', 'a🔥', '', '㊗️']) expect(app.isReactionEmoji(bad)).toBe(false);
-  // the deny list, skin tones included
-  for (const bad of ['🖕', '🖕🏽', '🖕🏿']) expect(app.isReactionEmoji(bad)).toBe(false);
+  for (const ok of ['🔥', '👍🏽', '👨‍👩‍👧', '❤️‍🔥', '🫠', '🏳️‍🌈', '💯', '🙈']) expect(app.isReactionEmoji(ok)).toBe(true);
+  for (const bad of ['A', '🅰️', 'Ⓜ️', '1️⃣', '#️⃣', '🔟', '™️', '🆗', '🈁', '🔙', '🔠', '🏧', '🔥🔥', 'a🔥', '', '㊗️']) expect(app.isReactionEmoji(bad)).toBe(false);
+  // real flags work (258 countries and regions, plus England, Scotland, Wales); letter tiles that aren't a flag don't
+  expect(app.FLAG_EMOJIS).toHaveLength(261);
+  for (const f of app.FLAG_EMOJIS) expect(app.isReactionEmoji(f)).toBe(true);
+  for (const bad of ['🇦', '🇦🇦', '🇺🇸🇺🇸', '🏴\u{E0061}\u{E0062}\u{E007F}']) expect(app.isReactionEmoji(bad)).toBe(false);
+  expect(app.EMOJI_GROUPS.find(([name]) => name === 'Flags')[1]).toEqual(expect.arrayContaining(['🇺🇸', '🏳️‍🌈']));
+  // the deny list, skin tones included, and it's gone from the picker too
+  expect(app.REACTION_DENY).toEqual(expect.arrayContaining(['🖕', '🍆', '🔫']));
+  for (const bad of [...app.REACTION_DENY, '🖕🏽', '🖕🏿', '🗡', '🔫️']) expect(app.isReactionEmoji(bad)).toBe(false);
+  for (const [, list] of app.EMOJI_GROUPS) for (const d of app.REACTION_DENY) expect(list).not.toContain(d);
   expect(app.isReactionEmoji('pin:abc:def123')).toBe(false);
   // ❤ and ❤️ are one reaction; the original quick picks are already in stored form
   expect(app.normalizeReaction('❤')).toBe('❤️');
@@ -262,4 +269,10 @@ test('post overlay limits match aura-posts', () => {
   for (const name of ['MAX_OVERLAYS', 'OVERLAY_TEXT_MAX', 'OVERLAY_LABEL_MAX', 'OVERLAY_URL_MAX']) {
     expect(Number(constant(server, name))).toBe(app[name]);
   }
+});
+
+test('the first-suggestion bonus the app shows is what aura-aura pays', () => {
+  const { SUGGESTION_BONUS } = require('./pages/Feedback');
+  const server = fs.readFileSync(path.join(LAMBDAS, 'aura-aura', 'index.mjs'), 'utf8');
+  expect(Number(constant(server, 'SUGGESTION_BONUS'))).toBe(SUGGESTION_BONUS);
 });

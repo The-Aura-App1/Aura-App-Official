@@ -7,6 +7,9 @@
 //   SUGGESTION#<id>          { kind: 'suggestion', authorId, text, votes, status, createdAt }
 //                              status: open | planned | done | removed
 //   VOTE#<suggestionId>#<userId>  one per person per suggestion
+//   The first suggestion also sets `firstSuggestionAt` on the author's aura-users
+//   record, in the same transaction; aura-aura pays the one-time 500 aura
+//   bonus from that (POST /aura/daily-bonus { kind: 'suggestion' }).
 //   REVIEW#<userId>          { kind: 'review', authorId, rating, text, status, createdAt, updatedAt }
 //                              status: pending | approved | rejected. Only approved reviews are
 //                              public, and editing a review sends it back to pending.
@@ -45,6 +48,24 @@ const PUBLIC_CACHE_MS = 60_000;
 // of blank lines.
 function cleanText(raw) {
   return sharedCleanText(raw ?? '');
+}
+
+// A suggestion has to say something: enough letters, not one letter over
+// and over, not a keyboard mash of two or three keys.
+export function junkReason(text) {
+  const letters = (text.match(/\p{L}/gu) ?? []).map(c => c.toLowerCase());
+  if (letters.length < 6) return 'Use some words to say what you\'d like.';
+  if (new Set(letters).size < 4 || /(\p{L})\1{6,}/iu.test(text)) return 'That doesn\'t look like a suggestion yet. Say what you\'d like changed or added.';
+  return null;
+}
+
+// Where someone stands with the one-time suggestion bonus:
+// 'offer' (not suggested yet), 'due' (suggested, not paid yet), 'claimed', or
+// null for accounts that can't get it
+function bonusState(user) {
+  if (!user || user.isBanned) return null;
+  if (user.suggestionBonusAt) return 'claimed';
+  return user.firstSuggestionAt ? 'due' : 'offer';
 }
 
 function newId() {
@@ -138,7 +159,10 @@ async function listSuggestions(viewerId, query) {
   const sort   = SUGGESTION_SORTS[query.sort] ? query.sort : 'top';
   const status = SUGGESTION_STATUSES.includes(query.status) ? query.status : 'all';
 
-  const all = await scanKind('suggestion', '#status <> :removed', { ':removed': 'removed' }, { '#status': 'status' });
+  const [all, viewer] = await Promise.all([
+    scanKind('suggestion', '#status <> :removed', { ':removed': 'removed' }, { '#status': 'status' }),
+    db.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId: viewerId }, ProjectionExpression: 'isBanned, firstSuggestionAt, suggestionBonusAt' })),
+  ]);
   const authors = await authorsOf(all);
   const visible = all.filter(i => !authors.get(i.authorId)?.isBanned);
 
@@ -161,6 +185,7 @@ async function listSuggestions(viewerId, query) {
   const voted = new Set(votes.map(v => v.feedbackID));
   return {
     sort, status, counts,
+    suggestionBonus: bonusState(viewer.Item),
     suggestions: items.map(i => publicSuggestion(i, authors.get(i.authorId), viewerId, voted.has(`VOTE#${i.feedbackID}#${viewerId}`))),
   };
 }
@@ -169,6 +194,8 @@ async function createSuggestion(userId, body, { rateLimited, response }) {
   const text = cleanText(body.text);
   if (text.length < SUGGESTION_MIN) return response(400, { error: `Say a little more (at least ${SUGGESTION_MIN} characters).` });
   if (text.length > SUGGESTION_MAX) return response(400, { error: `Keep it under ${SUGGESTION_MAX} characters.` });
+  const junk = junkReason(text);
+  if (junk) return response(400, { error: junk });
   const user = await activeUser(userId);
   if (!user) return response(403, { error: 'Your account cannot send suggestions.' });
   const limited = await rateLimited(userId, 'suggest', 3, 86400);
@@ -182,8 +209,16 @@ async function createSuggestion(userId, body, { rateLimited, response }) {
   await db.send(new TransactWriteCommand({ TransactItems: [
     { Put: { TableName: FEEDBACK_TABLE, Item: item, ConditionExpression: 'attribute_not_exists(feedbackID)' } },
     { Put: { TableName: FEEDBACK_TABLE, Item: { feedbackID: `VOTE#${item.feedbackID}#${userId}`, kind: 'vote', createdAt: item.createdAt } } },
+    // Marks the account for the one-time bonus (kept if it's already there)
+    { Update: {
+      TableName: USERS_TABLE, Key: { userId },
+      UpdateExpression: 'SET firstSuggestionAt = if_not_exists(firstSuggestionAt, :now)',
+      ConditionExpression: 'attribute_exists(userId)',
+      ExpressionAttributeValues: { ':now': item.createdAt },
+    } },
   ] }));
-  return response(201, publicSuggestion(item, user, userId, true));
+  const suggestionBonus = bonusState({ ...user, firstSuggestionAt: user.firstSuggestionAt ?? item.createdAt });
+  return response(201, { ...publicSuggestion(item, user, userId, true), suggestionBonus });
 }
 
 async function vote(userId, suggestionId, on, { rateLimited, response }) {
@@ -386,4 +421,4 @@ export async function handleFeedback({ method, segments, query = {}, userId, isA
   return response(404, { error: 'Route not found.' });
 }
 
-export const _test = { cleanText, publicSuggestion, publicReview, SUGGESTION_STATUSES, SUGGESTION_SORTS, REVIEW_SORTS };
+export const _test = { cleanText, junkReason, bonusState, publicSuggestion, publicReview, SUGGESTION_STATUSES, SUGGESTION_SORTS, REVIEW_SORTS };

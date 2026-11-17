@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lightbulb, Star, ChevronUp, MessageSquareHeart, X } from 'lucide-react';
+import { Lightbulb, Star, ChevronUp, MessageSquareHeart, X, Gift } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/common/Avatar';
@@ -12,6 +12,8 @@ import { timeAgo } from '../utils/format';
 const SUGGESTION_MIN = 10;
 const SUGGESTION_MAX = 500;
 const REVIEW_MAX     = 600;
+// The one-time aura for a first suggestion (aura-aura's SUGGESTION_BONUS; a test keeps them equal)
+export const SUGGESTION_BONUS = 500;
 
 const STATUS_LABEL = { planned: 'Planned', done: 'Shipped' };
 const REVIEW_STATUS = {
@@ -135,6 +137,36 @@ function Suggestions() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice]   = useState(null);
   const items = data?.suggestions;
+  const { refreshUser } = useAuth();
+
+  // The first-suggestion bonus: 'offer' | 'due' | 'claimed' | null (from the
+  // server). A suggestion that saved but whose aura didn't come through is
+  // 'due', and gets asked for again here; aura-aura pays it only once.
+  const [bonus, setBonus] = useState(undefined);
+  const shownBonus = bonus === undefined ? data?.suggestionBonus : bonus;
+  const claiming = useRef(false);
+  const claimBonus = useCallback(async () => {
+    if (claiming.current) return;
+    claiming.current = true;
+    try {
+      const result = await api.claimSuggestionBonus();
+      setBonus('claimed');
+      setNotice({ message: result.message });
+      refreshUser?.();
+    } catch (err) {
+      if (err.status === 409 && /already/i.test(err.message ?? '')) setBonus('claimed');
+      else setNotice({ error: true, message: `Your suggestion is saved, but the ${SUGGESTION_BONUS} aura didn't come through yet. It'll try again next time you open this page.` });
+    } finally {
+      claiming.current = false;
+    }
+  }, [refreshUser]);
+  // Once per visit, so a failing claim can't keep retrying
+  const retried = useRef(false);
+  useEffect(() => {
+    if (data?.suggestionBonus !== 'due' || bonus !== undefined || retried.current) return;
+    retried.current = true;
+    claimBonus();
+  }, [data?.suggestionBonus, bonus, claimBonus]);
 
   async function send(e) {
     e.preventDefault();
@@ -152,6 +184,7 @@ function Suggestions() {
       });
       setText('');
       setNotice({ message: 'Thanks! Others can vote on it now.' });
+      if (created.suggestionBonus === 'due') { setBonus('due'); claimBonus(); }
     } catch (err) {
       setNotice({ error: true, message: err.message });
     } finally {
@@ -179,6 +212,12 @@ function Suggestions() {
         <label htmlFor="suggestion" className="text-sm font-semibold text-[var(--text-primary)]">
           What would make Aura better?
         </label>
+        {shownBonus === 'offer' && (
+          <p className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <Gift size={14} className="text-aura-400 flex-shrink-0" />
+            Post your first suggestion and get {SUGGESTION_BONUS} free aura.
+          </p>
+        )}
         <textarea id="suggestion" value={text} onChange={e => setText(e.target.value.slice(0, SUGGESTION_MAX))}
           rows={3} placeholder="A feature, a fix, a new theme idea..." className="input resize-none" />
         <div className="flex items-center justify-between gap-3">

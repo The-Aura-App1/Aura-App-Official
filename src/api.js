@@ -92,6 +92,8 @@ export const api = {
   takeCommentAura:(commentId, amount)    => request('POST', `/comments/${id(commentId)}/aura/take`, { amount }),
   watchAd:        (body = {})            => request('POST', '/ads/watch', body),
   claimDailyBonus:()                     => request('POST', '/aura/daily-bonus'),
+  // The one-time 500 aura for a first suggestion (paid by aura-aura)
+  claimSuggestionBonus: ()               => request('POST', '/aura/daily-bonus', { kind: 'suggestion' }),
 
   // ─── Comments ─────────────────────────────────────────────
   getComments:    (postId, limit = 50)   => request('GET',  `/posts/${id(postId)}/comments?limit=${id(limit)}`),

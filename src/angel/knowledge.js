@@ -12,7 +12,7 @@ export const KNOWLEDGE = [
   {
     id: 'earned-spendable', q: 'What is the difference between earned and spendable aura?',
     keys: ['earned', 'spendable', 'cashable', 'two kinds', 'balance split'],
-    a: 'Earned aura comes only from other people giving to your posts or Moments. Spendable aura comes from your daily bonus, game winnings, Aura Rain and similar. Your balance is the two together. When you give, your free daily quota goes first, then spendable, then earned.',
+    a: 'Earned aura comes only from other people giving to your posts or Moments. Spendable aura comes from your daily bonus, game winnings, Aura Rain, the one-time 500 for your first suggestion and similar. Your balance is the two together. When you give, your free daily quota goes first, then spendable, then earned.',
   },
   {
     id: 'give-take', q: 'How does giving and taking aura work?',
@@ -112,7 +112,7 @@ export const KNOWLEDGE = [
   {
     id: 'earn', q: 'How do I earn aura?',
     keys: ['earn aura', 'give me aura', 'get more aura', 'earn the points', 'earn points', 'get aura', 'more aura', 'earn more', 'free aura', 'daily bonus'],
-    a: 'You earn aura when people give it to your posts, comments and Moments; that\'s the only way to get earned aura. You also get spendable aura from the daily login bonus, winning group games, catching Aura Rain and watching an ad in your wallet.',
+    a: 'You earn aura when people give it to your posts, comments and Moments; that\'s the only way to get earned aura. You also get spendable aura from the daily login bonus, winning group games, catching Aura Rain, watching an ad in your wallet, and once, 500 for posting your first suggestion.',
   },
   {
     id: 'moderation', q: 'How does moderation work?',
@@ -192,7 +192,7 @@ export const KNOWLEDGE = [
   {
     id: 'feedback-page', q: 'How do I send feedback about the app?',
     keys: ['feedback about the app', 'suggestion', 'suggestions', 'review the app', 'leave a review', 'feature request', 'report a bug', 'bug', 'glitch', 'glitched', 'broken', 'not working', 'crashed', 'crashing'],
-    a: 'Open Suggestions & Reviews in the More menu. You can post up to 3 suggestions a day and vote on others, or leave one review with 1 to 5 stars.',
+    a: 'Open Suggestions & Reviews in the More menu. You can post up to 3 suggestions a day and vote on others, or leave one review with 1 to 5 stars. Your first suggestion gets you 500 spendable aura, once.',
   },
   {
     id: 'caption-view', q: 'What is the caption view?',

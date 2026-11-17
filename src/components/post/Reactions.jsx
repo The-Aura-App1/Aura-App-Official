@@ -121,7 +121,7 @@ export default function Reactions({ post, comment = null }) {
           <form className="flex gap-1.5 mb-2" onSubmit={e => {
             e.preventDefault();
             const pick = typed.trim();
-            if (!isReactionEmoji(pick)) { setError('Pick one emoji (letters, numbers and flags can\'t be used).'); return; }
+            if (!isReactionEmoji(pick)) { setError('Pick one emoji (letters, numbers and a few others can\'t be used).'); return; }
             setTyped('');
             toggle(pick);
           }}>
